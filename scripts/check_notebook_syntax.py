@@ -18,6 +18,7 @@ are Jupyter-only magics/shell escapes (starting with %, %%, or !) are stripped b
 since they are valid in a live kernel but not valid standalone Python syntax -- the same
 translation `nbconvert --to script` performs internally.
 """
+
 from __future__ import annotations
 
 import ast

@@ -28,6 +28,11 @@ skip_glob = ["notebooks/*"]
 python_version = "3.10"
 ignore_missing_imports = true
 exclude = ["notebooks/"]
+# pydantic.mypy: without this plugin, mypy cannot statically type classes built at
+# runtime via pydantic.create_model() (used by the BP1/BP2/BP4/BP5 scoring services
+# for their request/response schemas) -- it sees them as plain `type[Any]` and raises
+# false-positive attribute/assignment errors on every field access.
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

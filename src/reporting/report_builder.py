@@ -4745,7 +4745,7 @@ def generate_platform_smart_recommendations(platform_source_data: dict) -> list:
     recurring_champion = max(champion_counts.items(), key=lambda kv: len(kv[1])) if champion_counts else None
 
     cat2_contributors = {"BP1": cat2["bp1"], "BP4": cat2["bp4"], "BP5": cat2["bp5"]}
-    top_cat2_bp = max(cat2_contributors, key=cat2_contributors.get)
+    top_cat2_bp = max(cat2_contributors, key=lambda k: cat2_contributors[k])
 
     recs = [
         {
