@@ -24,6 +24,7 @@ the same phase and BP3/BP4 the same phase (mirroring the real platform's actual
 phase grouping), so a future change that reintroduces the repeated-label bug
 would fail test_dashboard_dedup_code_present_and_fixture_has_real_duplicates.
 """
+
 from __future__ import annotations
 
 import re
@@ -84,14 +85,21 @@ def synthetic_platform_source_data():
                 "regulatory_mapping": reg_map,
                 "top_shap_features": shap,
                 "financial": _bp_financial(
-                    fewer_fp_alerts=1000, investigator_hours_saved=250,
-                    fp_dollar_savings=100_000, additional_real_cases_caught=10,
+                    fewer_fp_alerts=1000,
+                    investigator_hours_saved=250,
+                    fp_dollar_savings=100_000,
+                    additional_real_cases_caught=10,
                     tp_dollar_illustrative=200_000,
                 ),
-                "variants": {"LI-Medium": _variant(
-                    champion="XGBoost", verdict="PASS", n_features=19, threshold=0.5,
-                    test_metrics={"precision": 0.30, "recall": 0.40, "pr_auc": 0.12},
-                )},
+                "variants": {
+                    "LI-Medium": _variant(
+                        champion="XGBoost",
+                        verdict="PASS",
+                        n_features=19,
+                        threshold=0.5,
+                        test_metrics={"precision": 0.30, "recall": 0.40, "pr_auc": 0.12},
+                    )
+                },
             },
             "BP2": {
                 "name": "Typology & Red-Flag Pattern Detection",
@@ -100,15 +108,21 @@ def synthetic_platform_source_data():
                 "regulatory_mapping": reg_map,
                 "top_shap_features": shap,
                 "financial": _bp_financial(
-                    more_cases_auto_typed=50, auto_typing_hours_saved=12.5,
-                    auto_typing_efficiency_savings=5_000, cases_old_rule_missed=7,
+                    more_cases_auto_typed=50,
+                    auto_typing_hours_saved=12.5,
+                    auto_typing_efficiency_savings=5_000,
+                    cases_old_rule_missed=7,
                     typology_confirmation_value=15_000,
                 ),
-                "variants": {"LI-Medium": _variant(
-                    champion="RandomForest", verdict="PASS", n_features=24,
-                    test_metrics={"macro_f1": 0.55},
-                    class_counts={"fan_out": 500, "cycle": 40},
-                )},
+                "variants": {
+                    "LI-Medium": _variant(
+                        champion="RandomForest",
+                        verdict="PASS",
+                        n_features=24,
+                        test_metrics={"macro_f1": 0.55},
+                        class_counts={"fan_out": 500, "cycle": 40},
+                    )
+                },
             },
             "BP3": {
                 "name": "Transaction Network & Graph Intelligence",
@@ -117,14 +131,21 @@ def synthetic_platform_source_data():
                 "regulatory_mapping": reg_map,
                 "top_shap_features": [],
                 "financial": _bp_financial(
-                    n_nodes=20_000, n_edges=40_000, base_rate_pct=0.05,
-                    ci95_low=1.5, ci95_high=2.5, ego_network_sizes=[120, 340],
+                    n_nodes=20_000,
+                    n_edges=40_000,
+                    base_rate_pct=0.05,
+                    ci95_low=1.5,
+                    ci95_high=2.5,
+                    ego_network_sizes=[120, 340],
                     no_dollar_reason="no sourced per-account cost basis exists (synthetic fixture)",
                 ),
-                "variants": {"LI-Medium": _variant(
-                    champion="2-hop proximity to a TRAIN-flagged account", verdict="PASS",
-                    test_metrics={"lift_ratio": 2.0},
-                )},
+                "variants": {
+                    "LI-Medium": _variant(
+                        champion="2-hop proximity to a TRAIN-flagged account",
+                        verdict="PASS",
+                        test_metrics={"lift_ratio": 2.0},
+                    )
+                },
             },
             "BP4": {
                 "name": "Structuring & Smurfing Detection",
@@ -134,14 +155,21 @@ def synthetic_platform_source_data():
                 "top_shap_features": shap,
                 "named_engineered_features": ["structuring_window_amount_sum"],
                 "financial": _bp_financial(
-                    fewer_fp_alerts=800, investigator_hours_saved=180,
-                    fp_dollar_savings=80_000, additional_real_cases_caught=8,
+                    fewer_fp_alerts=800,
+                    investigator_hours_saved=180,
+                    fp_dollar_savings=80_000,
+                    additional_real_cases_caught=8,
                     tp_dollar_illustrative=150_000,
                 ),
-                "variants": {"LI-Medium": _variant(
-                    champion="XGBoost", verdict="PASS", n_features=24, threshold=0.6,
-                    test_metrics={"precision": 0.20, "recall": 0.50, "pr_auc": 0.10},
-                )},
+                "variants": {
+                    "LI-Medium": _variant(
+                        champion="XGBoost",
+                        verdict="PASS",
+                        n_features=24,
+                        threshold=0.6,
+                        test_metrics={"precision": 0.20, "recall": 0.50, "pr_auc": 0.10},
+                    )
+                },
             },
             "BP5": {
                 "name": "Correspondent Banking & Cross-Border Wire Risk",
@@ -151,32 +179,51 @@ def synthetic_platform_source_data():
                 "top_shap_features": shap,
                 "named_engineered_features": ["sender_country_empirical_risk"],
                 "financial": _bp_financial(
-                    fewer_fp_alerts=1200, investigator_hours_saved=300,
-                    fp_dollar_savings=120_000, additional_real_cases_caught=12,
+                    fewer_fp_alerts=1200,
+                    investigator_hours_saved=300,
+                    fp_dollar_savings=120_000,
+                    additional_real_cases_caught=12,
                     tp_dollar_illustrative=180_000,
                 ),
-                "variants": {"LI-Medium": _variant(
-                    champion="XGBoost", verdict="PASS", n_features=27, threshold=0.55,
-                    test_metrics={"precision": 0.25, "recall": 0.35, "pr_auc": 0.11},
-                )},
+                "variants": {
+                    "LI-Medium": _variant(
+                        champion="XGBoost",
+                        verdict="PASS",
+                        n_features=27,
+                        threshold=0.55,
+                        test_metrics={"precision": 0.25, "recall": 0.35, "pr_auc": 0.11},
+                    )
+                },
             },
         },
         "platform_rollup": {
             "benefit_category_1_fp_reduction_savings": {
-                "bp1": 100_000, "bp4": 80_000, "bp5": 120_000, "total_usd": 300_000,
-                "total_investigator_hours_saved": 730, "total_fewer_fp_alerts": 3000,
+                "bp1": 100_000,
+                "bp4": 80_000,
+                "bp5": 120_000,
+                "total_usd": 300_000,
+                "total_investigator_hours_saved": 730,
+                "total_fewer_fp_alerts": 3000,
             },
             "benefit_category_2_tp_uplift_value": {
-                "bp1": 200_000, "bp4": 150_000, "bp5": 180_000, "total_usd": 530_000,
+                "bp1": 200_000,
+                "bp4": 150_000,
+                "bp5": 180_000,
+                "total_usd": 530_000,
                 "total_additional_cases_caught": 30,
             },
             "benefit_category_3_bp2_typology_lines": {
                 "auto_typing_efficiency_savings_usd": 5_000,
                 "typology_confirmation_value_usd": 15_000,
             },
-            "cost_context": {"description": "Synthetic fixture -- no dollar figure, same as the real platform."},
+            "cost_context": {
+                "description": "Synthetic fixture -- no dollar figure, same as the real platform."
+            },
             "portfolio_scale": {"bp3_n_nodes": 20_000, "bp3_n_edges": 40_000},
-            "headline_grand_total_note": "Synthetic fixture -- BENEFIT categories 1/2/3, COST CONTEXT, and PORTFOLIO SCALE are never summed into one blended total.",
+            "headline_grand_total_note": (
+                "Synthetic fixture -- BENEFIT categories 1/2/3, COST CONTEXT, and "
+                "PORTFOLIO SCALE are never summed into one blended total."
+            ),
             "all_bps_verdict_summary": {bp: "PASS" for bp in ("BP1", "BP2", "BP3", "BP4", "BP5")},
         },
     }
@@ -226,14 +273,23 @@ def test_build_bp_business_narratives_platform_all_five(synthetic_platform_sourc
     narratives = rb.build_bp_business_narratives_platform(synthetic_platform_source_data)
     assert set(narratives.keys()) == {"BP1", "BP2", "BP3", "BP4", "BP5"}
     for bp_id, n in narratives.items():
-        for key in ("title", "verdict", "what_it_does", "real_performance",
-                     "production_meaning", "methodology", "regulatory_citations",
-                     "business_objective_tightened"):
+        for key in (
+            "title",
+            "verdict",
+            "what_it_does",
+            "real_performance",
+            "production_meaning",
+            "methodology",
+            "regulatory_citations",
+            "business_objective_tightened",
+        ):
             assert key in n, f"{bp_id} narrative missing '{key}'"
         assert n["verdict"] == "PASS"
 
 
-def test_dashboard_dedup_code_present_and_fixture_has_real_duplicates(tmp_path, synthetic_platform_source_data):
+def test_dashboard_dedup_code_present_and_fixture_has_real_duplicates(
+    tmp_path, synthetic_platform_source_data
+):
     """Regression test for the 2026-10-02 'Phase 1 / Phase 2 repeated on every row'
     fix. Confirms (a) this fixture genuinely has adjacent-row duplicate Phase values
     (BP1/BP2 both 'Phase 1 -- Synthetic Foundation'; BP3/BP4 both 'Phase 2 --
@@ -252,7 +308,10 @@ def test_dashboard_dedup_code_present_and_fixture_has_real_duplicates(tmp_path, 
         "bp_name": "Enterprise AML Compliance Monitoring & Regulatory Reporting (test fixture)",
         "generated_at_utc": "2026-01-01T00:00:00+00:00",
         "platform_source_data": synthetic_platform_source_data,
-        "platform_validation_report": {"overall_verdict": "PASS", "generated_at_utc": "2026-01-01T00:00:00+00:00"},
+        "platform_validation_report": {
+            "overall_verdict": "PASS",
+            "generated_at_utc": "2026-01-01T00:00:00+00:00",
+        },
         "phase_rollup": None,
         "benefit_table": rb.build_platform_benefit_table(roll),
         "business_objective": "Synthetic test fixture -- not a deliverable.",

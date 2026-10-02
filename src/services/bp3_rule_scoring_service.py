@@ -53,6 +53,7 @@ Environment variables:
   BP3_DATASET_VARIANT     -- "HI-Small" or "LI-Medium" (default: "LI-Medium", this BP's
                             locked mandatory realism-validation tier).
 """
+
 from __future__ import annotations
 
 import json
@@ -63,6 +64,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel
+
 
 # ----------------------------------------------------------------------------------------
 # Real project-root resolution -- same pattern every notebook and service in this platform

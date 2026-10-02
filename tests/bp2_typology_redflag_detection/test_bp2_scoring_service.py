@@ -15,6 +15,7 @@ model scores correctly" -- that second claim is already covered by Notebook 3's 
 bit-identical FastAPI self-test against the real champion model (see that notebook's own
 saved validation report's `fastapi_self_test` block).
 """
+
 from __future__ import annotations
 
 import importlib

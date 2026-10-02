@@ -21,6 +21,7 @@ No GPU/NPU path exists in this codebase's model stack - every model here
 governs CPU threads and RAM, never a clock speed (clock speed is a
 BIOS/OS-firmware setting, outside any Python module's control).
 """
+
 from __future__ import annotations
 
 import functools
@@ -165,11 +166,15 @@ def assert_ram_safe(min_available_gb: float = 3.0, label: str = "") -> dict:
     against Task Manager at the same instant instead of relying on a single number."""
     headroom = check_ram_headroom()
     if "error" in headroom:
-        print(f"  [RAM-GATE]{f' [{label}]' if label else ''} SKIPPED -- {headroom['error']} "
-              f"(cannot enforce the safety gate without psutil; proceeding without a real check).")
+        print(
+            f"  [RAM-GATE]{f' [{label}]' if label else ''} SKIPPED -- {headroom['error']} "
+            f"(cannot enforce the safety gate without psutil; proceeding without a real check)."
+        )
         return headroom
-    detail = (f"available={headroom['available_ram_gb']:.2f}GB, used={headroom.get('used_ram_gb', float('nan')):.2f}GB, "
-              f"free={headroom.get('free_ram_gb', float('nan')):.2f}GB, percent_used={headroom.get('percent_used', 'n/a')}%")
+    detail = (
+        f"available={headroom['available_ram_gb']:.2f}GB, used={headroom.get('used_ram_gb', float('nan')):.2f}GB, "  # noqa: E501
+        f"free={headroom.get('free_ram_gb', float('nan')):.2f}GB, percent_used={headroom.get('percent_used', 'n/a')}%"  # noqa: E501
+    )
     if headroom["available_ram_gb"] < min_available_gb:
         raise MemoryError(
             f"RAM safety gate tripped{f' at [{label}]' if label else ''}: only "
@@ -195,8 +200,9 @@ def load_csv_cached(csv_path, parquet_cache_path=None, **read_csv_kwargs):
     instead. Never silently returns stale data: the cache is only used when
     it is newer than the source CSV's modification time.
     """
-    import pandas as pd
     from pathlib import Path
+
+    import pandas as pd
 
     csv_path = Path(csv_path)
     cache_path = Path(parquet_cache_path) if parquet_cache_path else csv_path.with_suffix(".parquet")

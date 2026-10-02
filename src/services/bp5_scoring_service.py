@@ -41,6 +41,7 @@ Environment variables (same names the existing Dockerfile already sets, per Note
   BP5_DATASET_VARIANT     -- "HI-Small" or "LI-Medium" (default: "LI-Medium", this BP's
                              locked mandatory realism-validation tier)
 """
+
 from __future__ import annotations
 
 import json
@@ -51,6 +52,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import create_model
+
 
 # ----------------------------------------------------------------------------------------
 # Real project-root resolution -- same pattern every notebook and service in this platform
@@ -110,7 +112,9 @@ if not REPORT_PATH.exists():
     )
 
 with open(CHAMPION_MODEL_PATH, "rb") as _f:
-    champion_model = pickle.load(_f)  # nosec B301 -- loads this project's own real trained artifact from a path resolved via PROJECT_ROOT/env var, never untrusted external input
+    champion_model = pickle.load(
+        _f
+    )  # nosec B301 -- loads this project's own real trained artifact from a path resolved via PROJECT_ROOT/env var, never untrusted external input  # noqa: E501
 
 with open(REPORT_PATH, encoding="utf-8") as _f:
     _report = json.load(_f)

@@ -8,6 +8,7 @@ bounded well-known locations under the user's home directory.
 Real, confirmed location (2026-09-29): C:\\Users\\rnand\\Documents\\IBM_AML_RiskIQ_Enterprise_Suite
 (no longer an assumption - this is the real on-device path this suite lives at).
 """
+
 from __future__ import annotations
 
 import os

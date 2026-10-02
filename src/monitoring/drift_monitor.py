@@ -18,6 +18,7 @@ real, standard industry convention (credit-risk / model-monitoring practice), no
 this platform made up. Every function below is tested against synthetic distributions with a
 hand-computed expected PSI before this module is imported by any real notebook.
 """
+
 from __future__ import annotations
 
 import json
@@ -99,13 +100,15 @@ def compute_psi(
 
     per_bin = []
     for i in range(n_real_bins):
-        per_bin.append({
-            "bin_low": float(edges[i]),
-            "bin_high": float(edges[i + 1]),
-            "baseline_pct": float(baseline_pct[i]),
-            "current_pct": float(current_pct[i]),
-            "bin_psi_contrib": float(bin_contrib[i]),
-        })
+        per_bin.append(
+            {
+                "bin_low": float(edges[i]),
+                "bin_high": float(edges[i + 1]),
+                "baseline_pct": float(baseline_pct[i]),
+                "current_pct": float(current_pct[i]),
+                "bin_psi_contrib": float(bin_contrib[i]),
+            }
+        )
 
     return {
         "psi": psi,

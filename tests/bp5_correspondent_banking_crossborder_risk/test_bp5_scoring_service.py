@@ -19,6 +19,7 @@ branch), BP5 has no NaN-prone feature anywhere in FEATURE_COLS -- every field is
 required float, so this test suite has no Optional/impute cases to cover, matching
 bp5_scoring_service.py's own simpler schema.
 """
+
 from __future__ import annotations
 
 import importlib

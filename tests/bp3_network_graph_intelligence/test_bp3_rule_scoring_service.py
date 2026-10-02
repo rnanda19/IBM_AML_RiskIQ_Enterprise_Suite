@@ -14,6 +14,7 @@ real notebook runs). A PASS here means "the service is wired correctly", not "th
 own real, bit-identical FastAPI self-test against its own real champion rule (see that
 notebook's own saved validation report's `fastapi_self_test` block).
 """
+
 from __future__ import annotations
 
 import importlib

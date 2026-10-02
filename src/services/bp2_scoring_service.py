@@ -71,6 +71,7 @@ Environment variables (same names the Dockerfile already sets, per Notebook 4):
   BP2_DATASET_VARIANT     -- "HI-Small" or "LI-Medium" (default: "LI-Medium", this BP's
                              locked mandatory realism-validation tier)
 """
+
 from __future__ import annotations
 
 import json
@@ -83,6 +84,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import create_model
+
 
 # ----------------------------------------------------------------------------------------
 # Real project-root resolution -- same pattern every notebook and service in this platform
@@ -148,10 +150,14 @@ if not REPORT_PATH.exists():
     )
 
 with open(CHAMPION_MODEL_PATH, "rb") as _f:
-    champion_model = pickle.load(_f)  # nosec B301 -- loads this project's own real trained artifact from a path resolved via PROJECT_ROOT/env var, never untrusted external input
+    champion_model = pickle.load(
+        _f
+    )  # nosec B301 -- loads this project's own real trained artifact from a path resolved via PROJECT_ROOT/env var, never untrusted external input  # noqa: E501
 
 with open(LABEL_ENCODER_PATH, "rb") as _f:
-    label_encoder = pickle.load(_f)  # nosec B301 -- loads this project's own real label encoder artifact, same trust boundary as the champion model above
+    label_encoder = pickle.load(
+        _f
+    )  # nosec B301 -- loads this project's own real label encoder artifact, same trust boundary as the champion model above  # noqa: E501
 
 with open(REPORT_PATH, encoding="utf-8") as _f:
     _report = json.load(_f)
@@ -198,10 +204,7 @@ print(
 # `null` for an undefined ratio (standard JSON has no NaN literal -- the same real fix BP4's
 # own service already applies for its own NaN-prone column).
 # ----------------------------------------------------------------------------------------
-_FIELD_TYPES = {
-    c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...))
-    for c in FEATURE_COLS
-}
+_FIELD_TYPES = {c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...)) for c in FEATURE_COLS}
 TxnFeatures = create_model("TxnFeatures", **_FIELD_TYPES)
 
 

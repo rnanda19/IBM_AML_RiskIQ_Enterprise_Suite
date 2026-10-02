@@ -12,7 +12,8 @@ networkx>=3.3
 python-igraph>=0.11
 
 
-# Classical ML (BP1, BP2, BP3, BP5, BP7) - the 6-model benchmark set
+# Classical ML (BP1, BP2, BP4, BP5 train real models; BP3 is rule-based, no trained
+# model) -- locked 6-BP scope (BP1-BP6), not the retired v1.0 8-BP draft
 scikit-learn>=1.5
 xgboost>=2.1
 catboost>=1.2
@@ -31,7 +32,7 @@ openpyxl>=3.1
 python-pptx>=0.6.23
 matplotlib>=3.9
 
-# Service layer (optional, BP6/BP7)
+# Service layer (optional -- BP1/BP2/BP4/BP5 scoring APIs + BP3's rule service; BP6 is a pure rollup/reporting batch job, no API)
 fastapi>=0.115
 uvicorn>=0.30
 

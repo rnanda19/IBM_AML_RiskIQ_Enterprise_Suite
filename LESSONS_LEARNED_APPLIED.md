@@ -1666,3 +1666,91 @@ git repo as a second commit, after the initial-commit baseline. Per the
 project's own standing "code should give the outputs, not Claude" rule: this
 entire pass only wrote/tested code and ran `git`/`pytest`/`bandit` -- it never
 executed any BP's real notebook or generated a real deliverable report.
+
+================================================================================
+Lesson #50 (2026-10-02): "Can we make this enterprise-grade?" -- the real answer
+was that the CI pipeline, as configured, had never actually been run end-to-end
+and would have gone red on the very first push.
+================================================================================
+Context: before doing more GitHub work, the user asked what the REAL hardening
+challenge is for enterprise-grade status. Rather than answer in the abstract,
+ran every tool this repo's own CI/pre-commit config already calls for real,
+for the first time, against the actual codebase:
+
+1. `black --check src/ tests/` -- FAILED, 15 files needed reformatting. Never
+   run before this review (pre-commit isn't even installed in this sandbox;
+   ci.yml's lint job would have failed on the very first push).
+2. `isort --check-only` -- FAILED, 2 files had incorrectly-ordered imports.
+3. `flake8 src/ tests/` -- FAILED catastrophically: flake8's hardcoded default
+   max-line-length (79) was never aligned to pyproject.toml's own
+   [tool.black] line-length=110, in EITHER ci.yml or .pre-commit-config.yaml.
+   Even after black/isort were clean, flake8 still reported ~390 E501
+   violations (389 of them in src/reporting/report_builder.py alone -- a
+   long-form report-TEXT generator whose hundreds of real narrative f-string
+   sentences are single string literals black will not split).
+4. Real `F401`/`F541` findings surfaced only once the E501 noise was fixed:
+   two genuinely unused imports (`datetime`/`timezone` at module level, never
+   used anywhere in the file; `WD_ALIGN_PARAGRAPH` inside write_word_report,
+   never used) and two f-strings with zero placeholders (should never have
+   had the `f` prefix).
+5. The `notebook-syntax-check` CI job referenced `scripts/check_notebook_syntax.py`
+   -- which never existed on disk. The job's own `|| true` meant it had been
+   silently "passing" on every hypothetical run while checking literally
+   nothing -- a false-green CI job is worse than no job, since it looks like
+   coverage that isn't there.
+6. Stray "BP7" scope references found in requirements.txt (x2) and
+   src/models/README.md -- leftover text from the retired v1.0 8-BP draft,
+   describing a BP6 that doesn't even match the locked v2.0 BP6 (NLP/GenAI SAR
+   assistant vs. the real, locked pure-rollup BP6). Real, confusing
+   inconsistency for anyone reading the repo cold.
+7. docs/evidence_ledger/EVIDENCE_LEDGER.md -- this project's own stated
+   "single source of truth for BP completion status" -- still had every row
+   reading "NOT YET" / all dashes, plus stale BP7/BP8 rows, despite BP1-BP5
+   being real-confirmed two-gate PASS days earlier. A governance document that
+   exists but was never updated is a worse signal than not having one.
+
+Fixes applied (all code/doc/config only -- no notebook executed, no report
+regenerated, per the project's standing "code gives the outputs, not Claude"
+rule):
+- Ran black + isort for real; verified 0 regressions via py_compile (all of
+  src/+tests/+scripts/) and the full pytest suite (39/39, unchanged) before
+  and after.
+- Added `.flake8` with max-line-length=110 (matches black) and a documented,
+  narrowly-scoped `per-file-ignores` for report_builder.py's E501 only --
+  chosen over raising the limit project-wide (which would have weakened the
+  check everywhere) or hand-wrapping ~390 lines of real narrative text
+  (high-risk, zero logic value). Every other file, including this same
+  file's actual control-flow lines, stays held to 110 chars.
+- Removed the 4 genuinely-unused imports/f-strings (verified unused via grep
+  across the whole file first, never guessed).
+- Wrote the real scripts/check_notebook_syntax.py (nbformat + ast.parse per
+  code cell, magics/shell-escapes stubbed first) and removed ci.yml's
+  `|| true` now that the job does real work; ran it for real against the
+  one real .ipynb on disk (BP1-BP5 are flattened .py per the project's own
+  standing single-cell-copy-paste convention) -- 0 errors.
+- Fixed the stray BP7 text to the locked 6-BP (BP1-BP6) scope in both files.
+- Rewrote EVIDENCE_LEDGER.md with the real PASS verdict + real key metric for
+  every one of BP1-BP6, each one re-read directly from its own real,
+  already-saved validation-report JSON on disk at write time (not carried
+  forward from memory) -- with the exact on-disk path cited per row so the
+  table is independently re-verifiable, and the retired v1.0 BP7/BP8 rows
+  moved to a clearly-labeled "Retired" section instead of silently deleted.
+
+Full re-verification after all fixes: black clean, isort clean, flake8 clean
+(0 output), bandit 0 findings, py_compile clean across src/+tests/+scripts/,
+pytest 39/39, notebook-syntax-check 0 errors. This is the first time this
+repo's full CI-equivalent gate has been run end-to-end and come back green.
+
+Separately flagged to the user as real, deeper "enterprise-grade" gaps that
+are scope decisions rather than bugs (not fixed in this pass): no dependency
+lockfile (requirements.txt is all `>=`, not reproducible-pinned); no auth,
+rate-limiting, or audit-logging on any of the 5 FastAPI scoring services (a
+real bank's compliance function needs an immutable per-decision audit trail
+far more than most APIs do); no model registry/versioning beyond raw .pkl
+filenames; `docker build` has never once been run for any of the 6 images in
+any sandbox this project has used (CI has no docker job either); mypy is
+configured in pyproject.toml and listed in requirements.txt but wired into
+neither ci.yml nor .pre-commit-config.yaml, so it has never actually gated
+anything; and a stale duplicate `github_repo/` skeleton folder (47 tracked
+files, READMEs only) sits in the repo from an earlier scaffolding pass,
+whose fate is a judgment call left to the user rather than decided here.

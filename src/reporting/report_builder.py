@@ -34,12 +34,12 @@ project data) by Claude, per this project's execution-boundary rule -- Claude ne
 against real data. All real numbers in any document it produces come from the user's own
 notebook run.
 """
+
 from __future__ import annotations
 
 import json
 import shutil
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -62,8 +62,8 @@ PALETTE = {
     "ink_secondary": "#52514e",
     "ink_muted": "#898781",
     "gridline": "#e1e0d9",
-    "surface": "#fbfaf7",   # off-white -- cards / narrative / text blocks
-    "page": "#e9ebee",      # light grey -- page plane behind the cards
+    "surface": "#fbfaf7",  # off-white -- cards / narrative / text blocks
+    "page": "#e9ebee",  # light grey -- page plane behind the cards
 }
 
 
@@ -94,7 +94,7 @@ def _apply_word_brand_styles(doc) -> None:
     made anywhere else in the function (there can be a dozen) automatically picks this up,
     so no per-heading edits are needed. Pure public python-docx API
     (doc.styles[...].font.color.rgb / .font.size) -- zero OOXML risk."""
-    from docx.shared import RGBColor, Pt
+    from docx.shared import Pt, RGBColor
 
     r, g, b = _hex_rgb(PALETTE["series_1_blue"])
     r2, g2, b2 = _hex_rgb(PALETTE["series_3_aqua"])
@@ -121,8 +121,8 @@ def _brand_word_table_headers(doc, hex_color: Optional[str] = None) -> None:
     documented `w:shd` OXML element on each header cell's tcPr (one child element, no
     reordering of anything else) -- this exact snippet is in python-docx's own cookbook and
     carries none of the schema-ordering risk a PPTX slide transition would."""
-    from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
     from docx.shared import RGBColor
 
     fill_hex = (hex_color or PALETTE["series_1_blue"]).lstrip("#").upper()
@@ -153,8 +153,9 @@ def _brand_excel_sheet(ws, hex_tab_color: Optional[str] = None, freeze_cell: str
     ws.freeze_panes = freeze_cell
 
 
-def _band_excel_rows(ws, first_data_row: int, last_data_row: int, first_col: int, last_col: int,
-                      band_hex: str = "EEF4FC") -> None:
+def _band_excel_rows(
+    ws, first_data_row: int, last_data_row: int, first_col: int, last_col: int, band_hex: str = "EEF4FC"
+) -> None:
     """Alternating light-tint row fill across real data rows only -- a standard Excel
     'banded rows' look via PatternFill. Skips any cell that already carries its own fill
     (e.g. an existing yellow Assumption-value highlight or a status-color cell), so this
@@ -177,7 +178,7 @@ def _color_verdict_cells(ws, rows, cols, good_values=("PASS",)) -> None:
     renders as visibly 'not green' instead of silently matching nothing), white bold text
     for contrast either way. `rows` / `cols` are explicit 1-indexed iterables, not an
     inferred range, so this only ever touches cells the caller names."""
-    from openpyxl.styles import PatternFill, Font
+    from openpyxl.styles import Font, PatternFill
 
     good_hex = PALETTE["status_good"].lstrip("#").upper()
     bad_hex = PALETTE["status_critical"].lstrip("#").upper()
@@ -193,8 +194,13 @@ def _color_verdict_cells(ws, rows, cols, good_values=("PASS",)) -> None:
             cell.font = white_bold
 
 
-def _add_branded_slide(prs, layout_idx: int, accent_hex: Optional[str] = None,
-                        tint_hex: Optional[str] = None, bar_thickness_in: float = 0.12):
+def _add_branded_slide(
+    prs,
+    layout_idx: int,
+    accent_hex: Optional[str] = None,
+    tint_hex: Optional[str] = None,
+    bar_thickness_in: float = 0.12,
+):
     """Adds a slide from the given layout, then applies the one visual accent this module
     ships for PPTX: a full-width solid accent-color bar at the very top, via the standard
     public python-pptx shape API (shapes.add_shape(MSO_SHAPE.RECTANGLE, ...) with a solid
@@ -202,9 +208,9 @@ def _add_branded_slide(prs, layout_idx: int, accent_hex: Optional[str] = None,
     (slide.background.fill.solid()) -- both long-stable, schema-safe public calls, deliberately
     NOT the raw-XML slide-transition route (see this module's branding-helpers banner comment
     for why). Returns the new slide so call sites can keep using it exactly as before."""
+    from pptx.dml.color import RGBColor
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.util import Inches
-    from pptx.dml.color import RGBColor
 
     slide = prs.slides.add_slide(prs.slide_layouts[layout_idx])
 
@@ -213,8 +219,9 @@ def _add_branded_slide(prs, layout_idx: int, accent_hex: Optional[str] = None,
     slide.background.fill.fore_color.rgb = RGBColor(tr, tg, tb)
 
     ar, ag, ab = _hex_rgb(accent_hex or PALETTE["series_1_blue"])
-    bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0),
-                                  prs.slide_width, Inches(bar_thickness_in))
+    bar = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), prs.slide_width, Inches(bar_thickness_in)
+    )
     bar.fill.solid()
     bar.fill.fore_color.rgb = RGBColor(ar, ag, ab)
     bar.line.fill.background()
@@ -227,8 +234,7 @@ def _add_branded_slide(prs, layout_idx: int, accent_hex: Optional[str] = None,
 # baseline -- reused here rather than duplicated by value, since Notebook 3 prints this
 # but does not currently persist it to the saved JSON report).
 # ============================================================================
-def compute_naive_baseline(df: pd.DataFrame, target_col: str, amount_col: str,
-                            pctl: float = 0.99) -> dict:
+def compute_naive_baseline(df: pd.DataFrame, target_col: str, amount_col: str, pctl: float = 0.99) -> dict:
     """Real fixed-dollar-threshold rule baseline -- identical method used in every BP's
     Notebook 3 (99th percentile of the real amount column, no other logic). Returns real
     precision/recall/flagged-count at that single fixed operating point. This is NOT a
@@ -302,9 +308,14 @@ def compute_financial_impact(before: dict, after: dict, assumptions: dict) -> di
     tp_dollar_illustrative = tp_uplift * assumptions["illustrative_case_exposure_usd"]
 
     return {
-        "before_fp": before_fp, "after_fp": after_fp, "fp_reduction": fp_reduction,
-        "hours_saved": hours_saved, "fp_dollar_savings": fp_dollar_savings,
-        "before_tp": before_tp, "after_tp": after_tp, "tp_uplift": tp_uplift,
+        "before_fp": before_fp,
+        "after_fp": after_fp,
+        "fp_reduction": fp_reduction,
+        "hours_saved": hours_saved,
+        "fp_dollar_savings": fp_dollar_savings,
+        "before_tp": before_tp,
+        "after_tp": after_tp,
+        "tp_uplift": tp_uplift,
         "tp_dollar_illustrative": tp_dollar_illustrative,
     }
 
@@ -329,26 +340,44 @@ def build_before_after_table(before: dict, after: dict, assumptions: dict) -> pd
     fi = compute_financial_impact(before, after, assumptions)
 
     rows = [
-        {"Metric": "Precision (at operating point)", "Before (baseline)": f"{before['precision']:.4f}",
-         "After (ML model)": f"{after['precision']:.4f}",
-         "Delta": f"{after['precision'] - before['precision']:+.4f}", "$ Impact": ""},
-        {"Metric": "Recall (at operating point)", "Before (baseline)": f"{before['recall']:.4f}",
-         "After (ML model)": f"{after['recall']:.4f}",
-         "Delta": f"{after['recall'] - before['recall']:+.4f}", "$ Impact": ""},
-        {"Metric": "Alerts flagged (real count)", "Before (baseline)": f"{before['n_flagged']:,}",
-         "After (ML model)": f"{after['n_flagged']:,}",
-         "Delta": f"{after['n_flagged'] - before['n_flagged']:+,}", "$ Impact": ""},
-        {"Metric": "False positives (real, implied by precision x flagged)",
-         "Before (baseline)": f"{fi['before_fp']:,}", "After (ML model)": f"{fi['after_fp']:,}",
-         "Delta": f"{fi['after_fp'] - fi['before_fp']:+,}",
-         "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['fp_dollar_savings'])} investigator-hours saved "
-                      f"({fi['hours_saved']:,.0f} hrs @ ${assumptions['cost_per_investigator_hour_usd']:.0f}/hr)"},
-        {"Metric": "True positives caught (real, implied by recall x real positives)",
-         "Before (baseline)": f"{fi['before_tp']:,}", "After (ML model)": f"{fi['after_tp']:,}",
-         "Delta": f"{fi['tp_uplift']:+,}",
-         "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['tp_dollar_illustrative'])} illustrative regulatory-"
-                      f"exposure-avoidance ({fi['tp_uplift']:+,} cases @ "
-                      f"${assumptions['illustrative_case_exposure_usd']:,.0f}/case)"},
+        {
+            "Metric": "Precision (at operating point)",
+            "Before (baseline)": f"{before['precision']:.4f}",
+            "After (ML model)": f"{after['precision']:.4f}",
+            "Delta": f"{after['precision'] - before['precision']:+.4f}",
+            "$ Impact": "",
+        },
+        {
+            "Metric": "Recall (at operating point)",
+            "Before (baseline)": f"{before['recall']:.4f}",
+            "After (ML model)": f"{after['recall']:.4f}",
+            "Delta": f"{after['recall'] - before['recall']:+.4f}",
+            "$ Impact": "",
+        },
+        {
+            "Metric": "Alerts flagged (real count)",
+            "Before (baseline)": f"{before['n_flagged']:,}",
+            "After (ML model)": f"{after['n_flagged']:,}",
+            "Delta": f"{after['n_flagged'] - before['n_flagged']:+,}",
+            "$ Impact": "",
+        },
+        {
+            "Metric": "False positives (real, implied by precision x flagged)",
+            "Before (baseline)": f"{fi['before_fp']:,}",
+            "After (ML model)": f"{fi['after_fp']:,}",
+            "Delta": f"{fi['after_fp'] - fi['before_fp']:+,}",
+            "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['fp_dollar_savings'])} investigator-hours saved "
+            f"({fi['hours_saved']:,.0f} hrs @ ${assumptions['cost_per_investigator_hour_usd']:.0f}/hr)",
+        },
+        {
+            "Metric": "True positives caught (real, implied by recall x real positives)",
+            "Before (baseline)": f"{fi['before_tp']:,}",
+            "After (ML model)": f"{fi['after_tp']:,}",
+            "Delta": f"{fi['tp_uplift']:+,}",
+            "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['tp_dollar_illustrative'])} illustrative regulatory-"
+            f"exposure-avoidance ({fi['tp_uplift']:+,} cases @ "
+            f"${assumptions['illustrative_case_exposure_usd']:,.0f}/case)",
+        },
     ]
     return pd.DataFrame(rows)
 
@@ -410,78 +439,89 @@ def generate_smart_recommendations(context: dict) -> list:
     shap = rep.get("shap_mean_abs_importance") or {}
     top_feature = max(shap.items(), key=lambda kv: kv[1])[0] if shap else None
 
-    recs = [{
-        "title": "Recalibrate the alert threshold on a fixed cadence",
-        "specific": (
-            f"The champion model ({rep['champion_name']}) currently operates at a real "
-            f"decision threshold of {rep['selected_threshold']:.4f} on {primary_name}, "
-            f"yielding real precision {rep['test_metrics']['precision']:.3f} and recall "
-            f"{rep['test_metrics']['recall']:.3f}."
-        ),
-        "measurable": (
-            f"Track real precision/recall drift against these two baseline figures on every "
-            f"scoring batch; treat a real precision or recall move of more than 5 percentage "
-            f"points from these values as a trigger for threshold review."
-        ),
-        "achievable": "Uses the FastAPI scoring service's existing self-tested prediction path -- no new infrastructure required.",
-        "relevant": "Directly controls the real false-positive alert volume investigators must review (SR 11-7 model risk management expectation).",
-        "time_bound": "Quarterly recalibration review, next due within 90 days of production go-live.",
-    }, {
-        "title": "Reallocate freed investigator capacity from the real false-positive reduction",
-        "specific": (
-            f"Moving from the naive fixed-dollar rule to the real ML model reduces false-"
-            f"positive alerts by {fi['fp_reduction']:,} on {primary_name} (ASSUMPTION-"
-            f"estimated at {fi['hours_saved']:,.0f} investigator hours, {_fmt_usd(fi['fp_dollar_savings'])})."
-        ),
-        "measurable": f"Real alert-review hours logged per investigator, compared against the {fi['hours_saved']:,.0f}-hour ASSUMPTION estimate above.",
-        "achievable": "Capacity freed is redeployed to case investigation depth, not headcount reduction -- an operational scheduling change, not a new system.",
-        "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar).",
-        "time_bound": "Reassess real alert-review hours logged 60 days after production go-live against this ASSUMPTION estimate.",
-    }]
+    recs = [
+        {
+            "title": "Recalibrate the alert threshold on a fixed cadence",
+            "specific": (
+                f"The champion model ({rep['champion_name']}) currently operates at a real "
+                f"decision threshold of {rep['selected_threshold']:.4f} on {primary_name}, "
+                f"yielding real precision {rep['test_metrics']['precision']:.3f} and recall "
+                f"{rep['test_metrics']['recall']:.3f}."
+            ),
+            "measurable": (
+                "Track real precision/recall drift against these two baseline figures on every "
+                "scoring batch; treat a real precision or recall move of more than 5 percentage "
+                "points from these values as a trigger for threshold review."
+            ),
+            "achievable": "Uses the FastAPI scoring service's existing self-tested prediction path -- no new infrastructure required.",
+            "relevant": "Directly controls the real false-positive alert volume investigators must review (SR 11-7 model risk management expectation).",
+            "time_bound": "Quarterly recalibration review, next due within 90 days of production go-live.",
+        },
+        {
+            "title": "Reallocate freed investigator capacity from the real false-positive reduction",
+            "specific": (
+                f"Moving from the naive fixed-dollar rule to the real ML model reduces false-"
+                f"positive alerts by {fi['fp_reduction']:,} on {primary_name} (ASSUMPTION-"
+                f"estimated at {fi['hours_saved']:,.0f} investigator hours, {_fmt_usd(fi['fp_dollar_savings'])})."
+            ),
+            "measurable": f"Real alert-review hours logged per investigator, compared against the {fi['hours_saved']:,.0f}-hour ASSUMPTION estimate above.",
+            "achievable": "Capacity freed is redeployed to case investigation depth, not headcount reduction -- an operational scheduling change, not a new system.",
+            "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar).",
+            "time_bound": "Reassess real alert-review hours logged 60 days after production go-live against this ASSUMPTION estimate.",
+        },
+    ]
 
     if fi["tp_uplift"] > 0:
-        recs.append({
-            "title": "Validate the real true-positive uplift against filed SARs",
-            "specific": (
-                f"The real ML model's operating point is estimated to catch {fi['tp_uplift']:+,} "
-                f"more real laundering cases than the naive rule on {primary_name} "
-                f"(illustrative regulatory-exposure-avoidance ASSUMPTION: {_fmt_usd(fi['tp_dollar_illustrative'])})."
-            ),
-            "measurable": "Real SAR filing rate on model-flagged alerts vs. naive-rule-flagged alerts, tracked separately, never blended with the false-positive savings above.",
-            "achievable": "Requires only tagging each filed SAR with which rule (naive vs. ML) originally surfaced the alert -- a labeling change, not a new detection system.",
-            "relevant": "Directly evidences the model's real detection benefit to examiners (31 CFR Section 1020.320 SAR requirements).",
-            "time_bound": "First real comparison report at the 6-month production mark (enough real SAR volume to be meaningful).",
-        })
+        recs.append(
+            {
+                "title": "Validate the real true-positive uplift against filed SARs",
+                "specific": (
+                    f"The real ML model's operating point is estimated to catch {fi['tp_uplift']:+,} "
+                    f"more real laundering cases than the naive rule on {primary_name} "
+                    f"(illustrative regulatory-exposure-avoidance ASSUMPTION: {_fmt_usd(fi['tp_dollar_illustrative'])})."
+                ),
+                "measurable": "Real SAR filing rate on model-flagged alerts vs. naive-rule-flagged alerts, tracked separately, never blended with the false-positive savings above.",
+                "achievable": "Requires only tagging each filed SAR with which rule (naive vs. ML) originally surfaced the alert -- a labeling change, not a new detection system.",
+                "relevant": "Directly evidences the model's real detection benefit to examiners (31 CFR Section 1020.320 SAR requirements).",
+                "time_bound": "First real comparison report at the 6-month production mark (enough real SAR volume to be meaningful).",
+            }
+        )
 
     if top_feature:
-        recs.append({
-            "title": "Document the dominant real model driver for examiner review",
-            "specific": f"Real SHAP analysis ranks '{top_feature}' as the model's dominant real driver on {primary_name}.",
-            "measurable": "Confirm this ranking is stable across each future real retrain (top-1 feature unchanged, or the change is explicitly documented).",
-            "achievable": "Already computed by Notebook 3's existing SHAP step -- no new tooling required.",
-            "relevant": "SR 11-7 model risk management requires a documented explanation of the model's real primary drivers.",
-            "time_bound": "Refresh this documentation at every model retrain, alongside the MODEL_CARD.md update.",
-        })
+        recs.append(
+            {
+                "title": "Document the dominant real model driver for examiner review",
+                "specific": f"Real SHAP analysis ranks '{top_feature}' as the model's dominant real driver on {primary_name}.",
+                "measurable": "Confirm this ranking is stable across each future real retrain (top-1 feature unchanged, or the change is explicitly documented).",
+                "achievable": "Already computed by Notebook 3's existing SHAP step -- no new tooling required.",
+                "relevant": "SR 11-7 model risk management requires a documented explanation of the model's real primary drivers.",
+                "time_bound": "Refresh this documentation at every model retrain, alongside the MODEL_CARD.md update.",
+            }
+        )
 
     failing = [name for name, v in context["variants"].items() if v["report"]["overall_verdict"] != "PASS"]
     if failing:
-        recs.append({
-            "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
-            "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
-            "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
-            "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new modeling approach required.",
-            "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
-            "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
-        })
+        recs.append(
+            {
+                "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
+                "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
+                "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
+                "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new modeling approach required.",
+                "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
+                "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
+            }
+        )
     else:
-        recs.append({
-            "title": "Maintain the real two-gate validation standard on every future retrain",
-            "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
-            "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
-            "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
-            "relevant": "This is the basis for this report's current production-recommended status.",
-            "time_bound": "Every retrain cycle, before redeployment.",
-        })
+        recs.append(
+            {
+                "title": "Maintain the real two-gate validation standard on every future retrain",
+                "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
+                "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
+                "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
+                "relevant": "This is the basis for this report's current production-recommended status.",
+                "time_bound": "Every retrain cycle, before redeployment.",
+            }
+        )
 
     return recs
 
@@ -491,8 +531,7 @@ def generate_smart_recommendations(context: dict) -> list:
 # ============================================================================
 def write_word_report(path: Path, context: dict) -> Path:
     from docx import Document
-    from docx.shared import Pt, RGBColor, Inches
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Pt, RGBColor
 
     doc = Document()
     _apply_word_brand_styles(doc)
@@ -509,8 +548,11 @@ def write_word_report(path: Path, context: dict) -> Path:
     run = p.add_run(status["label"])
     run.bold = True
     run.font.size = Pt(14)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     run.font.color.rgb = status_colors.get(status["css_class"], RGBColor(0x0B, 0x0B, 0x0B))
     doc.add_paragraph(status["rationale"])
 
@@ -588,8 +630,10 @@ def write_word_report(path: Path, context: dict) -> Path:
         for feat, val in top5:
             doc.add_paragraph(f"{feat}: {val:.4f}", style="List Bullet")
     else:
-        doc.add_paragraph("SHAP was not available on the machine that produced this run -- "
-                           "see that Notebook 3 run's own console output for the real reason.")
+        doc.add_paragraph(
+            "SHAP was not available on the machine that produced this run -- "
+            "see that Notebook 3 run's own console output for the real reason."
+        )
 
     doc.add_heading("Regulatory & Compliance Mapping", level=1)
     reg_table = doc.add_table(rows=1, cols=2)
@@ -630,9 +674,9 @@ def write_word_report(path: Path, context: dict) -> Path:
 # ============================================================================
 def write_excel_workbook(path: Path, context: dict) -> Path:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.workbook.properties import CalcProperties
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.properties import CalcProperties
 
     yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     blue_font = Font(color="0000FF", bold=True)
@@ -653,12 +697,19 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
     ws_a["B1"].fill = header_fill
     assumption_rows = [
         ("Hours per alert review (ASSUMPTION)", context["assumptions"]["hours_per_alert_review"]),
-        ("Cost per investigator hour, USD (ASSUMPTION)", context["assumptions"]["cost_per_investigator_hour_usd"]),
-        ("Illustrative regulatory-exposure-avoidance per case, USD (ASSUMPTION)",
-         context["assumptions"]["illustrative_case_exposure_usd"]),
+        (
+            "Cost per investigator hour, USD (ASSUMPTION)",
+            context["assumptions"]["cost_per_investigator_hour_usd"],
+        ),
+        (
+            "Illustrative regulatory-exposure-avoidance per case, USD (ASSUMPTION)",
+            context["assumptions"]["illustrative_case_exposure_usd"],
+        ),
     ]
-    usd_assumption_rows = {"Cost per investigator hour, USD (ASSUMPTION)",
-                            "Illustrative regulatory-exposure-avoidance per case, USD (ASSUMPTION)"}
+    usd_assumption_rows = {
+        "Cost per investigator hour, USD (ASSUMPTION)",
+        "Illustrative regulatory-exposure-avoidance per case, USD (ASSUMPTION)",
+    }
     for i, (label, val) in enumerate(assumption_rows, start=2):
         ws_a[f"A{i}"] = label
         ws_a[f"B{i}"] = val
@@ -671,13 +722,19 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
     _brand_excel_sheet(ws_a, PALETTE["ink_muted"], freeze_cell="A2")
     # Named cells so downstream formulas are readable, not hardcoded coordinates
     wb.defined_names["hours_per_alert_review"] = _defined_name("hours_per_alert_review", "Assumptions", "B2")
-    wb.defined_names["cost_per_investigator_hour_usd"] = _defined_name("cost_per_investigator_hour_usd", "Assumptions", "B3")
-    wb.defined_names["illustrative_case_exposure_usd"] = _defined_name("illustrative_case_exposure_usd", "Assumptions", "B4")
+    wb.defined_names["cost_per_investigator_hour_usd"] = _defined_name(
+        "cost_per_investigator_hour_usd", "Assumptions", "B3"
+    )
+    wb.defined_names["illustrative_case_exposure_usd"] = _defined_name(
+        "illustrative_case_exposure_usd", "Assumptions", "B4"
+    )
 
     # --- Executive Summary sheet (status + financial impact) -- second sheet, right after
     # Assumptions (locked "Assumptions sheet FIRST" rule keeps Assumptions at position 1) ---
     status = context.get("status") or compute_bp_status(context)
-    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(status["css_class"], "2A78D6")
+    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(
+        status["css_class"], "2A78D6"
+    )
     ws_e = wb.create_sheet("Executive Summary")
     ws_e["A1"] = "Status"
     ws_e["B1"] = "Rationale"
@@ -709,15 +766,28 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
     ws_e["B6"] = f"='{ba_sheet_name}'!B9"
     ws_e["B6"].number_format = _EXCEL_USD_FORMAT
     ws_e["C6"] = _excel_usd_shorthand_formula("B6")
-    ws_e["A7"] = "Note: the two figures above are never summed into one blended total (locked Section 7A policy)."
+    ws_e["A7"] = (
+        "Note: the two figures above are never summed into one blended total (locked Section 7A policy)."
+    )
     ws_e["A7"].font = Font(italic=True, color="52514E")
     ws_e.column_dimensions["C"].width = 26
     _brand_excel_sheet(ws_e, status_hex, freeze_cell="A3")
 
     # --- Variant summary sheet (real, per-variant, never blended) ---
     ws_s = wb.create_sheet("Variant Summary")
-    headers = ["Variant", "Champion", "Test PR-AUC", "Random Baseline PR-AUC", "Lift (x)",
-               "Precision", "Recall", "F2", "Gate 1", "Gate 2", "Overall Verdict"]
+    headers = [
+        "Variant",
+        "Champion",
+        "Test PR-AUC",
+        "Random Baseline PR-AUC",
+        "Lift (x)",
+        "Precision",
+        "Recall",
+        "F2",
+        "Gate 1",
+        "Gate 2",
+        "Overall Verdict",
+    ]
     for c, h in enumerate(headers, start=1):
         cell = ws_s.cell(row=1, column=c, value=h)
         cell.font = header_font
@@ -740,8 +810,9 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
     for c in range(1, len(headers) + 1):
         ws_s.column_dimensions[get_column_letter(c)].width = 20
     _brand_excel_sheet(ws_s, PALETTE["series_1_blue"], freeze_cell="A2")
-    _band_excel_rows(ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]),
-                      first_col=1, last_col=len(headers))
+    _band_excel_rows(
+        ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]), first_col=1, last_col=len(headers)
+    )
     _color_verdict_cells(ws_s, rows=range(2, 2 + len(context["variants"])), cols=[9, 10, 11])
 
     # --- Before/After sheet per variant, dollar figures as LIVE formulas referencing Assumptions ---
@@ -774,19 +845,25 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
         # $ Impact rows -- LIVE formulas referencing the Assumptions sheet, never hardcoded
         fp_row = 5  # "False positives" row (row 2=Precision,3=Recall,4=Alerts,5=FP,6=TP)
         tp_row = 6
-        ws_b.cell(row=7, column=3, value="Formatted (with B/M shorthand)").font = Font(italic=True, color="52514E")
+        ws_b.cell(row=7, column=3, value="Formatted (with B/M shorthand)").font = Font(
+            italic=True, color="52514E"
+        )
         ws_b.cell(row=8, column=1, value="False-positive-reduction $ savings (ASSUMPTION, live formula)")
-        ws_b.cell(row=8, column=2,
-                  value=f"=D{fp_row}*-1*hours_per_alert_review*cost_per_investigator_hour_usd")
+        ws_b.cell(
+            row=8, column=2, value=f"=D{fp_row}*-1*hours_per_alert_review*cost_per_investigator_hour_usd"
+        )
         ws_b.cell(row=8, column=2).number_format = _EXCEL_USD_FORMAT
         ws_b.cell(row=8, column=3, value=_excel_usd_shorthand_formula("B8"))
         ws_b.cell(row=9, column=1, value="True-positive-uplift $ (illustrative, ASSUMPTION, live formula)")
         ws_b.cell(row=9, column=2, value=f"=D{tp_row}*illustrative_case_exposure_usd")
         ws_b.cell(row=9, column=2).number_format = _EXCEL_USD_FORMAT
         ws_b.cell(row=9, column=3, value=_excel_usd_shorthand_formula("B9"))
-        ws_b.cell(row=11, column=1,
-                  value="Note: the two $ lines above are never summed into one blended figure "
-                        "(locked project rule, Section 7A).")
+        ws_b.cell(
+            row=11,
+            column=1,
+            value="Note: the two $ lines above are never summed into one blended figure "
+            "(locked project rule, Section 7A).",
+        )
         ws_b.auto_filter.ref = "A1:D6"
         for c in range(1, 5):
             ws_b.column_dimensions[get_column_letter(c)].width = 42 if c == 1 else (26 if c == 3 else 20)
@@ -801,6 +878,7 @@ def write_excel_workbook(path: Path, context: dict) -> Path:
 
 def _defined_name(name: str, sheet: str, cell: str):
     from openpyxl.workbook.defined_name import DefinedName
+
     return DefinedName(name, attr_text=f"'{sheet}'!${cell[0]}${cell[1:]}")
 
 
@@ -812,9 +890,11 @@ def _excel_usd_shorthand_formula(cell_ref: str) -> str:
     `cell_ref`, with a B/M shorthand appended for any magnitude >= $1M -- so the workbook
     shows the same 'exact figure plus B/M form' this user's standing formatting rule
     requires even though the underlying value is a live formula, not a static string."""
-    return (f'=IF(ABS({cell_ref})>=1000000000,TEXT({cell_ref}/1000000000,"$0.00")&"B",'
-            f'IF(ABS({cell_ref})>=1000000,TEXT({cell_ref}/1000000,"$0.00")&"M",'
-            f'TEXT({cell_ref},"$#,##0")))')
+    return (
+        f'=IF(ABS({cell_ref})>=1000000000,TEXT({cell_ref}/1000000000,"$0.00")&"B",'
+        f'IF(ABS({cell_ref})>=1000000,TEXT({cell_ref}/1000000,"$0.00")&"M",'
+        f'TEXT({cell_ref},"$#,##0")))'
+    )
 
 
 # ============================================================================
@@ -1330,8 +1410,8 @@ def write_html_dashboard(path: Path, context: dict, chartjs_js_path: Path) -> Pa
 # ============================================================================
 def write_pptx_deck(path: Path, context: dict, chart_png_paths: Optional[dict] = None) -> Path:
     from pptx import Presentation
-    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
 
     prs = Presentation()
     blue = RGBColor(0x2A, 0x78, 0xD6)
@@ -1348,8 +1428,11 @@ def write_pptx_deck(path: Path, context: dict, chart_png_paths: Optional[dict] =
 
     # Recommendation & status slide -- real, computed from the two-gate verdicts
     status = context.get("status") or compute_bp_status(context)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Recommendation & Status"
     body = slide.placeholders[1].text_frame
@@ -1366,8 +1449,9 @@ def write_pptx_deck(path: Path, context: dict, chart_png_paths: Optional[dict] =
     slide.shapes.title.text = "Executive Summary"
     primary = context["variants"][context["primary_variant"]]
     body = slide.placeholders[1].text_frame
-    body.text = (f"Champion model: {primary['report']['champion_name']} "
-                 f"({context['primary_variant']} variant)")
+    body.text = (
+        f"Champion model: {primary['report']['champion_name']} " f"({context['primary_variant']} variant)"
+    )
     for line in [
         f"Real test PR-AUC: {primary['report']['test_metrics']['pr_auc']:.4f} "
         f"({_safe_div(primary['report']['test_metrics']['pr_auc'], primary['report']['random_baseline_pr_auc']):.0f}x random baseline)",
@@ -1403,14 +1487,18 @@ def write_pptx_deck(path: Path, context: dict, chart_png_paths: Optional[dict] =
         table_shape.cell(r, 0).text = variant_name
         table_shape.cell(r, 1).text = rep["champion_name"]
         table_shape.cell(r, 2).text = f"{rep['test_metrics']['pr_auc']:.4f}"
-        table_shape.cell(r, 3).text = f"{rep['test_metrics']['precision']:.3f} / {rep['test_metrics']['recall']:.3f}"
+        table_shape.cell(r, 3).text = (
+            f"{rep['test_metrics']['precision']:.3f} / {rep['test_metrics']['recall']:.3f}"
+        )
         table_shape.cell(r, 4).text = rep["overall_verdict"]
 
     # Before/After chart slide (real matplotlib image, embedded per board-deck convention)
     if chart_png_paths and "before_after" in chart_png_paths:
         slide = _add_branded_slide(prs, 5)
         slide.shapes.title.text = f"Before / After Impact ({context['primary_variant']})"
-        slide.shapes.add_picture(str(chart_png_paths["before_after"]), Inches(0.5), Inches(1.3), width=Inches(9))
+        slide.shapes.add_picture(
+            str(chart_png_paths["before_after"]), Inches(0.5), Inches(1.3), width=Inches(9)
+        )
 
     # Financial impact summary slide -- real figures, B/M-shorthand formatted, the two
     # benefit lines kept explicitly separate (locked Section 7A rule, never summed)
@@ -1465,10 +1553,13 @@ def render_before_after_chart_png(ba_df: pd.DataFrame, out_path: Path) -> Path:
     """Real matplotlib before/after bar chart (Precision/Recall rows only -- count rows use
     different scales and are shown in the table instead), CVD-safe two-series palette."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    metric_rows = ba_df[ba_df["Metric"].isin(["Precision (at operating point)", "Recall (at operating point)"])]
+    metric_rows = ba_df[
+        ba_df["Metric"].isin(["Precision (at operating point)", "Recall (at operating point)"])
+    ]
     labels = metric_rows["Metric"].str.replace(" (at operating point)", "", regex=False).tolist()
     before_vals = metric_rows["Before (baseline)"].astype(float).tolist()
     after_vals = metric_rows["After (ML model)"].astype(float).tolist()
@@ -1476,8 +1567,20 @@ def render_before_after_chart_png(ba_df: pd.DataFrame, out_path: Path) -> Path:
     x = range(len(labels))
     width = 0.35
     fig, ax = plt.subplots(figsize=(8, 4.2), dpi=150)
-    ax.bar([i - width / 2 for i in x], before_vals, width, label="Before (baseline)", color=PALETTE["series_1_blue"])
-    ax.bar([i + width / 2 for i in x], after_vals, width, label="After (ML model)", color=PALETTE["series_2_orange"])
+    ax.bar(
+        [i - width / 2 for i in x],
+        before_vals,
+        width,
+        label="Before (baseline)",
+        color=PALETTE["series_1_blue"],
+    )
+    ax.bar(
+        [i + width / 2 for i in x],
+        after_vals,
+        width,
+        label="After (ML model)",
+        color=PALETTE["series_2_orange"],
+    )
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
     ax.set_ylabel("Score")
@@ -1506,6 +1609,7 @@ def export_pdf_from_docx(docx_path: Path, pdf_path: Path) -> Optional[Path]:
 
     try:
         from docx2pdf import convert
+
         convert(str(docx_path), str(pdf_path))
         if pdf_path.exists():
             return pdf_path
@@ -1518,8 +1622,18 @@ def export_pdf_from_docx(docx_path: Path, pdf_path: Path) -> Optional[Path]:
     if soffice:
         try:
             subprocess.run(
-                [soffice, "--headless", "--convert-to", "pdf", "--outdir", str(pdf_path.parent), str(docx_path)],
-                check=True, timeout=120, capture_output=True,
+                [
+                    soffice,
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(pdf_path.parent),
+                    str(docx_path),
+                ],
+                check=True,
+                timeout=120,
+                capture_output=True,
             )
             produced = pdf_path.parent / (docx_path.stem + ".pdf")
             if produced.exists():
@@ -1529,10 +1643,12 @@ def export_pdf_from_docx(docx_path: Path, pdf_path: Path) -> Optional[Path]:
         except Exception as e:
             print(f"LibreOffice headless conversion raised a real error ({type(e).__name__}: {e}).")
 
-    print("SKIPPED PDF export -- neither docx2pdf (needs MS Word) nor a LibreOffice "
-          "'soffice'/'libreoffice' binary on PATH is available on this machine. "
-          "ACTION NEEDED: pip install docx2pdf (Windows/Mac with Word installed) or install "
-          "LibreOffice. No PDF was fabricated.")
+    print(
+        "SKIPPED PDF export -- neither docx2pdf (needs MS Word) nor a LibreOffice "
+        "'soffice'/'libreoffice' binary on PATH is available on this machine. "
+        "ACTION NEEDED: pip install docx2pdf (Windows/Mac with Word installed) or install "
+        "LibreOffice. No PDF was fabricated."
+    )
     return None
 
 
@@ -1545,47 +1661,51 @@ def write_model_card(path: Path, context: dict) -> Path:
     status = context.get("status") or compute_bp_status(context)
     fi = compute_financial_impact(primary["before"], primary["after"], context["assumptions"])
     recs = context.get("smart_recommendations") or generate_smart_recommendations(context)
-    lines = [
-        f"# Model Card -- {context['bp_id']}: {context['bp_name']}",
-        "",
-        f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
-        f"{context['primary_variant']} (this BP's locked mandatory realism-validation tier)._",
-        "",
-        f"## Status: {status['label']}",
-        status["rationale"],
-        "",
-        "## Business Objective",
-        context["business_objective"],
-        "",
-        "## What This Means for the Business",
-    ] + [f"- {point}" for point in context["business_benefits"]] + [
-        "",
-        "## Financial Impact Summary",
-        f"- False-positive-reduction savings (ASSUMPTION): {_fmt_usd(fi['fp_dollar_savings'])} "
-        f"({fi['hours_saved']:,.0f} investigator hours, {fi['fp_reduction']:,} fewer false-positive alerts)",
-        f"- True-positive-uplift illustrative regulatory-exposure-avoidance (ASSUMPTION): "
-        f"{_fmt_usd(fi['tp_dollar_illustrative'])} ({fi['tp_uplift']:+,} additional real cases caught)",
-        "- These two figures are never summed into one blended total (locked Section 7A policy).",
-        "",
-        "## Model Details",
-        f"- Champion algorithm: **{rep['champion_name']}**",
-        f"- Random seed: {rep['random_seed']}",
-        f"- Feature count: {len(rep['feature_cols'])}",
-        f"- Selected decision threshold: {rep['selected_threshold']:.6f}",
-        "",
-        "## Intended Use",
-        "Real-time / batch transaction-level suspicious-activity scoring, feeding investigator "
-        "alert review. Not a standalone SAR-filing decision -- output is evidence for a human "
-        "investigator, per this platform's locked scope.",
-        "",
-        "## Training Data",
-        "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
-        "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
-        "",
-        "## Evaluation",
-        "| Variant | Champion | Test PR-AUC | Precision | Recall | F2 | Verdict |",
-        "|---|---|---|---|---|---|---|",
-    ]
+    lines = (
+        [
+            f"# Model Card -- {context['bp_id']}: {context['bp_name']}",
+            "",
+            f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
+            f"{context['primary_variant']} (this BP's locked mandatory realism-validation tier)._",
+            "",
+            f"## Status: {status['label']}",
+            status["rationale"],
+            "",
+            "## Business Objective",
+            context["business_objective"],
+            "",
+            "## What This Means for the Business",
+        ]
+        + [f"- {point}" for point in context["business_benefits"]]
+        + [
+            "",
+            "## Financial Impact Summary",
+            f"- False-positive-reduction savings (ASSUMPTION): {_fmt_usd(fi['fp_dollar_savings'])} "
+            f"({fi['hours_saved']:,.0f} investigator hours, {fi['fp_reduction']:,} fewer false-positive alerts)",
+            f"- True-positive-uplift illustrative regulatory-exposure-avoidance (ASSUMPTION): "
+            f"{_fmt_usd(fi['tp_dollar_illustrative'])} ({fi['tp_uplift']:+,} additional real cases caught)",
+            "- These two figures are never summed into one blended total (locked Section 7A policy).",
+            "",
+            "## Model Details",
+            f"- Champion algorithm: **{rep['champion_name']}**",
+            f"- Random seed: {rep['random_seed']}",
+            f"- Feature count: {len(rep['feature_cols'])}",
+            f"- Selected decision threshold: {rep['selected_threshold']:.6f}",
+            "",
+            "## Intended Use",
+            "Real-time / batch transaction-level suspicious-activity scoring, feeding investigator "
+            "alert review. Not a standalone SAR-filing decision -- output is evidence for a human "
+            "investigator, per this platform's locked scope.",
+            "",
+            "## Training Data",
+            "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
+            "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
+            "",
+            "## Evaluation",
+            "| Variant | Champion | Test PR-AUC | Precision | Recall | F2 | Verdict |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
     for variant_name, v in context["variants"].items():
         r = v["report"]
         lines.append(
@@ -1597,7 +1717,9 @@ def write_model_card(path: Path, context: dict) -> Path:
         "",
         "## Explainability",
         "SHAP (TreeExplainer, global) and LIME (local, per real true-positive instance) -- see "
-        "each variant's own saved `{}_notebook3_validation_report_*.json` for full real values.".format(context['bp_id'].lower()),
+        "each variant's own saved `{}_notebook3_validation_report_*.json` for full real values.".format(
+            context["bp_id"].lower()
+        ),
         "",
         "## Ethical Considerations / Fairness",
         context["fairness_note"],
@@ -1733,11 +1855,15 @@ def compute_financial_impact_multiclass(rep: dict, assumptions: dict) -> dict:
 
     return {
         "n_test": n_test,
-        "before_n_correct": before_n_correct, "after_n_correct": after_n_correct,
-        "before_accuracy": before_accuracy, "after_accuracy": after_accuracy,
+        "before_n_correct": before_n_correct,
+        "after_n_correct": after_n_correct,
+        "before_accuracy": before_accuracy,
+        "after_accuracy": after_accuracy,
         "delta_correct": delta_correct,
-        "hours_saved": hours_saved, "autotyping_dollar_savings": autotyping_dollar_savings,
-        "net_new_typed": net_new_typed, "net_new_dollar_value": net_new_dollar_value,
+        "hours_saved": hours_saved,
+        "autotyping_dollar_savings": autotyping_dollar_savings,
+        "net_new_typed": net_new_typed,
+        "net_new_dollar_value": net_new_dollar_value,
     }
 
 
@@ -1752,26 +1878,39 @@ def build_before_after_table_multiclass(rep: dict, assumptions: dict) -> pd.Data
     after_f1 = float(rep["test_metrics"]["macro_f1"])
 
     rows = [
-        {"Metric": "Macro-F1 (typology classification quality)",
-         "Before (baseline)": f"{before_f1:.4f}", "After (ML model)": f"{after_f1:.4f}",
-         "Delta": f"{after_f1 - before_f1:+.4f}", "$ Impact": ""},
-        {"Metric": "Overall labeling accuracy (real, all typologies)",
-         "Before (baseline)": f"{fi['before_accuracy']:.4f}", "After (ML model)": f"{fi['after_accuracy']:.4f}",
-         "Delta": f"{fi['after_accuracy'] - fi['before_accuracy']:+.4f}", "$ Impact": ""},
-        {"Metric": "Cases correctly auto-typed (real count, held-out test set)",
-         "Before (baseline)": f"{fi['before_n_correct']:,} / {fi['n_test']:,}",
-         "After (ML model)": f"{fi['after_n_correct']:,} / {fi['n_test']:,}",
-         "Delta": f"{fi['delta_correct']:+,}",
-         "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['autotyping_dollar_savings'])} auto-typing efficiency "
-                      f"savings ({fi['hours_saved']:,.1f} hrs @ "
-                      f"${assumptions['cost_per_investigator_hour_usd']:.0f}/hr, "
-                      f"{assumptions['hours_per_case_manual_typology_review']} hrs/case reviewed manually)"},
-        {"Metric": "Net-new typology detections beyond the old single-guess baseline (real count)",
-         "Before (baseline)": "0 (structurally cannot type any class but its own fixed guess)",
-         "After (ML model)": f"{fi['net_new_typed']:,}", "Delta": f"{fi['net_new_typed']:+,}",
-         "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['net_new_dollar_value'])} illustrative typology-"
-                      f"confirmation value ({fi['net_new_typed']:,} cases @ "
-                      f"${assumptions['illustrative_typology_confirmation_value_usd']:,.0f}/case)"},
+        {
+            "Metric": "Macro-F1 (typology classification quality)",
+            "Before (baseline)": f"{before_f1:.4f}",
+            "After (ML model)": f"{after_f1:.4f}",
+            "Delta": f"{after_f1 - before_f1:+.4f}",
+            "$ Impact": "",
+        },
+        {
+            "Metric": "Overall labeling accuracy (real, all typologies)",
+            "Before (baseline)": f"{fi['before_accuracy']:.4f}",
+            "After (ML model)": f"{fi['after_accuracy']:.4f}",
+            "Delta": f"{fi['after_accuracy'] - fi['before_accuracy']:+.4f}",
+            "$ Impact": "",
+        },
+        {
+            "Metric": "Cases correctly auto-typed (real count, held-out test set)",
+            "Before (baseline)": f"{fi['before_n_correct']:,} / {fi['n_test']:,}",
+            "After (ML model)": f"{fi['after_n_correct']:,} / {fi['n_test']:,}",
+            "Delta": f"{fi['delta_correct']:+,}",
+            "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['autotyping_dollar_savings'])} auto-typing efficiency "
+            f"savings ({fi['hours_saved']:,.1f} hrs @ "
+            f"${assumptions['cost_per_investigator_hour_usd']:.0f}/hr, "
+            f"{assumptions['hours_per_case_manual_typology_review']} hrs/case reviewed manually)",
+        },
+        {
+            "Metric": "Net-new typology detections beyond the old single-guess baseline (real count)",
+            "Before (baseline)": "0 (structurally cannot type any class but its own fixed guess)",
+            "After (ML model)": f"{fi['net_new_typed']:,}",
+            "Delta": f"{fi['net_new_typed']:+,}",
+            "$ Impact": f"ASSUMPTION: {_fmt_usd(fi['net_new_dollar_value'])} illustrative typology-"
+            f"confirmation value ({fi['net_new_typed']:,} cases @ "
+            f"${assumptions['illustrative_typology_confirmation_value_usd']:,.0f}/case)",
+        },
     ]
     return pd.DataFrame(rows)
 
@@ -1793,15 +1932,17 @@ def build_typology_recall_table(rep: dict) -> pd.DataFrame:
         after_r = float(ba_recall[c]["after_recall"])
         before_cases = int(round(before_r * support))
         after_cases = int(round(after_r * support))
-        rows.append({
-            "Typology": c,
-            "Before Recall": f"{before_r:.4f}",
-            "After Recall": f"{after_r:.4f}",
-            "Delta Recall": f"{after_r - before_r:+.4f}",
-            "Real Test Support (n)": int(round(support)),
-            "Cases Correctly Typed, Before": before_cases,
-            "Cases Correctly Typed, After": after_cases,
-        })
+        rows.append(
+            {
+                "Typology": c,
+                "Before Recall": f"{before_r:.4f}",
+                "After Recall": f"{after_r:.4f}",
+                "Delta Recall": f"{after_r - before_r:+.4f}",
+                "Real Test Support (n)": int(round(support)),
+                "Cases Correctly Typed, Before": before_cases,
+                "Cases Correctly Typed, After": after_cases,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -1826,81 +1967,96 @@ def generate_smart_recommendations_multiclass(context: dict) -> list:
     weakest = recall_df.loc[recall_df["After Recall"].astype(float).idxmin()]
     strongest = recall_df.loc[recall_df["After Recall"].astype(float).idxmax()]
 
-    recs = [{
-        "title": "Prioritize real-world review of the lowest-recall typology first",
-        "specific": (
-            f"On {primary_name}, the real champion model ({rep['champion_name']}) has its "
-            f"LOWEST real absolute recall on '{weakest['Typology']}' (After recall "
-            f"{weakest['After Recall']} on {weakest['Real Test Support (n)']} real held-out "
-            f"cases) -- it still misses most real cases of this typology."
-        ),
-        "measurable": f"Track real recall on '{weakest['Typology']}' specifically at every retrain; treat any further drop from {weakest['After Recall']} as a trigger for feature review.",
-        "achievable": "Uses the same SHAP/LIME explainability already computed by Notebook 3 -- no new tooling required.",
-        "relevant": "A typology classifier that silently under-performs on one real pattern is a real investigative blind spot (SR 11-7 model risk management expectation).",
-        "time_bound": "Reviewed alongside the next scheduled model retrain, within 90 days of production go-live.",
-    }, {
-        "title": "Reallocate freed investigator capacity from real auto-typing efficiency gains",
-        "specific": (
-            f"Moving from the naive always-guess-'{rep['before_baseline_typology']}' rule to the "
-            f"real ML model correctly auto-types {fi['delta_correct']:+,} more of the "
-            f"{fi['n_test']:,} real held-out cases on {primary_name} (ASSUMPTION-estimated at "
-            f"{fi['hours_saved']:,.1f} investigator hours, {_fmt_usd(fi['autotyping_dollar_savings'])})."
-        ),
-        "measurable": f"Real manual-typology-review hours logged per investigator, compared against the {fi['hours_saved']:,.1f}-hour ASSUMPTION estimate above.",
-        "achievable": "Capacity freed is redeployed to case investigation depth, not headcount reduction -- an operational scheduling change, not a new system.",
-        "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar).",
-        "time_bound": "Reassess real review hours logged 60 days after production go-live against this ASSUMPTION estimate.",
-    }]
+    recs = [
+        {
+            "title": "Prioritize real-world review of the lowest-recall typology first",
+            "specific": (
+                f"On {primary_name}, the real champion model ({rep['champion_name']}) has its "
+                f"LOWEST real absolute recall on '{weakest['Typology']}' (After recall "
+                f"{weakest['After Recall']} on {weakest['Real Test Support (n)']} real held-out "
+                f"cases) -- it still misses most real cases of this typology."
+            ),
+            "measurable": f"Track real recall on '{weakest['Typology']}' specifically at every retrain; treat any further drop from {weakest['After Recall']} as a trigger for feature review.",
+            "achievable": "Uses the same SHAP/LIME explainability already computed by Notebook 3 -- no new tooling required.",
+            "relevant": "A typology classifier that silently under-performs on one real pattern is a real investigative blind spot (SR 11-7 model risk management expectation).",
+            "time_bound": "Reviewed alongside the next scheduled model retrain, within 90 days of production go-live.",
+        },
+        {
+            "title": "Reallocate freed investigator capacity from real auto-typing efficiency gains",
+            "specific": (
+                f"Moving from the naive always-guess-'{rep['before_baseline_typology']}' rule to the "
+                f"real ML model correctly auto-types {fi['delta_correct']:+,} more of the "
+                f"{fi['n_test']:,} real held-out cases on {primary_name} (ASSUMPTION-estimated at "
+                f"{fi['hours_saved']:,.1f} investigator hours, {_fmt_usd(fi['autotyping_dollar_savings'])})."
+            ),
+            "measurable": f"Real manual-typology-review hours logged per investigator, compared against the {fi['hours_saved']:,.1f}-hour ASSUMPTION estimate above.",
+            "achievable": "Capacity freed is redeployed to case investigation depth, not headcount reduction -- an operational scheduling change, not a new system.",
+            "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar).",
+            "time_bound": "Reassess real review hours logged 60 days after production go-live against this ASSUMPTION estimate.",
+        },
+    ]
 
     if fi["net_new_typed"] > 0:
-        recs.append({
-            "title": "Validate the real net-new typology detections against filed SARs",
-            "specific": (
-                f"The real ML model correctly identifies {fi['net_new_typed']:,} real held-out "
-                f"cases whose true typology is something other than the old rule's fixed guess "
-                f"('{rep['before_baseline_typology']}') on {primary_name} -- typology "
-                f"detection that structurally could not exist under the old rule (illustrative "
-                f"typology-confirmation value, ASSUMPTION: {_fmt_usd(fi['net_new_dollar_value'])})."
-            ),
-            "measurable": "Real SAR filing rate on model-assigned typologies for these net-new-detected cases, tracked separately from the auto-typing-efficiency line above.",
-            "achievable": "Requires only tagging each filed SAR with the model-assigned typology at filing time -- a labeling change, not a new detection system.",
-            "relevant": "Directly evidences the model's real typology-detection benefit to examiners (31 CFR Section 1020.320 SAR requirements).",
-            "time_bound": "First real comparison report at the 6-month production mark (enough real SAR volume to be meaningful).",
-        })
+        recs.append(
+            {
+                "title": "Validate the real net-new typology detections against filed SARs",
+                "specific": (
+                    f"The real ML model correctly identifies {fi['net_new_typed']:,} real held-out "
+                    f"cases whose true typology is something other than the old rule's fixed guess "
+                    f"('{rep['before_baseline_typology']}') on {primary_name} -- typology "
+                    f"detection that structurally could not exist under the old rule (illustrative "
+                    f"typology-confirmation value, ASSUMPTION: {_fmt_usd(fi['net_new_dollar_value'])})."
+                ),
+                "measurable": "Real SAR filing rate on model-assigned typologies for these net-new-detected cases, tracked separately from the auto-typing-efficiency line above.",
+                "achievable": "Requires only tagging each filed SAR with the model-assigned typology at filing time -- a labeling change, not a new detection system.",
+                "relevant": "Directly evidences the model's real typology-detection benefit to examiners (31 CFR Section 1020.320 SAR requirements).",
+                "time_bound": "First real comparison report at the 6-month production mark (enough real SAR volume to be meaningful).",
+            }
+        )
 
     if strongest["Typology"] != weakest["Typology"]:
-        recs.append({
-            "title": f"Document why '{strongest['Typology']}' recall is strongest, as a template for the weaker typologies",
-            "specific": (
-                f"'{strongest['Typology']}' has the real HIGHEST absolute recall on {primary_name} "
-                f"(After recall {strongest['After Recall']}, real Delta {strongest['Delta Recall']} vs. the baseline)."
-                + (f" Real SHAP analysis ranks '{top_feature}' as the model's dominant overall driver." if top_feature else "")
-            ),
-            "measurable": "Confirm the same driver(s) remain dominant for this typology at every future real retrain.",
-            "achievable": "Already computed by Notebook 3's existing SHAP step -- no new tooling required.",
-            "relevant": "SR 11-7 model risk management requires a documented explanation of the model's real primary drivers, per typology where they differ.",
-            "time_bound": "Refresh this documentation at every model retrain, alongside the MODEL_CARD.md update.",
-        })
+        recs.append(
+            {
+                "title": f"Document why '{strongest['Typology']}' recall is strongest, as a template for the weaker typologies",
+                "specific": (
+                    f"'{strongest['Typology']}' has the real HIGHEST absolute recall on {primary_name} "
+                    f"(After recall {strongest['After Recall']}, real Delta {strongest['Delta Recall']} vs. the baseline)."
+                    + (
+                        f" Real SHAP analysis ranks '{top_feature}' as the model's dominant overall driver."
+                        if top_feature
+                        else ""
+                    )
+                ),
+                "measurable": "Confirm the same driver(s) remain dominant for this typology at every future real retrain.",
+                "achievable": "Already computed by Notebook 3's existing SHAP step -- no new tooling required.",
+                "relevant": "SR 11-7 model risk management requires a documented explanation of the model's real primary drivers, per typology where they differ.",
+                "time_bound": "Refresh this documentation at every model retrain, alongside the MODEL_CARD.md update.",
+            }
+        )
 
     failing = [name for name, v in context["variants"].items() if v["report"]["overall_verdict"] != "PASS"]
     if failing:
-        recs.append({
-            "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
-            "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
-            "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
-            "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new modeling approach required.",
-            "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
-            "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
-        })
+        recs.append(
+            {
+                "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
+                "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
+                "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
+                "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new modeling approach required.",
+                "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
+                "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
+            }
+        )
     else:
-        recs.append({
-            "title": "Maintain the real two-gate validation standard on every future retrain",
-            "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
-            "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
-            "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
-            "relevant": "This is the basis for this report's current production-recommended status.",
-            "time_bound": "Every retrain cycle, before redeployment.",
-        })
+        recs.append(
+            {
+                "title": "Maintain the real two-gate validation standard on every future retrain",
+                "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
+                "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
+                "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
+                "relevant": "This is the basis for this report's current production-recommended status.",
+                "time_bound": "Every retrain cycle, before redeployment.",
+            }
+        )
 
     return recs
 
@@ -1911,6 +2067,7 @@ def generate_smart_recommendations_multiclass(context: dict) -> list:
 def write_word_report_multiclass(path: Path, context: dict) -> Path:
     from docx import Document
     from docx.shared import Pt, RGBColor
+
     doc = Document()
     _apply_word_brand_styles(doc)
     doc.add_heading(f"{context['bp_id']}: {context['bp_name']}", level=0)
@@ -1926,8 +2083,11 @@ def write_word_report_multiclass(path: Path, context: dict) -> Path:
     run = p.add_run(status["label"])
     run.bold = True
     run.font.size = Pt(14)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     run.font.color.rgb = status_colors.get(status["css_class"], RGBColor(0x0B, 0x0B, 0x0B))
     doc.add_paragraph(status["rationale"])
 
@@ -1963,7 +2123,9 @@ def write_word_report_multiclass(path: Path, context: dict) -> Path:
     table = doc.add_table(rows=1, cols=5)
     table.style = "Light Grid Accent 1"
     hdr = table.rows[0].cells
-    for i, h in enumerate(["Variant", "Champion", "Test Macro-F1", "Real Typologies Matched", "Gate Verdict"]):
+    for i, h in enumerate(
+        ["Variant", "Champion", "Test Macro-F1", "Real Typologies Matched", "Gate Verdict"]
+    ):
         hdr[i].text = h
     for variant_name, v in context["variants"].items():
         r = v["report"]
@@ -2031,8 +2193,10 @@ def write_word_report_multiclass(path: Path, context: dict) -> Path:
         for feat, val in top5:
             doc.add_paragraph(f"{feat}: {val:.4f}", style="List Bullet")
     else:
-        doc.add_paragraph("SHAP was not available on the machine that produced this run -- "
-                           "see that Notebook 3 run's own console output for the real reason.")
+        doc.add_paragraph(
+            "SHAP was not available on the machine that produced this run -- "
+            "see that Notebook 3 run's own console output for the real reason."
+        )
 
     if context.get("stage_a_screening"):
         doc.add_heading("Appendix: Stage A Candidate Screening (fast-build variant)", level=1)
@@ -2043,7 +2207,9 @@ def write_word_report_multiclass(path: Path, context: dict) -> Path:
             "reported above (that selection is Notebook 3's own real Stage B CV result)."
         )
         for variant_name, summary in context["stage_a_screening"].items():
-            doc.add_paragraph(f"{variant_name}: {summary['n_modeled_rows']:,} real modeled rows.", style="List Bullet")
+            doc.add_paragraph(
+                f"{variant_name}: {summary['n_modeled_rows']:,} real modeled rows.", style="List Bullet"
+            )
             sa_table = doc.add_table(rows=1, cols=2)
             sa_table.style = "Light Grid Accent 1"
             sa_table.rows[0].cells[0].text = "Model"
@@ -2092,9 +2258,9 @@ def write_word_report_multiclass(path: Path, context: dict) -> Path:
 # ============================================================================
 def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.workbook.properties import CalcProperties
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.properties import CalcProperties
 
     yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     blue_font = Font(color="0000FF", bold=True)
@@ -2113,13 +2279,23 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
     ws_a["A1"].fill = header_fill
     ws_a["B1"].fill = header_fill
     assumption_rows = [
-        ("Hours per case, manual typology review (ASSUMPTION)", context["assumptions"]["hours_per_case_manual_typology_review"]),
-        ("Cost per investigator hour, USD (ASSUMPTION)", context["assumptions"]["cost_per_investigator_hour_usd"]),
-        ("Illustrative typology-confirmation value per case, USD (ASSUMPTION)",
-         context["assumptions"]["illustrative_typology_confirmation_value_usd"]),
+        (
+            "Hours per case, manual typology review (ASSUMPTION)",
+            context["assumptions"]["hours_per_case_manual_typology_review"],
+        ),
+        (
+            "Cost per investigator hour, USD (ASSUMPTION)",
+            context["assumptions"]["cost_per_investigator_hour_usd"],
+        ),
+        (
+            "Illustrative typology-confirmation value per case, USD (ASSUMPTION)",
+            context["assumptions"]["illustrative_typology_confirmation_value_usd"],
+        ),
     ]
-    usd_assumption_rows = {"Cost per investigator hour, USD (ASSUMPTION)",
-                            "Illustrative typology-confirmation value per case, USD (ASSUMPTION)"}
+    usd_assumption_rows = {
+        "Cost per investigator hour, USD (ASSUMPTION)",
+        "Illustrative typology-confirmation value per case, USD (ASSUMPTION)",
+    }
     for i, (label, val) in enumerate(assumption_rows, start=2):
         ws_a[f"A{i}"] = label
         ws_a[f"B{i}"] = val
@@ -2130,12 +2306,20 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
     ws_a.column_dimensions["A"].width = 58
     ws_a.column_dimensions["B"].width = 18
     _brand_excel_sheet(ws_a, PALETTE["ink_muted"], freeze_cell="A2")
-    wb.defined_names["hours_per_case_manual_typology_review"] = _defined_name("hours_per_case_manual_typology_review", "Assumptions", "B2")
-    wb.defined_names["cost_per_investigator_hour_usd"] = _defined_name("cost_per_investigator_hour_usd", "Assumptions", "B3")
-    wb.defined_names["illustrative_typology_confirmation_value_usd"] = _defined_name("illustrative_typology_confirmation_value_usd", "Assumptions", "B4")
+    wb.defined_names["hours_per_case_manual_typology_review"] = _defined_name(
+        "hours_per_case_manual_typology_review", "Assumptions", "B2"
+    )
+    wb.defined_names["cost_per_investigator_hour_usd"] = _defined_name(
+        "cost_per_investigator_hour_usd", "Assumptions", "B3"
+    )
+    wb.defined_names["illustrative_typology_confirmation_value_usd"] = _defined_name(
+        "illustrative_typology_confirmation_value_usd", "Assumptions", "B4"
+    )
 
     status = context.get("status") or compute_bp_status(context)
-    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(status["css_class"], "2A78D6")
+    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(
+        status["css_class"], "2A78D6"
+    )
     ws_e = wb.create_sheet("Executive Summary")
     ws_e["A1"] = "Status"
     ws_e["B1"] = "Rationale"
@@ -2167,14 +2351,26 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
     ws_e["B6"] = f"='{ba_sheet_name}'!B10"
     ws_e["B6"].number_format = _EXCEL_USD_FORMAT
     ws_e["C6"] = _excel_usd_shorthand_formula("B6")
-    ws_e["A7"] = "Note: the two figures above apply different ASSUMPTIONS to different real case subsets and are never summed (Section 7A discipline)."
+    ws_e["A7"] = (
+        "Note: the two figures above apply different ASSUMPTIONS to different real case subsets and are never summed (Section 7A discipline)."
+    )
     ws_e["A7"].font = Font(italic=True, color="52514E")
     ws_e.column_dimensions["C"].width = 26
     _brand_excel_sheet(ws_e, status_hex, freeze_cell="A3")
 
     ws_s = wb.create_sheet("Variant Summary")
-    headers = ["Variant", "Champion", "Test Macro-F1", "Before Macro-F1", "Lift (x)",
-               "Overall Accuracy", "Real Typologies Matched", "Gate 1", "Gate 2", "Overall Verdict"]
+    headers = [
+        "Variant",
+        "Champion",
+        "Test Macro-F1",
+        "Before Macro-F1",
+        "Lift (x)",
+        "Overall Accuracy",
+        "Real Typologies Matched",
+        "Gate 1",
+        "Gate 2",
+        "Overall Verdict",
+    ]
     for c, h in enumerate(headers, start=1):
         cell = ws_s.cell(row=1, column=c, value=h)
         cell.font = header_font
@@ -2197,8 +2393,9 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
     for c in range(1, len(headers) + 1):
         ws_s.column_dimensions[get_column_letter(c)].width = 20
     _brand_excel_sheet(ws_s, PALETTE["series_1_blue"], freeze_cell="A2")
-    _band_excel_rows(ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]),
-                      first_col=1, last_col=len(headers))
+    _band_excel_rows(
+        ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]), first_col=1, last_col=len(headers)
+    )
     _color_verdict_cells(ws_s, rows=range(2, 2 + len(context["variants"])), cols=[8, 9, 10])
 
     for variant_name, v in context["variants"].items():
@@ -2223,19 +2420,29 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
             ws_b.cell(row=r, column=4, value=f"=C{r}-B{r}")
         # rows: 2=Macro-F1, 3=Accuracy, 4=Cases correctly auto-typed, 5=Net-new -- $ Impact live formulas below
         cases_row, net_new_row = 4, 5
-        ws_b.cell(row=7, column=3, value="Formatted (with B/M shorthand)").font = Font(italic=True, color="52514E")
+        ws_b.cell(row=7, column=3, value="Formatted (with B/M shorthand)").font = Font(
+            italic=True, color="52514E"
+        )
         ws_b.cell(row=9, column=1, value="Auto-typing efficiency $ savings (ASSUMPTION, live formula)")
-        ws_b.cell(row=9, column=2,
-                  value=f"=D{cases_row}*hours_per_case_manual_typology_review*cost_per_investigator_hour_usd")
+        ws_b.cell(
+            row=9,
+            column=2,
+            value=f"=D{cases_row}*hours_per_case_manual_typology_review*cost_per_investigator_hour_usd",
+        )
         ws_b.cell(row=9, column=2).number_format = _EXCEL_USD_FORMAT
         ws_b.cell(row=9, column=3, value=_excel_usd_shorthand_formula("B9"))
-        ws_b.cell(row=10, column=1, value="Illustrative typology-confirmation $ value (ASSUMPTION, live formula)")
+        ws_b.cell(
+            row=10, column=1, value="Illustrative typology-confirmation $ value (ASSUMPTION, live formula)"
+        )
         ws_b.cell(row=10, column=2, value=f"=D{net_new_row}*illustrative_typology_confirmation_value_usd")
         ws_b.cell(row=10, column=2).number_format = _EXCEL_USD_FORMAT
         ws_b.cell(row=10, column=3, value=_excel_usd_shorthand_formula("B10"))
-        ws_b.cell(row=12, column=1,
-                  value="Note: the two $ lines above apply different ASSUMPTIONS to different real case "
-                        "subsets and are never summed (Section 7A discipline).")
+        ws_b.cell(
+            row=12,
+            column=1,
+            value="Note: the two $ lines above apply different ASSUMPTIONS to different real case "
+            "subsets and are never summed (Section 7A discipline).",
+        )
         ws_b.auto_filter.ref = "A1:D5"
         for c in range(1, 5):
             ws_b.column_dimensions[get_column_letter(c)].width = 42 if c == 1 else (26 if c == 3 else 22)
@@ -2257,8 +2464,13 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
         for c in range(1, len(recall_df.columns) + 1):
             ws_r.column_dimensions[get_column_letter(c)].width = 22
         _brand_excel_sheet(ws_r, PALETTE["series_2_orange"], freeze_cell="A2")
-        _band_excel_rows(ws_r, first_data_row=2, last_data_row=1 + len(recall_df),
-                          first_col=1, last_col=len(recall_df.columns))
+        _band_excel_rows(
+            ws_r,
+            first_data_row=2,
+            last_data_row=1 + len(recall_df),
+            first_col=1,
+            last_col=len(recall_df.columns),
+        )
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -2273,6 +2485,7 @@ def write_excel_workbook_multiclass(path: Path, context: dict) -> Path:
 # ============================================================================
 def render_typology_recall_chart_png(recall_df: pd.DataFrame, out_path: Path) -> Path:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -2283,8 +2496,20 @@ def render_typology_recall_chart_png(recall_df: pd.DataFrame, out_path: Path) ->
     x = range(len(labels))
     width = 0.35
     fig, ax = plt.subplots(figsize=(9, 4.4), dpi=150)
-    ax.bar([i - width / 2 for i in x], before_vals, width, label="Before (baseline)", color=PALETTE["series_1_blue"])
-    ax.bar([i + width / 2 for i in x], after_vals, width, label="After (ML model)", color=PALETTE["series_2_orange"])
+    ax.bar(
+        [i - width / 2 for i in x],
+        before_vals,
+        width,
+        label="Before (baseline)",
+        color=PALETTE["series_1_blue"],
+    )
+    ax.bar(
+        [i + width / 2 for i in x],
+        after_vals,
+        width,
+        label="After (ML model)",
+        color=PALETTE["series_2_orange"],
+    )
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, rotation=20, ha="right")
     ax.set_ylabel("Recall")
@@ -2310,7 +2535,9 @@ def write_html_dashboard_multiclass(path: Path, context: dict, chartjs_js_path: 
     chartjs_source = Path(chartjs_js_path).read_text(encoding="utf-8")
 
     status = context.get("status") or compute_bp_status(context)
-    recommendations = context.get("smart_recommendations") or generate_smart_recommendations_multiclass(context)
+    recommendations = context.get("smart_recommendations") or generate_smart_recommendations_multiclass(
+        context
+    )
 
     variants_json = {}
     for variant_name, v in context["variants"].items():
@@ -2791,8 +3018,8 @@ def write_html_dashboard_multiclass(path: Path, context: dict, chartjs_js_path: 
 # ============================================================================
 def write_pptx_deck_multiclass(path: Path, context: dict, chart_png_paths: Optional[dict] = None) -> Path:
     from pptx import Presentation
-    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
 
     prs = Presentation()
     blue = RGBColor(0x2A, 0x78, 0xD6)
@@ -2806,8 +3033,11 @@ def write_pptx_deck_multiclass(path: Path, context: dict, chart_png_paths: Optio
     slide.placeholders[1].text_frame.text = context["business_objective"]
 
     status = context.get("status") or compute_bp_status(context)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Recommendation & Status"
     body = slide.placeholders[1].text_frame
@@ -2865,7 +3095,9 @@ def write_pptx_deck_multiclass(path: Path, context: dict, chart_png_paths: Optio
     if chart_png_paths and "typology_recall" in chart_png_paths:
         slide = _add_branded_slide(prs, 5)
         slide.shapes.title.text = f"Per-Typology Recall, Before / After ({primary_name})"
-        slide.shapes.add_picture(str(chart_png_paths["typology_recall"]), Inches(0.5), Inches(1.3), width=Inches(9))
+        slide.shapes.add_picture(
+            str(chart_png_paths["typology_recall"]), Inches(0.5), Inches(1.3), width=Inches(9)
+        )
 
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = f"Financial Impact Summary ({primary_name})"
@@ -2923,50 +3155,54 @@ def write_model_card_multiclass(path: Path, context: dict) -> Path:
     fi = compute_financial_impact_multiclass(rep, context["assumptions"])
     recs = context.get("smart_recommendations") or generate_smart_recommendations_multiclass(context)
     recall_df = context["typology_recall_tables"][primary_name]
-    lines = [
-        f"# Model Card -- {context['bp_id']}: {context['bp_name']}",
-        "",
-        f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
-        f"{primary_name} (this BP's locked mandatory realism-validation tier)._",
-        "",
-        f"## Status: {status['label']}",
-        status["rationale"],
-        "",
-        "## Business Objective",
-        context["business_objective"],
-        "",
-        "## What This Means for the Business",
-    ] + [f"- {point}" for point in context["business_benefits"]] + [
-        "",
-        "## Financial Impact Summary",
-        f"- Auto-typing efficiency savings (ASSUMPTION): {_fmt_usd(fi['autotyping_dollar_savings'])} "
-        f"({fi['hours_saved']:,.1f} investigator hours, {fi['delta_correct']:+,} more cases correctly auto-typed)",
-        f"- Illustrative typology-confirmation value (ASSUMPTION): {_fmt_usd(fi['net_new_dollar_value'])} "
-        f"({fi['net_new_typed']:,} real cases the old single-guess rule structurally could not identify)",
-        "- These figures apply different ASSUMPTIONS to different real case subsets and are never summed (locked Section 7A discipline).",
-        "",
-        "## Model Details",
-        f"- Champion algorithm: **{rep['champion_name']}**",
-        f"- Random seed: {rep['random_seed']}",
-        f"- Feature count: {len(rep['feature_cols'])}",
-        f"- Primary metric: macro-F1 (no single decision threshold -- multi-class argmax)",
-        f"- Real typologies with matched ground truth this run: {', '.join(rep['class_names'])} "
-        f"({len(rep['class_names'])} of the 8 typologies this platform models)",
-        "",
-        "## Intended Use",
-        "Real-time / batch typology classification of transactions already flagged as known "
-        "laundering (`Is Laundering==1`), feeding investigator case triage and SAR-narrative "
-        "drafting. Not a standalone SAR-filing decision -- output is evidence for a human "
-        "investigator, per this platform's locked scope.",
-        "",
-        "## Training Data",
-        "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
-        "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
-        "",
-        "## Evaluation",
-        "| Variant | Champion | Test Macro-F1 | Before Macro-F1 | Overall Accuracy | Verdict |",
-        "|---|---|---|---|---|---|",
-    ]
+    lines = (
+        [
+            f"# Model Card -- {context['bp_id']}: {context['bp_name']}",
+            "",
+            f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
+            f"{primary_name} (this BP's locked mandatory realism-validation tier)._",
+            "",
+            f"## Status: {status['label']}",
+            status["rationale"],
+            "",
+            "## Business Objective",
+            context["business_objective"],
+            "",
+            "## What This Means for the Business",
+        ]
+        + [f"- {point}" for point in context["business_benefits"]]
+        + [
+            "",
+            "## Financial Impact Summary",
+            f"- Auto-typing efficiency savings (ASSUMPTION): {_fmt_usd(fi['autotyping_dollar_savings'])} "
+            f"({fi['hours_saved']:,.1f} investigator hours, {fi['delta_correct']:+,} more cases correctly auto-typed)",
+            f"- Illustrative typology-confirmation value (ASSUMPTION): {_fmt_usd(fi['net_new_dollar_value'])} "
+            f"({fi['net_new_typed']:,} real cases the old single-guess rule structurally could not identify)",
+            "- These figures apply different ASSUMPTIONS to different real case subsets and are never summed (locked Section 7A discipline).",
+            "",
+            "## Model Details",
+            f"- Champion algorithm: **{rep['champion_name']}**",
+            f"- Random seed: {rep['random_seed']}",
+            f"- Feature count: {len(rep['feature_cols'])}",
+            "- Primary metric: macro-F1 (no single decision threshold -- multi-class argmax)",
+            f"- Real typologies with matched ground truth this run: {', '.join(rep['class_names'])} "
+            f"({len(rep['class_names'])} of the 8 typologies this platform models)",
+            "",
+            "## Intended Use",
+            "Real-time / batch typology classification of transactions already flagged as known "
+            "laundering (`Is Laundering==1`), feeding investigator case triage and SAR-narrative "
+            "drafting. Not a standalone SAR-filing decision -- output is evidence for a human "
+            "investigator, per this platform's locked scope.",
+            "",
+            "## Training Data",
+            "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
+            "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
+            "",
+            "## Evaluation",
+            "| Variant | Champion | Test Macro-F1 | Before Macro-F1 | Overall Accuracy | Verdict |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
     for variant_name, v in context["variants"].items():
         r = v["report"]
         f = compute_financial_impact_multiclass(r, context["assumptions"])
@@ -2990,7 +3226,7 @@ def write_model_card_multiclass(path: Path, context: dict) -> Path:
         "## Explainability",
         "SHAP (TreeExplainer, global, averaged across all real typologies) and LIME (local, "
         "per real predicted-typology instance) -- see this variant's own saved "
-        "`{}_notebook3_validation_report_*.json` for full real values.".format(context['bp_id'].lower()),
+        "`{}_notebook3_validation_report_*.json` for full real values.".format(context["bp_id"].lower()),
         "",
         "## Ethical Considerations / Fairness",
         context["fairness_note"],
@@ -3083,16 +3319,18 @@ def build_signal_comparison_table_structural(rep: dict) -> pd.DataFrame:
     rows = []
     for s in rep["stage_results"]:
         thr = s["threshold"]
-        rows.append({
-            "Signal": s["signal"],
-            "Threshold": (f"{thr:.6g}" if thr is not None else "N/A (set-membership signal)"),
-            "Test Nodes Flagged": f"{s['n_test_flagged']:,}",
-            "Exposed Among Flagged": f"{s['n_test_flagged_exposed']:,}",
-            "Flagged Exposure Rate": f"{s['flagged_exposure_rate']:.2%}",
-            "Lift Ratio": f"{s['lift_ratio']:.2f}x" if s["lift_ratio"] is not None else "undefined",
-            "Champion": "YES" if s["signal"] == champion else "",
-            "_lift_sort": s["lift_ratio"] if s["lift_ratio"] is not None else -1.0,
-        })
+        rows.append(
+            {
+                "Signal": s["signal"],
+                "Threshold": (f"{thr:.6g}" if thr is not None else "N/A (set-membership signal)"),
+                "Test Nodes Flagged": f"{s['n_test_flagged']:,}",
+                "Exposed Among Flagged": f"{s['n_test_flagged_exposed']:,}",
+                "Flagged Exposure Rate": f"{s['flagged_exposure_rate']:.2%}",
+                "Lift Ratio": f"{s['lift_ratio']:.2f}x" if s["lift_ratio"] is not None else "undefined",
+                "Champion": "YES" if s["signal"] == champion else "",
+                "_lift_sort": s["lift_ratio"] if s["lift_ratio"] is not None else -1.0,
+            }
+        )
     df = pd.DataFrame(rows).sort_values("_lift_sort", ascending=False).drop(columns=["_lift_sort"])
     return df.reset_index(drop=True)
 
@@ -3111,14 +3349,20 @@ def build_ego_network_illustration_table_structural(rep: dict) -> pd.DataFrame:
     examples -- never a new or extrapolated aggregate)."""
     rows = []
     for ego in rep.get("example_ego_networks", []):
-        rows.append({
-            "Seed Account (real, composite Bank|Account key)": ego["seed_node_key"],
-            "Before: Accounts Reviewed": "1 (the flagged account only)",
-            "After: Real Accounts Within 2 Hops": f"{ego['real_nodes_before_cap']:,}",
-            "After: Accounts Shown (capped at 2,000)": f"{ego['nodes_after_cap']:,}",
-            "After: Relationships Shown (capped subgraph)": f"{ego['edges_after_cap']:,}",
-            "Capped?": "YES -- real size exceeds the locked 2,000-node cap" if ego["truncated"] else "No -- full real ego-network shown",
-        })
+        rows.append(
+            {
+                "Seed Account (real, composite Bank|Account key)": ego["seed_node_key"],
+                "Before: Accounts Reviewed": "1 (the flagged account only)",
+                "After: Real Accounts Within 2 Hops": f"{ego['real_nodes_before_cap']:,}",
+                "After: Accounts Shown (capped at 2,000)": f"{ego['nodes_after_cap']:,}",
+                "After: Relationships Shown (capped subgraph)": f"{ego['edges_after_cap']:,}",
+                "Capped?": (
+                    "YES -- real size exceeds the locked 2,000-node cap"
+                    if ego["truncated"]
+                    else "No -- full real ego-network shown"
+                ),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -3137,111 +3381,126 @@ def generate_smart_recommendations_structural(context: dict) -> list:
     champion_stable = (hi_prior is not None) and (hi_prior == rep["champion_name"])
     boot = rep["bootstrap"]
 
-    ego_sizes_str = ', '.join(f"{e['real_nodes_before_cap']:,}" for e in rep.get("example_ego_networks", []))
+    ego_sizes_str = ", ".join(f"{e['real_nodes_before_cap']:,}" for e in rep.get("example_ego_networks", []))
 
-    recs = [{
-        "title": "Re-validate the champion structural signal on a fixed cadence",
-        "specific": (
-            f"The champion signal on {primary_name} ({rep['champion_name']}) achieves a real "
-            f"network-lift ratio of {rep['test_metrics']['lift_ratio']:.2f}x (real bootstrap "
-            f"95% CI [{boot['ci95_low']:.2f}x, {boot['ci95_high']:.2f}x], "
-            f"{boot['n_resamples']:,} resamples, {boot['n_invalid_resamples']:,} invalid)."
-        ),
-        "measurable": (
-            "Track the real lift ratio and its bootstrap CI on every future real re-run; "
-            "treat a CI95 lower bound that drops to or below 1.0x (no real lift over the real "
-            "base rate) as a trigger for re-screening the full candidate signal set."
-        ),
-        "achievable": "Uses the existing, already-built Notebook 2 (Stage A screening) and Notebook 3 (validation + bootstrap) pipeline -- no new infrastructure required.",
-        "relevant": "Directly controls whether the real network-proximity flagging rule remains evidence-based (Lesson #11 leakage discipline, enforced every run as its own structural gate).",
-        "time_bound": "Quarterly re-validation review, next due within 90 days of production go-live.",
-    }, {
-        "title": "Scale investigator review capacity to the real bounded ego-network volume, not account count",
-        "specific": (
-            f"Before = single-account review (zero real network visibility). After = the real "
-            f"bounded 2-hop ego-network around the same flagged account -- NB3's 3 real "
-            f"illustrative examples show real network sizes {ego_sizes_str} "
-            f"accounts before the locked 2,000-node cap is applied."
-        ),
-        "measurable": "Real per-case investigator review time logged under the new bounded-ego-network workflow vs. the prior single-account workflow -- no ASSUMPTION dollar figure is used here, per this BP's locked no-invented-cost-basis policy.",
-        "achievable": "Capacity planning is an operational scheduling change against the existing locked 2,000-node bounded scope -- no new detection system required.",
-        "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar) -- network-scale review has a materially different real workload shape than single-account review.",
-        "time_bound": "Reassess real review-time-per-case 60 days after production go-live.",
-    }]
+    recs = [
+        {
+            "title": "Re-validate the champion structural signal on a fixed cadence",
+            "specific": (
+                f"The champion signal on {primary_name} ({rep['champion_name']}) achieves a real "
+                f"network-lift ratio of {rep['test_metrics']['lift_ratio']:.2f}x (real bootstrap "
+                f"95% CI [{boot['ci95_low']:.2f}x, {boot['ci95_high']:.2f}x], "
+                f"{boot['n_resamples']:,} resamples, {boot['n_invalid_resamples']:,} invalid)."
+            ),
+            "measurable": (
+                "Track the real lift ratio and its bootstrap CI on every future real re-run; "
+                "treat a CI95 lower bound that drops to or below 1.0x (no real lift over the real "
+                "base rate) as a trigger for re-screening the full candidate signal set."
+            ),
+            "achievable": "Uses the existing, already-built Notebook 2 (Stage A screening) and Notebook 3 (validation + bootstrap) pipeline -- no new infrastructure required.",
+            "relevant": "Directly controls whether the real network-proximity flagging rule remains evidence-based (Lesson #11 leakage discipline, enforced every run as its own structural gate).",
+            "time_bound": "Quarterly re-validation review, next due within 90 days of production go-live.",
+        },
+        {
+            "title": "Scale investigator review capacity to the real bounded ego-network volume, not account count",
+            "specific": (
+                f"Before = single-account review (zero real network visibility). After = the real "
+                f"bounded 2-hop ego-network around the same flagged account -- NB3's 3 real "
+                f"illustrative examples show real network sizes {ego_sizes_str} "
+                f"accounts before the locked 2,000-node cap is applied."
+            ),
+            "measurable": "Real per-case investigator review time logged under the new bounded-ego-network workflow vs. the prior single-account workflow -- no ASSUMPTION dollar figure is used here, per this BP's locked no-invented-cost-basis policy.",
+            "achievable": "Capacity planning is an operational scheduling change against the existing locked 2,000-node bounded scope -- no new detection system required.",
+            "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck (FFIEC BSA/AML Examination Manual, alert-management pillar) -- network-scale review has a materially different real workload shape than single-account review.",
+            "time_bound": "Reassess real review-time-per-case 60 days after production go-live.",
+        },
+    ]
 
     if hi_prior is not None:
         if champion_stable:
-            recs.append({
-                "title": "Document the real cross-scale champion agreement for examiner review",
-                "specific": (
-                    f"The real Stage A (HI-Small) screening champion ('{hi_prior}') and the real "
-                    f"{primary_name} mandatory-validation-tier champion ('{rep['champion_name']}') "
-                    f"are the SAME signal -- confirmed stable across two real, independently "
-                    f"evaluated dataset scales."
-                ),
-                "measurable": "Confirm this agreement holds on every future real re-run across scales; log explicitly if a future run diverges.",
-                "achievable": "Already computed by Notebook 3's existing cross-scale comparison step -- no new tooling required.",
-                "relevant": "A champion signal that is stable across dataset scale is stronger real evidence for SR 11-7 model-risk documentation than a single-scale result alone.",
-                "time_bound": "Refresh this documentation at every retrain, alongside the rule card update.",
-            })
+            recs.append(
+                {
+                    "title": "Document the real cross-scale champion agreement for examiner review",
+                    "specific": (
+                        f"The real Stage A (HI-Small) screening champion ('{hi_prior}') and the real "
+                        f"{primary_name} mandatory-validation-tier champion ('{rep['champion_name']}') "
+                        f"are the SAME signal -- confirmed stable across two real, independently "
+                        f"evaluated dataset scales."
+                    ),
+                    "measurable": "Confirm this agreement holds on every future real re-run across scales; log explicitly if a future run diverges.",
+                    "achievable": "Already computed by Notebook 3's existing cross-scale comparison step -- no new tooling required.",
+                    "relevant": "A champion signal that is stable across dataset scale is stronger real evidence for SR 11-7 model-risk documentation than a single-scale result alone.",
+                    "time_bound": "Refresh this documentation at every retrain, alongside the rule card update.",
+                }
+            )
         else:
-            recs.append({
-                "title": f"Investigate the real champion divergence between HI-Small and {primary_name}",
-                "specific": (
-                    f"The real Stage A (HI-Small) screening champion ('{hi_prior}') and the real "
-                    f"{primary_name} mandatory-validation-tier champion ('{rep['champion_name']}') "
-                    f"are DIFFERENT signals. Per this platform's locked rule, the real "
-                    f"{primary_name} result is authoritative and is never silently overridden by "
-                    f"the smaller-scale prior -- but the divergence itself is worth understanding."
-                ),
-                "measurable": "Compare the real per-signal lift ratios at both scales (see the Signal Comparison table in this report) to characterize how each candidate's real lift changes with real graph scale.",
-                "achievable": "Uses the already-saved Notebook 2 and Notebook 3 outputs -- a comparison, not a new computation.",
-                "relevant": "Understanding why a structural signal's real relative strength changes with scale directly informs which signal to trust at full production (HI-Large/LI-Large) scale.",
-                "time_bound": "Before this champion is cited as stable in any external or regulatory-facing report.",
-            })
+            recs.append(
+                {
+                    "title": f"Investigate the real champion divergence between HI-Small and {primary_name}",
+                    "specific": (
+                        f"The real Stage A (HI-Small) screening champion ('{hi_prior}') and the real "
+                        f"{primary_name} mandatory-validation-tier champion ('{rep['champion_name']}') "
+                        f"are DIFFERENT signals. Per this platform's locked rule, the real "
+                        f"{primary_name} result is authoritative and is never silently overridden by "
+                        f"the smaller-scale prior -- but the divergence itself is worth understanding."
+                    ),
+                    "measurable": "Compare the real per-signal lift ratios at both scales (see the Signal Comparison table in this report) to characterize how each candidate's real lift changes with real graph scale.",
+                    "achievable": "Uses the already-saved Notebook 2 and Notebook 3 outputs -- a comparison, not a new computation.",
+                    "relevant": "Understanding why a structural signal's real relative strength changes with scale directly informs which signal to trust at full production (HI-Large/LI-Large) scale.",
+                    "time_bound": "Before this champion is cited as stable in any external or regulatory-facing report.",
+                }
+            )
 
     rule_threshold_clause = (
         f", threshold {rule['threshold']:.6g}"
         if rule.get("is_threshold_signal") and rule.get("threshold") is not None
         else " (set-membership test)"
     )
-    no_model_note = rep.get("no_trained_model_note",
-                             "BP3 has no trained ML model -- every candidate is a directly-interpretable structural signal.")
+    no_model_note = rep.get(
+        "no_trained_model_note",
+        "BP3 has no trained ML model -- every candidate is a directly-interpretable structural signal.",
+    )
     fst_rows = rep.get("fastapi_self_test", {}).get("rows_checked", 0)
     fst_mismatches = rep.get("fastapi_self_test", {}).get("mismatches", 0)
-    recs.append({
-        "title": "Keep the 'no trained model' framing explicit in every downstream use of this rule",
-        "specific": (
-            f"{no_model_note} The real deployable artifact is a RULE "
-            f"({rule.get('champion_column', rep['champion_name'])}{rule_threshold_clause}), "
-            f"never a pickled classifier -- confirmed by the real self-tested FastAPI service "
-            f"({fst_rows:,} real rows checked, {fst_mismatches} mismatches)."
-        ),
-        "measurable": "Any downstream system or document referencing this BP's output states 'structural rule' or 'network-lift signal', never 'model prediction' or 'model score'.",
-        "achievable": "A documentation/labeling convention, not a code or infrastructure change.",
-        "relevant": "SR 11-7 model risk management requires accurate characterization of what kind of artifact is actually in production -- a RULE carries different real validation and monitoring expectations than a trained classifier.",
-        "time_bound": "Immediate -- applies to this report and every future one referencing this BP.",
-    })
+    recs.append(
+        {
+            "title": "Keep the 'no trained model' framing explicit in every downstream use of this rule",
+            "specific": (
+                f"{no_model_note} The real deployable artifact is a RULE "
+                f"({rule.get('champion_column', rep['champion_name'])}{rule_threshold_clause}), "
+                f"never a pickled classifier -- confirmed by the real self-tested FastAPI service "
+                f"({fst_rows:,} real rows checked, {fst_mismatches} mismatches)."
+            ),
+            "measurable": "Any downstream system or document referencing this BP's output states 'structural rule' or 'network-lift signal', never 'model prediction' or 'model score'.",
+            "achievable": "A documentation/labeling convention, not a code or infrastructure change.",
+            "relevant": "SR 11-7 model risk management requires accurate characterization of what kind of artifact is actually in production -- a RULE carries different real validation and monitoring expectations than a trained classifier.",
+            "time_bound": "Immediate -- applies to this report and every future one referencing this BP.",
+        }
+    )
 
     failing = [name for name, v in context["variants"].items() if v["report"]["overall_verdict"] != "PASS"]
     if failing:
-        recs.append({
-            "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
-            "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
-            "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
-            "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new methodology required.",
-            "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
-            "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
-        })
+        recs.append(
+            {
+                "title": f"Resolve validation gate failures on {', '.join(failing)} before relying on that variant",
+                "specific": f"{', '.join(failing)} did not pass both the structural and statistical-robustness validation gates.",
+                "measurable": "Re-run Notebook 3 on the failing variant(s) until both gates PASS.",
+                "achievable": "Uses the existing, already-built Notebook 3 pipeline -- no new methodology required.",
+                "relevant": "This platform's locked policy requires both gates to PASS before a variant's results are treated as production evidence.",
+                "time_bound": "Before this variant is cited in any external or regulatory-facing report.",
+            }
+        )
     else:
-        recs.append({
-            "title": "Maintain the real two-gate validation standard on every future retrain",
-            "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
-            "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
-            "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
-            "relevant": "This is the basis for this report's current production-recommended status.",
-            "time_bound": "Every retrain cycle, before redeployment.",
-        })
+        recs.append(
+            {
+                "title": "Maintain the real two-gate validation standard on every future retrain",
+                "specific": f"Every real dataset variant evaluated for {context['bp_id']} currently passes both validation gates ({', '.join(context['variants'].keys())}).",
+                "measurable": "Both gates must continue to PASS on every future retrain before redeployment.",
+                "achievable": "Enforced automatically by Notebook 3's existing gate logic -- no manual step to remember.",
+                "relevant": "This is the basis for this report's current production-recommended status.",
+                "time_bound": "Every retrain cycle, before redeployment.",
+            }
+        )
 
     return recs
 
@@ -3254,19 +3513,28 @@ def generate_smart_recommendations_structural(context: dict) -> list:
 # ============================================================================
 def render_signal_lift_chart_png_structural(comparison_df: pd.DataFrame, out_path: Path) -> Path:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     df = comparison_df.copy()
-    df["_lift_val"] = df["Lift Ratio"].str.replace("x", "", regex=False).replace("undefined", "0").astype(float)
+    df["_lift_val"] = (
+        df["Lift Ratio"].str.replace("x", "", regex=False).replace("undefined", "0").astype(float)
+    )
     df = df.sort_values("_lift_val", ascending=True)  # ascending so champion/top bar renders at top in barh
     colors = [PALETTE["series_1_blue"] if c == "YES" else PALETTE["ink_muted"] for c in df["Champion"]]
 
     fig, ax = plt.subplots(figsize=(8, 3.6), dpi=150)
     bars = ax.barh(df["Signal"], df["_lift_val"], color=colors, height=0.6)
     for bar, val in zip(bars, df["_lift_val"]):
-        ax.text(bar.get_width() + max(df["_lift_val"]) * 0.015, bar.get_y() + bar.get_height() / 2,
-                f"{val:.2f}x", va="center", fontsize=9, color=PALETTE["ink_primary"])
+        ax.text(
+            bar.get_width() + max(df["_lift_val"]) * 0.015,
+            bar.get_y() + bar.get_height() / 2,
+            f"{val:.2f}x",
+            va="center",
+            fontsize=9,
+            color=PALETTE["ink_primary"],
+        )
     ax.axvline(1.0, color=PALETTE["ink_muted"], linewidth=1, linestyle="--")
     ax.text(1.0, -0.7, "1.0x (no lift)", fontsize=8, color=PALETTE["ink_muted"], ha="center")
     ax.set_xlabel("Real network-lift ratio (test set)")
@@ -3305,8 +3573,11 @@ def write_word_report_structural(path: Path, context: dict) -> Path:
     run = p.add_run(status["label"])
     run.bold = True
     run.font.size = Pt(14)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     run.font.color.rgb = status_colors.get(status["css_class"], RGBColor(0x0B, 0x0B, 0x0B))
     doc.add_paragraph(status["rationale"])
 
@@ -3392,9 +3663,11 @@ def write_word_report_structural(path: Path, context: dict) -> Path:
 
     doc.add_heading("Explainability -- Not Applicable (No Trained Model)", level=1)
     doc.add_paragraph(
-        rep.get("no_trained_model_note",
-                "BP3 has no trained ML model -- every candidate is a directly-interpretable "
-                "structural signal; SHAP/LIME are N/A, not attempted.")
+        rep.get(
+            "no_trained_model_note",
+            "BP3 has no trained ML model -- every candidate is a directly-interpretable "
+            "structural signal; SHAP/LIME are N/A, not attempted.",
+        )
     )
     if rep.get("scaling_engineering_note"):
         doc.add_paragraph(rep["scaling_engineering_note"])
@@ -3449,9 +3722,9 @@ def write_word_report_structural(path: Path, context: dict) -> Path:
 # ============================================================================
 def write_excel_workbook_structural(path: Path, context: dict) -> Path:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.workbook.properties import CalcProperties
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.properties import CalcProperties
 
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2A78D6", end_color="2A78D6", fill_type="solid")
@@ -3479,7 +3752,10 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
         ("Top-decile screening percentile (locked)", "90%"),
         ("Bootstrap resamples", rep["bootstrap"]["n_resamples"]),
         ("Bootstrap invalid resamples", rep["bootstrap"]["n_invalid_resamples"]),
-        ("PageRank self-test max abs diff vs. networkx", rep.get("pagerank_self_test_max_abs_diff_vs_networkx")),
+        (
+            "PageRank self-test max abs diff vs. networkx",
+            rep.get("pagerank_self_test_max_abs_diff_vs_networkx"),
+        ),
     ]
     for i, (label, val) in enumerate(param_rows, start=2):
         ws_a[f"A{i}"] = label
@@ -3490,7 +3766,9 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
 
     # --- Executive Summary sheet ---
     status = context.get("status") or compute_bp_status(context)
-    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(status["css_class"], "2A78D6")
+    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(
+        status["css_class"], "2A78D6"
+    )
     ws_e = wb.create_sheet("Executive Summary")
     ws_e["A1"] = "Status"
     ws_e["B1"] = "Rationale"
@@ -3519,14 +3797,26 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
     ws_e["B7"] = boot["ci95_low"]
     ws_e["A8"] = "Bootstrap 95% CI high"
     ws_e["B8"] = boot["ci95_high"]
-    ws_e["A9"] = "Note: BP3 reports real counts and lift ratios only -- no dollar figure is computed or invented for this BP (locked policy, no sourced per-account cost basis exists)."
+    ws_e["A9"] = (
+        "Note: BP3 reports real counts and lift ratios only -- no dollar figure is computed or invented for this BP (locked policy, no sourced per-account cost basis exists)."
+    )
     ws_e["A9"].font = Font(italic=True, color="52514E")
     _brand_excel_sheet(ws_e, status_hex, freeze_cell="A3")
 
     # --- Variant summary sheet ---
     ws_s = wb.create_sheet("Variant Summary")
-    headers = ["Variant", "Champion Signal", "Real Lift Ratio", "CI95 Low", "CI95 High",
-               "Nodes", "Base Rate", "Gate 1", "Gate 2", "Overall Verdict"]
+    headers = [
+        "Variant",
+        "Champion Signal",
+        "Real Lift Ratio",
+        "CI95 Low",
+        "CI95 High",
+        "Nodes",
+        "Base Rate",
+        "Gate 1",
+        "Gate 2",
+        "Overall Verdict",
+    ]
     for c, h in enumerate(headers, start=1):
         cell = ws_s.cell(row=1, column=c, value=h)
         cell.font = header_font
@@ -3549,8 +3839,9 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
     for c in range(1, len(headers) + 1):
         ws_s.column_dimensions[get_column_letter(c)].width = 20
     _brand_excel_sheet(ws_s, PALETTE["series_1_blue"], freeze_cell="A2")
-    _band_excel_rows(ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]),
-                      first_col=1, last_col=len(headers))
+    _band_excel_rows(
+        ws_s, first_data_row=2, last_data_row=1 + len(context["variants"]), first_col=1, last_col=len(headers)
+    )
     _color_verdict_cells(ws_s, rows=range(2, 2 + len(context["variants"])), cols=[8, 9, 10])
 
     # --- Signal comparison sheet per variant ---
@@ -3568,8 +3859,9 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
         for c in range(1, len(comp_df.columns) + 1):
             ws_c.column_dimensions[get_column_letter(c)].width = 24
         _brand_excel_sheet(ws_c, PALETTE["series_2_orange"], freeze_cell="A2")
-        _band_excel_rows(ws_c, first_data_row=2, last_data_row=1 + len(comp_df),
-                          first_col=1, last_col=len(comp_df.columns))
+        _band_excel_rows(
+            ws_c, first_data_row=2, last_data_row=1 + len(comp_df), first_col=1, last_col=len(comp_df.columns)
+        )
         champion_col_idx = list(comp_df.columns).index("Champion") + 1
         for r in range(2, 2 + len(comp_df)):
             if ws_c.cell(row=r, column=champion_col_idx).value == "YES":
@@ -3589,14 +3881,18 @@ def write_excel_workbook_structural(path: Path, context: dict) -> Path:
         for r, (_, row) in enumerate(ego_df.iterrows(), start=2):
             for c, col in enumerate(ego_df.columns, start=1):
                 ws_b.cell(row=r, column=c, value=str(row[col]))
-        ws_b.cell(row=3 + len(ego_df), column=1,
-                  value="Real, but only 3 illustrative examples -- not a population-wide average (not computed, not estimated).")
+        ws_b.cell(
+            row=3 + len(ego_df),
+            column=1,
+            value="Real, but only 3 illustrative examples -- not a population-wide average (not computed, not estimated).",
+        )
         ws_b.cell(row=3 + len(ego_df), column=1).font = Font(italic=True, color="52514E")
         for c in range(1, len(ego_df.columns) + 1):
             ws_b.column_dimensions[get_column_letter(c)].width = 30
         _brand_excel_sheet(ws_b, PALETTE["series_3_aqua"], freeze_cell="A2")
-        _band_excel_rows(ws_b, first_data_row=2, last_data_row=1 + len(ego_df),
-                          first_col=1, last_col=len(ego_df.columns))
+        _band_excel_rows(
+            ws_b, first_data_row=2, last_data_row=1 + len(ego_df), first_col=1, last_col=len(ego_df.columns)
+        )
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -3614,7 +3910,9 @@ def write_html_dashboard_structural(path: Path, context: dict, chartjs_js_path: 
     chartjs_source = Path(chartjs_js_path).read_text(encoding="utf-8")
 
     status = context.get("status") or compute_bp_status(context)
-    recommendations = context.get("smart_recommendations") or generate_smart_recommendations_structural(context)
+    recommendations = context.get("smart_recommendations") or generate_smart_recommendations_structural(
+        context
+    )
 
     variants_json = {}
     for variant_name, v in context["variants"].items():
@@ -3638,7 +3936,11 @@ def write_html_dashboard_structural(path: Path, context: dict, chartjs_js_path: 
             "gate1_checks": rep.get("gate1_structural_checks", {}),
             "gate2_checks": rep.get("gate2_statistical_robustness_checks", {}),
             "signals": [
-                {"signal": s["signal"], "lift_ratio": s["lift_ratio"], "champion": s["signal"] == rep["champion_name"]}
+                {
+                    "signal": s["signal"],
+                    "lift_ratio": s["lift_ratio"],
+                    "champion": s["signal"] == rep["champion_name"],
+                }
                 for s in rep["stage_results"]
             ],
             "signal_table": comp_df.to_dict(orient="records"),
@@ -3988,8 +4290,8 @@ def write_html_dashboard_structural(path: Path, context: dict, chartjs_js_path: 
 # ============================================================================
 def write_pptx_deck_structural(path: Path, context: dict, chart_png_paths: Optional[dict] = None) -> Path:
     from pptx import Presentation
-    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
 
     prs = Presentation()
     blue = RGBColor(0x2A, 0x78, 0xD6)
@@ -4003,8 +4305,11 @@ def write_pptx_deck_structural(path: Path, context: dict, chart_png_paths: Optio
     slide.placeholders[1].text_frame.text = context["business_objective"]
 
     status = context.get("status") or compute_bp_status(context)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Recommendation & Status"
     body = slide.placeholders[1].text_frame
@@ -4047,7 +4352,9 @@ def write_pptx_deck_structural(path: Path, context: dict, chart_png_paths: Optio
     if chart_png_paths and "signal_lift" in chart_png_paths:
         slide = _add_branded_slide(prs, 5)
         slide.shapes.title.text = "Candidate Structural Signals -- Real Network-Lift Ranking"
-        slide.shapes.add_picture(str(chart_png_paths["signal_lift"]), Inches(0.5), Inches(1.3), width=Inches(9))
+        slide.shapes.add_picture(
+            str(chart_png_paths["signal_lift"]), Inches(0.5), Inches(1.3), width=Inches(9)
+        )
 
     slide = _add_branded_slide(prs, 5)
     slide.shapes.title.text = "Model Performance by Dataset Variant"
@@ -4124,52 +4431,56 @@ def write_rule_card_structural(path: Path, context: dict) -> Path:
     recs = context.get("smart_recommendations") or generate_smart_recommendations_structural(context)
     boot = rep["bootstrap"]
 
-    lines = [
-        f"# Rule Card -- {context['bp_id']}: {context['bp_name']}",
-        "",
-        f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
-        f"{primary_name} (this BP's locked mandatory realism-validation tier)._",
-        "",
-        "**This is a RULE CARD, not a model card.** BP3 has no trained ML model -- the real "
-        "deployable artifact is a directly-interpretable structural RULE (a threshold or a "
-        "set-membership test over a real graph-structural signal), never a pickled classifier. "
-        "SHAP/LIME explainability sections that appear in this platform's other BPs' model "
-        "cards are genuinely not applicable here, not merely omitted.",
-        "",
-        f"## Status: {status['label']}",
-        status["rationale"],
-        "",
-        "## Business Objective",
-        context["business_objective"],
-        "",
-        "## What This Means for the Business",
-    ] + [f"- {point}" for point in context["business_benefits"]] + [
-        "",
-        "## Rule Details",
-        f"- Champion structural signal: **{rep['champion_name']}**",
-        f"- Rule artifact column: `{rule.get('champion_column', 'N/A')}`",
-        f"- Is threshold signal: {rule.get('is_threshold_signal', 'N/A')}",
-        f"- Threshold: {rule.get('threshold') if rule.get('threshold') is not None else 'N/A (set-membership test)'}",
-        f"- Random seed: {rep.get('random_seed')}",
-        f"- Real network-lift ratio (point estimate): {rep['test_metrics']['lift_ratio']:.4f}x",
-        f"- Real bootstrap 95% CI: [{boot['ci95_low']:.4f}x, {boot['ci95_high']:.4f}x] "
-        f"({boot['n_resamples']:,} resamples, {boot['n_invalid_resamples']:,} invalid)",
-        "",
-        "## Intended Use",
-        "Network-proximity / structural-prominence flagging to prioritize which already-flagged "
-        "accounts' surrounding networks an investigator reviews next, and to surface a real "
-        "bounded 2-hop ego-network for that review. Not a standalone SAR-filing decision, not a "
-        "probability score -- output is a real structural flag feeding investigator triage, per "
-        "this platform's locked scope.",
-        "",
-        "## Training / Screening Data",
-        "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
-        "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
-        "",
-        "## Evaluation",
-        "| Variant | Champion Signal | Real Lift Ratio | CI95 Low | CI95 High | Gate 1 | Gate 2 | Overall Verdict |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
+    lines = (
+        [
+            f"# Rule Card -- {context['bp_id']}: {context['bp_name']}",
+            "",
+            f"_Generated {context['generated_at_utc']} UTC. Primary reported variant: "
+            f"{primary_name} (this BP's locked mandatory realism-validation tier)._",
+            "",
+            "**This is a RULE CARD, not a model card.** BP3 has no trained ML model -- the real "
+            "deployable artifact is a directly-interpretable structural RULE (a threshold or a "
+            "set-membership test over a real graph-structural signal), never a pickled classifier. "
+            "SHAP/LIME explainability sections that appear in this platform's other BPs' model "
+            "cards are genuinely not applicable here, not merely omitted.",
+            "",
+            f"## Status: {status['label']}",
+            status["rationale"],
+            "",
+            "## Business Objective",
+            context["business_objective"],
+            "",
+            "## What This Means for the Business",
+        ]
+        + [f"- {point}" for point in context["business_benefits"]]
+        + [
+            "",
+            "## Rule Details",
+            f"- Champion structural signal: **{rep['champion_name']}**",
+            f"- Rule artifact column: `{rule.get('champion_column', 'N/A')}`",
+            f"- Is threshold signal: {rule.get('is_threshold_signal', 'N/A')}",
+            f"- Threshold: {rule.get('threshold') if rule.get('threshold') is not None else 'N/A (set-membership test)'}",
+            f"- Random seed: {rep.get('random_seed')}",
+            f"- Real network-lift ratio (point estimate): {rep['test_metrics']['lift_ratio']:.4f}x",
+            f"- Real bootstrap 95% CI: [{boot['ci95_low']:.4f}x, {boot['ci95_high']:.4f}x] "
+            f"({boot['n_resamples']:,} resamples, {boot['n_invalid_resamples']:,} invalid)",
+            "",
+            "## Intended Use",
+            "Network-proximity / structural-prominence flagging to prioritize which already-flagged "
+            "accounts' surrounding networks an investigator reviews next, and to surface a real "
+            "bounded 2-hop ego-network for that review. Not a standalone SAR-filing decision, not a "
+            "probability score -- output is a real structural flag feeding investigator triage, per "
+            "this platform's locked scope.",
+            "",
+            "## Training / Screening Data",
+            "IBM Transactions for Anti Money Laundering (AML) -- synthetic, IBM Research. Variants "
+            "used (never merged): " + ", ".join(context["variants"].keys()) + ".",
+            "",
+            "## Evaluation",
+            "| Variant | Champion Signal | Real Lift Ratio | CI95 Low | CI95 High | Gate 1 | Gate 2 | Overall Verdict |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    )
     for variant_name, v in context["variants"].items():
         r = v["report"]
         b = r["bootstrap"]
@@ -4181,9 +4492,11 @@ def write_rule_card_structural(path: Path, context: dict) -> Path:
     lines += [
         "",
         "## Explainability -- Not Applicable",
-        rep.get("no_trained_model_note",
-                "BP3 has no trained ML model -- every candidate is a directly-interpretable "
-                "structural signal; SHAP/LIME are N/A, not attempted."),
+        rep.get(
+            "no_trained_model_note",
+            "BP3 has no trained ML model -- every candidate is a directly-interpretable "
+            "structural signal; SHAP/LIME are N/A, not attempted.",
+        ),
         "",
         "## Scaling / Engineering Notes",
         rep.get("scaling_engineering_note", "Not recorded for this run."),
@@ -4290,44 +4603,85 @@ def build_platform_benefit_table(platform_rollup: dict) -> pd.DataFrame:
     scale = platform_rollup["portfolio_scale"]
 
     rows = [
-        {"Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
-         "Line Item": "BP1 -- Transaction Monitoring", "Value": _fmt_usd(cat1["bp1"]), "Note": "FP-reduction $ savings"},
-        {"Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
-         "Line Item": "BP4 -- Structuring & Smurfing", "Value": _fmt_usd(cat1["bp4"]), "Note": "FP-reduction $ savings"},
-        {"Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
-         "Line Item": "BP5 -- Correspondent Banking & Cross-Border", "Value": _fmt_usd(cat1["bp5"]), "Note": "FP-reduction $ savings"},
-        {"Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
-         "Line Item": "TOTAL (BP1+BP4+BP5)", "Value": _fmt_usd(cat1["total_usd"]),
-         "Note": f"{cat1['total_investigator_hours_saved']:,} investigator hours saved, "
-                 f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts"},
-
-        {"Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
-         "Line Item": "BP1 -- Transaction Monitoring", "Value": _fmt_usd(cat2["bp1"]), "Note": "TP-uplift illustrative $"},
-        {"Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
-         "Line Item": "BP4 -- Structuring & Smurfing", "Value": _fmt_usd(cat2["bp4"]), "Note": "TP-uplift illustrative $"},
-        {"Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
-         "Line Item": "BP5 -- Correspondent Banking & Cross-Border", "Value": _fmt_usd(cat2["bp5"]), "Note": "TP-uplift illustrative $"},
-        {"Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
-         "Line Item": "TOTAL (BP1+BP4+BP5)", "Value": _fmt_usd(cat2["total_usd"]),
-         "Note": f"{cat2['total_additional_cases_caught']:+,} additional real cases caught"},
-
-        {"Category": "BENEFIT 3 -- BP2 Typology Lines (kept separate -- different unit basis, never blended into 1/2)",
-         "Line Item": "Auto-typing efficiency savings", "Value": _fmt_usd(cat3["auto_typing_efficiency_savings_usd"]),
-         "Note": "BP2's own figure -- different case subset/ASSUMPTION basis than categories 1/2"},
-        {"Category": "BENEFIT 3 -- BP2 Typology Lines (kept separate -- different unit basis, never blended into 1/2)",
-         "Line Item": "Typology confirmation value", "Value": _fmt_usd(cat3["typology_confirmation_value_usd"]),
-         "Note": "BP2's own figure -- different case subset/ASSUMPTION basis than categories 1/2"},
-
-        {"Category": "COST CONTEXT (informational only -- never summed into any headline figure)",
-         "Line Item": "Platform build/operating cost", "Value": "NOT SOURCED -- none invented",
-         "Note": cost["description"]},
-
-        {"Category": "PORTFOLIO SCALE (volume only -- never dollarized, never summed with BENEFIT)",
-         "Line Item": "BP3 real network nodes", "Value": f"{scale['bp3_n_nodes']:,}",
-         "Note": "Structurally distinct from BP1/2/4/5's transaction-level populations"},
-        {"Category": "PORTFOLIO SCALE (volume only -- never dollarized, never summed with BENEFIT)",
-         "Line Item": "BP3 real network edges", "Value": f"{scale['bp3_n_edges']:,}",
-         "Note": "Structurally distinct from BP1/2/4/5's transaction-level populations"},
+        {
+            "Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
+            "Line Item": "BP1 -- Transaction Monitoring",
+            "Value": _fmt_usd(cat1["bp1"]),
+            "Note": "FP-reduction $ savings",
+        },
+        {
+            "Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
+            "Line Item": "BP4 -- Structuring & Smurfing",
+            "Value": _fmt_usd(cat1["bp4"]),
+            "Note": "FP-reduction $ savings",
+        },
+        {
+            "Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
+            "Line Item": "BP5 -- Correspondent Banking & Cross-Border",
+            "Value": _fmt_usd(cat1["bp5"]),
+            "Note": "FP-reduction $ savings",
+        },
+        {
+            "Category": "BENEFIT 1 -- FP-Reduction Savings (ASSUMPTION; never summed with categories 2/3)",
+            "Line Item": "TOTAL (BP1+BP4+BP5)",
+            "Value": _fmt_usd(cat1["total_usd"]),
+            "Note": f"{cat1['total_investigator_hours_saved']:,} investigator hours saved, "
+            f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts",
+        },
+        {
+            "Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
+            "Line Item": "BP1 -- Transaction Monitoring",
+            "Value": _fmt_usd(cat2["bp1"]),
+            "Note": "TP-uplift illustrative $",
+        },
+        {
+            "Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
+            "Line Item": "BP4 -- Structuring & Smurfing",
+            "Value": _fmt_usd(cat2["bp4"]),
+            "Note": "TP-uplift illustrative $",
+        },
+        {
+            "Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
+            "Line Item": "BP5 -- Correspondent Banking & Cross-Border",
+            "Value": _fmt_usd(cat2["bp5"]),
+            "Note": "TP-uplift illustrative $",
+        },
+        {
+            "Category": "BENEFIT 2 -- TP-Uplift Illustrative Value (ASSUMPTION; never summed with categories 1/3)",
+            "Line Item": "TOTAL (BP1+BP4+BP5)",
+            "Value": _fmt_usd(cat2["total_usd"]),
+            "Note": f"{cat2['total_additional_cases_caught']:+,} additional real cases caught",
+        },
+        {
+            "Category": "BENEFIT 3 -- BP2 Typology Lines (kept separate -- different unit basis, never blended into 1/2)",
+            "Line Item": "Auto-typing efficiency savings",
+            "Value": _fmt_usd(cat3["auto_typing_efficiency_savings_usd"]),
+            "Note": "BP2's own figure -- different case subset/ASSUMPTION basis than categories 1/2",
+        },
+        {
+            "Category": "BENEFIT 3 -- BP2 Typology Lines (kept separate -- different unit basis, never blended into 1/2)",
+            "Line Item": "Typology confirmation value",
+            "Value": _fmt_usd(cat3["typology_confirmation_value_usd"]),
+            "Note": "BP2's own figure -- different case subset/ASSUMPTION basis than categories 1/2",
+        },
+        {
+            "Category": "COST CONTEXT (informational only -- never summed into any headline figure)",
+            "Line Item": "Platform build/operating cost",
+            "Value": "NOT SOURCED -- none invented",
+            "Note": cost["description"],
+        },
+        {
+            "Category": "PORTFOLIO SCALE (volume only -- never dollarized, never summed with BENEFIT)",
+            "Line Item": "BP3 real network nodes",
+            "Value": f"{scale['bp3_n_nodes']:,}",
+            "Note": "Structurally distinct from BP1/2/4/5's transaction-level populations",
+        },
+        {
+            "Category": "PORTFOLIO SCALE (volume only -- never dollarized, never summed with BENEFIT)",
+            "Line Item": "BP3 real network edges",
+            "Value": f"{scale['bp3_n_edges']:,}",
+            "Note": "Structurally distinct from BP1/2/4/5's transaction-level populations",
+        },
     ]
     return pd.DataFrame(rows)
 
@@ -4371,15 +4725,20 @@ def compute_platform_status(platform_source_data: dict) -> dict:
 def generate_platform_smart_recommendations(platform_source_data: dict) -> list:
     bps = platform_source_data["bps"]
     roll = platform_source_data["platform_rollup"]
-    cat1, cat2, cat3 = (roll["benefit_category_1_fp_reduction_savings"],
-                        roll["benefit_category_2_tp_uplift_value"],
-                        roll["benefit_category_3_bp2_typology_lines"])
+    cat1, cat2, cat3 = (
+        roll["benefit_category_1_fp_reduction_savings"],
+        roll["benefit_category_2_tp_uplift_value"],
+        roll["benefit_category_3_bp2_typology_lines"],
+    )
     scale = roll["portfolio_scale"]
     verdicts = roll["all_bps_verdict_summary"]
     failing = [bp for bp, v in verdicts.items() if v != "PASS"]
 
-    champions = {bp: d["variants"][d["primary_variant"]]["champion"] for bp, d in bps.items()
-                 if "champion" in d["variants"][d["primary_variant"]]}
+    champions = {
+        bp: d["variants"][d["primary_variant"]]["champion"]
+        for bp, d in bps.items()
+        if "champion" in d["variants"][d["primary_variant"]]
+    }
     champion_counts: dict = {}
     for bp, champ in champions.items():
         champion_counts.setdefault(champ, []).append(bp)
@@ -4388,70 +4747,82 @@ def generate_platform_smart_recommendations(platform_source_data: dict) -> list:
     cat2_contributors = {"BP1": cat2["bp1"], "BP4": cat2["bp4"], "BP5": cat2["bp5"]}
     top_cat2_bp = max(cat2_contributors, key=cat2_contributors.get)
 
-    recs = [{
-        "bp": "", "title": "Re-run the platform rollup every time a BP's own report package regenerates",
-        "specific": (
-            f"This platform-wide rollup is a pure read-only pass-through of BP1-BP5's own real "
-            f"already-computed figures ({roll['description'] if 'description' in roll else 'see platform_rollup'}) -- "
-            f"it carries no independent validation of its own beyond the two structural/reconciliation "
-            f"gates (see this BP's own Notebook 3 report)."
-        ),
-        "measurable": "Re-run the extractor script + BP6 Notebooks 2-4 whenever any of BP1-BP5's MODEL_CARD.md/RULE_CARD.md or NB3 validation report changes; confirm Gate 2's real reconciliation check still passes exactly.",
-        "achievable": "Uses the existing, already-built extractor script and BP6 pipeline -- no new infrastructure required.",
-        "relevant": "Keeps the platform-wide figures this report cites from silently going stale relative to the per-BP source of truth.",
-        "time_bound": "Immediately after any BP1-BP5 report regeneration; otherwise on the same quarterly cadence as each BP's own recalibration review.",
-    }, {
-        "bp": "", "title": "Reallocate the real platform-wide false-positive-reduction capacity gain",
-        "specific": (
-            f"Summed across BP1+BP4+BP5 (ASSUMPTION-labeled, never blended with category 2 or category 3 "
-            f"below): {_fmt_usd(cat1['total_usd'])} in false-positive-reduction savings, "
-            f"{cat1['total_investigator_hours_saved']:,} investigator hours, "
-            f"{cat1['total_fewer_fp_alerts']:,} fewer false-positive alerts across the three transaction-level BPs."
-        ),
-        "measurable": "Track real combined alert-review hours logged across BP1/BP4/BP5's production queues against this ASSUMPTION estimate.",
-        "achievable": "Capacity freed is redeployed to case investigation depth across the three detection programs, not a headcount reduction -- an operational scheduling change.",
-        "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck platform-wide (FFIEC BSA/AML Examination Manual, alert-management pillar).",
-        "time_bound": "Reassess real combined alert-review hours 90 days after platform-wide go-live.",
-    }, {
-        "bp": "", "title": f"Validate the real platform-wide true-positive uplift, led by {top_cat2_bp}",
-        "specific": (
-            f"Summed across BP1+BP4+BP5: {_fmt_usd(cat2['total_usd'])} illustrative regulatory-exposure-"
-            f"avoidance, {cat2['total_additional_cases_caught']:+,} additional real cases caught. "
-            f"{top_cat2_bp} contributes the single largest real category-2 dollar figure of the three "
-            f"({_fmt_usd(cat2_contributors[top_cat2_bp])})."
-        ),
-        "measurable": "Real SAR filing rate on model-flagged alerts across the three contributing BPs, tracked per-BP and never blended with the false-positive savings in category 1 above.",
-        "achievable": "Requires only tagging each filed SAR with which BP's model originally surfaced the alert -- a labeling change, not a new detection system.",
-        "relevant": f"Directs platform-wide model-risk review attention to {top_cat2_bp}, the real largest real contributor to this benefit category.",
-        "time_bound": "First real platform-wide comparison report at the 6-month production mark.",
-    }, {
-        "bp": "BP2", "title": "Keep BP2's two typology-detection figures reported separately, never folded into categories 1/2",
-        "specific": (
-            f"BP2 contributes its own real auto-typing efficiency savings ({_fmt_usd(cat3['auto_typing_efficiency_savings_usd'])}) "
-            f"and typology-confirmation value ({_fmt_usd(cat3['typology_confirmation_value_usd'])}) -- "
-            f"both real figures on a different unit basis (auto-typing hours, distinct case subset) than "
-            f"BP1/BP4/BP5's categories 1/2, per the locked never-blend-categories rule."
-        ),
-        "measurable": "Any future dashboard or report citing a platform 'total benefit' figure is checked to confirm it reports these three categories separately, not as one blended number.",
-        "achievable": "A documentation/labeling convention enforced by this report_builder.py module's own structural gate (see this BP's Notebook 3), not a manual check.",
-        "relevant": "Prevents a materially misleading single 'platform savings' headline that would mix incompatible unit bases.",
-        "time_bound": "Immediate -- applies to this report and every future one referencing the platform rollup.",
-    }]
+    recs = [
+        {
+            "bp": "",
+            "title": "Re-run the platform rollup every time a BP's own report package regenerates",
+            "specific": (
+                f"This platform-wide rollup is a pure read-only pass-through of BP1-BP5's own real "
+                f"already-computed figures ({roll['description'] if 'description' in roll else 'see platform_rollup'}) -- "
+                f"it carries no independent validation of its own beyond the two structural/reconciliation "
+                f"gates (see this BP's own Notebook 3 report)."
+            ),
+            "measurable": "Re-run the extractor script + BP6 Notebooks 2-4 whenever any of BP1-BP5's MODEL_CARD.md/RULE_CARD.md or NB3 validation report changes; confirm Gate 2's real reconciliation check still passes exactly.",
+            "achievable": "Uses the existing, already-built extractor script and BP6 pipeline -- no new infrastructure required.",
+            "relevant": "Keeps the platform-wide figures this report cites from silently going stale relative to the per-BP source of truth.",
+            "time_bound": "Immediately after any BP1-BP5 report regeneration; otherwise on the same quarterly cadence as each BP's own recalibration review.",
+        },
+        {
+            "bp": "",
+            "title": "Reallocate the real platform-wide false-positive-reduction capacity gain",
+            "specific": (
+                f"Summed across BP1+BP4+BP5 (ASSUMPTION-labeled, never blended with category 2 or category 3 "
+                f"below): {_fmt_usd(cat1['total_usd'])} in false-positive-reduction savings, "
+                f"{cat1['total_investigator_hours_saved']:,} investigator hours, "
+                f"{cat1['total_fewer_fp_alerts']:,} fewer false-positive alerts across the three transaction-level BPs."
+            ),
+            "measurable": "Track real combined alert-review hours logged across BP1/BP4/BP5's production queues against this ASSUMPTION estimate.",
+            "achievable": "Capacity freed is redeployed to case investigation depth across the three detection programs, not a headcount reduction -- an operational scheduling change.",
+            "relevant": "Investigator capacity is the real, most commonly cited AML program bottleneck platform-wide (FFIEC BSA/AML Examination Manual, alert-management pillar).",
+            "time_bound": "Reassess real combined alert-review hours 90 days after platform-wide go-live.",
+        },
+        {
+            "bp": "",
+            "title": f"Validate the real platform-wide true-positive uplift, led by {top_cat2_bp}",
+            "specific": (
+                f"Summed across BP1+BP4+BP5: {_fmt_usd(cat2['total_usd'])} illustrative regulatory-exposure-"
+                f"avoidance, {cat2['total_additional_cases_caught']:+,} additional real cases caught. "
+                f"{top_cat2_bp} contributes the single largest real category-2 dollar figure of the three "
+                f"({_fmt_usd(cat2_contributors[top_cat2_bp])})."
+            ),
+            "measurable": "Real SAR filing rate on model-flagged alerts across the three contributing BPs, tracked per-BP and never blended with the false-positive savings in category 1 above.",
+            "achievable": "Requires only tagging each filed SAR with which BP's model originally surfaced the alert -- a labeling change, not a new detection system.",
+            "relevant": f"Directs platform-wide model-risk review attention to {top_cat2_bp}, the real largest real contributor to this benefit category.",
+            "time_bound": "First real platform-wide comparison report at the 6-month production mark.",
+        },
+        {
+            "bp": "BP2",
+            "title": "Keep BP2's two typology-detection figures reported separately, never folded into categories 1/2",
+            "specific": (
+                f"BP2 contributes its own real auto-typing efficiency savings ({_fmt_usd(cat3['auto_typing_efficiency_savings_usd'])}) "
+                f"and typology-confirmation value ({_fmt_usd(cat3['typology_confirmation_value_usd'])}) -- "
+                f"both real figures on a different unit basis (auto-typing hours, distinct case subset) than "
+                f"BP1/BP4/BP5's categories 1/2, per the locked never-blend-categories rule."
+            ),
+            "measurable": "Any future dashboard or report citing a platform 'total benefit' figure is checked to confirm it reports these three categories separately, not as one blended number.",
+            "achievable": "A documentation/labeling convention enforced by this report_builder.py module's own structural gate (see this BP's Notebook 3), not a manual check.",
+            "relevant": "Prevents a materially misleading single 'platform savings' headline that would mix incompatible unit bases.",
+            "time_bound": "Immediate -- applies to this report and every future one referencing the platform rollup.",
+        },
+    ]
 
     if recurring_champion and len(recurring_champion[1]) > 1:
         champ_name, champ_bps = recurring_champion
-        recs.append({
-            "bp": "", "title": f"Document the real recurring champion algorithm ({champ_name}) across the platform",
-            "specific": (
-                f"{champ_name} is the real champion model on {len(champ_bps)} of the platform's BPs "
-                f"({', '.join(champ_bps)}), each independently selected by its own Stage A/B benchmark -- "
-                f"not assumed or forced to agree."
-            ),
-            "measurable": "Confirm this cross-BP champion agreement holds at every future retrain; log explicitly if a future BP's own champion diverges.",
-            "achievable": "Already computed by each BP's own existing Notebook 3 -- no new tooling required at the rollup level.",
-            "relevant": "A champion algorithm stable across multiple independently-trained business problems is useful real evidence for platform-wide SR 11-7 model-risk documentation (shared infra/tooling/monitoring approach).",
-            "time_bound": "Refresh this cross-BP comparison at every platform-wide rollup regeneration.",
-        })
+        recs.append(
+            {
+                "bp": "",
+                "title": f"Document the real recurring champion algorithm ({champ_name}) across the platform",
+                "specific": (
+                    f"{champ_name} is the real champion model on {len(champ_bps)} of the platform's BPs "
+                    f"({', '.join(champ_bps)}), each independently selected by its own Stage A/B benchmark -- "
+                    f"not assumed or forced to agree."
+                ),
+                "measurable": "Confirm this cross-BP champion agreement holds at every future retrain; log explicitly if a future BP's own champion diverges.",
+                "achievable": "Already computed by each BP's own existing Notebook 3 -- no new tooling required at the rollup level.",
+                "relevant": "A champion algorithm stable across multiple independently-trained business problems is useful real evidence for platform-wide SR 11-7 model-risk documentation (shared infra/tooling/monitoring approach).",
+                "time_bound": "Refresh this cross-BP comparison at every platform-wide rollup regeneration.",
+            }
+        )
 
     # ------------------------------------------------------------------------
     # Per-BP specific recommendations -- one for each of BP1-BP5, every clause citing a real
@@ -4459,121 +4830,150 @@ def generate_platform_smart_recommendations(platform_source_data: dict) -> list:
     # feature count, or dollar figure) -- never a templated mail-merge.
     # ------------------------------------------------------------------------
     b1 = bps["BP1"]["variants"][bps["BP1"]["primary_variant"]]
-    recs.append({
-        "bp": "BP1", "title": f"Schedule a threshold review for BP1's real operating point ({b1.get('threshold', 0):.4f})",
-        "specific": (
-            f"BP1's real champion ({b1['champion']}) operates at a real decision threshold of "
-            f"{b1.get('threshold', 0):.4f} on {bps['BP1']['primary_variant']}, using "
-            f"{b1.get('n_features', 'N/A')} real engineered features, yielding real precision "
-            f"{b1['test_metrics']['precision']:.3f} and real recall {b1['test_metrics']['recall']:.3f} "
-            f"(real PR-AUC {b1['test_metrics']['pr_auc']:.4f})."
-        ),
-        "measurable": "Track real precision/recall drift against these two exact baseline figures on every production scoring batch; a real move of more than 5 percentage points on either triggers a threshold review.",
-        "achievable": "Uses the already-built, self-tested BP1 scoring service -- no new infrastructure.",
-        "relevant": "BP1 is the platform's foundational detection layer -- its threshold directly sets the real false-positive alert volume every downstream investigator queue inherits.",
-        "time_bound": "Quarterly, next due within 90 days of platform-wide go-live.",
-    })
+    recs.append(
+        {
+            "bp": "BP1",
+            "title": f"Schedule a threshold review for BP1's real operating point ({b1.get('threshold', 0):.4f})",
+            "specific": (
+                f"BP1's real champion ({b1['champion']}) operates at a real decision threshold of "
+                f"{b1.get('threshold', 0):.4f} on {bps['BP1']['primary_variant']}, using "
+                f"{b1.get('n_features', 'N/A')} real engineered features, yielding real precision "
+                f"{b1['test_metrics']['precision']:.3f} and real recall {b1['test_metrics']['recall']:.3f} "
+                f"(real PR-AUC {b1['test_metrics']['pr_auc']:.4f})."
+            ),
+            "measurable": "Track real precision/recall drift against these two exact baseline figures on every production scoring batch; a real move of more than 5 percentage points on either triggers a threshold review.",
+            "achievable": "Uses the already-built, self-tested BP1 scoring service -- no new infrastructure.",
+            "relevant": "BP1 is the platform's foundational detection layer -- its threshold directly sets the real false-positive alert volume every downstream investigator queue inherits.",
+            "time_bound": "Quarterly, next due within 90 days of platform-wide go-live.",
+        }
+    )
 
     b2 = bps["BP2"]["variants"][bps["BP2"]["primary_variant"]]
     class_counts = b2.get("class_counts", {})
     smallest_class = min(class_counts, key=class_counts.get) if class_counts else None
     largest_class = max(class_counts, key=class_counts.get) if class_counts else None
-    recs.append({
-        "bp": "BP2", "title": "Grow real training examples for BP2's thinnest real typology class before the next retrain",
-        "specific": (
-            (f"BP2's real class-count distribution on {bps['BP2']['primary_variant']} is uneven: "
-             f"'{largest_class}' has {class_counts[largest_class]:,} real matched examples versus "
-             f"'{smallest_class}' at only {class_counts[smallest_class]:,} -- a real "
-             f"{class_counts[largest_class] / max(class_counts[smallest_class], 1):.1f}x gap, "
-             f"with real macro-F1 at {b2['test_metrics']['macro_f1']:.3f} across "
-             f"{b2.get('n_features', 'N/A')} features.") if class_counts else
-            (f"BP2's real champion ({b2['champion']}) achieves real macro-F1 "
-             f"{b2['test_metrics']['macro_f1']:.3f} on {bps['BP2']['primary_variant']}.")
-        ),
-        "measurable": "Real per-class F1 (not just macro-F1) tracked every retrain; flag any real class whose F1 drops below the current run's weakest class.",
-        "achievable": "Uses the existing LI-Medium/HI-Medium staged-scale-up pattern already locked in the master plan -- re-point DATASET_VARIANT, no new modeling approach.",
-        "relevant": "A thin real typology class is the most likely place a future retrain silently regresses without a per-class check.",
-        "time_bound": "Before BP2's next scheduled retrain.",
-    })
+    recs.append(
+        {
+            "bp": "BP2",
+            "title": "Grow real training examples for BP2's thinnest real typology class before the next retrain",
+            "specific": (
+                (
+                    f"BP2's real class-count distribution on {bps['BP2']['primary_variant']} is uneven: "
+                    f"'{largest_class}' has {class_counts[largest_class]:,} real matched examples versus "
+                    f"'{smallest_class}' at only {class_counts[smallest_class]:,} -- a real "
+                    f"{class_counts[largest_class] / max(class_counts[smallest_class], 1):.1f}x gap, "
+                    f"with real macro-F1 at {b2['test_metrics']['macro_f1']:.3f} across "
+                    f"{b2.get('n_features', 'N/A')} features."
+                )
+                if class_counts
+                else (
+                    f"BP2's real champion ({b2['champion']}) achieves real macro-F1 "
+                    f"{b2['test_metrics']['macro_f1']:.3f} on {bps['BP2']['primary_variant']}."
+                )
+            ),
+            "measurable": "Real per-class F1 (not just macro-F1) tracked every retrain; flag any real class whose F1 drops below the current run's weakest class.",
+            "achievable": "Uses the existing LI-Medium/HI-Medium staged-scale-up pattern already locked in the master plan -- re-point DATASET_VARIANT, no new modeling approach.",
+            "relevant": "A thin real typology class is the most likely place a future retrain silently regresses without a per-class check.",
+            "time_bound": "Before BP2's next scheduled retrain.",
+        }
+    )
 
     b3 = bps["BP3"]["variants"][bps["BP3"]["primary_variant"]]
-    recs.append({
-        "bp": "BP3", "title": "Re-confirm BP3's real bootstrap CI lower bound stays above 1.0x at the next scale-up",
-        "specific": (
-            f"BP3's real champion signal ('{b3['champion']}') holds a real network-lift ratio of "
-            f"{b3['test_metrics']['lift_ratio']:.2f}x on {bps['BP3']['primary_variant']} "
-            f"({scale['bp3_n_nodes']:,} real nodes, {scale['bp3_n_edges']:,} real edges) -- the "
-            f"platform's only BP with no dollar figure (no sourced per-account cost basis, honestly "
-            f"disclosed rather than invented)."
-        ),
-        "measurable": "Real bootstrap 95% CI lower bound re-checked at every future real re-run; a lower bound at or below 1.0x (no real lift) is the pre-registered trigger for re-screening the candidate signal set.",
-        "achievable": "Uses the existing, already-built Stage A/B screening and bootstrap CI pipeline -- no new infrastructure.",
-        "relevant": "BP3's real lift is the only evidence its structural rule still outperforms random account selection -- losing it would mean investigators get no real benefit from network-aware triage.",
-        "time_bound": "At every future HI-Large/LI-Large stretch-validation attempt (master plan's own optional next step for this BP).",
-    })
+    recs.append(
+        {
+            "bp": "BP3",
+            "title": "Re-confirm BP3's real bootstrap CI lower bound stays above 1.0x at the next scale-up",
+            "specific": (
+                f"BP3's real champion signal ('{b3['champion']}') holds a real network-lift ratio of "
+                f"{b3['test_metrics']['lift_ratio']:.2f}x on {bps['BP3']['primary_variant']} "
+                f"({scale['bp3_n_nodes']:,} real nodes, {scale['bp3_n_edges']:,} real edges) -- the "
+                f"platform's only BP with no dollar figure (no sourced per-account cost basis, honestly "
+                f"disclosed rather than invented)."
+            ),
+            "measurable": "Real bootstrap 95% CI lower bound re-checked at every future real re-run; a lower bound at or below 1.0x (no real lift) is the pre-registered trigger for re-screening the candidate signal set.",
+            "achievable": "Uses the existing, already-built Stage A/B screening and bootstrap CI pipeline -- no new infrastructure.",
+            "relevant": "BP3's real lift is the only evidence its structural rule still outperforms random account selection -- losing it would mean investigators get no real benefit from network-aware triage.",
+            "time_bound": "At every future HI-Large/LI-Large stretch-validation attempt (master plan's own optional next step for this BP).",
+        }
+    )
 
     b4 = bps["BP4"]["variants"][bps["BP4"]["primary_variant"]]
-    recs.append({
-        "bp": "BP4", "title": f"Investigate BP4's real precision/recall trade-off at threshold {b4.get('threshold', 0):.4f}",
-        "specific": (
-            f"BP4's real champion ({b4['champion']}) achieves the platform's highest real recall among "
-            f"the three binary BPs ({b4['test_metrics']['recall']:.3f}) but its lowest real precision "
-            f"({b4['test_metrics']['precision']:.3f}) at threshold {b4.get('threshold', 0):.4f} on "
-            f"{bps['BP4']['primary_variant']}, using {b4.get('n_features', 'N/A')} real features "
-            f"(BP1's 19 plus BP4's own 5 structuring-specific ones)."
-        ),
-        "measurable": "Real precision/recall at a shifted threshold, re-evaluated against the SAME real held-out test set, before any production threshold change is made.",
-        "achievable": "A real threshold-sweep re-evaluation using Notebook 3's already-saved test-set scores -- no retraining required.",
-        "relevant": f"BP4 contributes the platform's single largest real BENEFIT-category-2 dollar figure ({_fmt_usd(cat2['bp4'])}) -- its real operating point deserves the platform's closest scrutiny.",
-        "time_bound": "Before BP4's real threshold is next changed in production.",
-    })
+    recs.append(
+        {
+            "bp": "BP4",
+            "title": f"Investigate BP4's real precision/recall trade-off at threshold {b4.get('threshold', 0):.4f}",
+            "specific": (
+                f"BP4's real champion ({b4['champion']}) achieves the platform's highest real recall among "
+                f"the three binary BPs ({b4['test_metrics']['recall']:.3f}) but its lowest real precision "
+                f"({b4['test_metrics']['precision']:.3f}) at threshold {b4.get('threshold', 0):.4f} on "
+                f"{bps['BP4']['primary_variant']}, using {b4.get('n_features', 'N/A')} real features "
+                f"(BP1's 19 plus BP4's own 5 structuring-specific ones)."
+            ),
+            "measurable": "Real precision/recall at a shifted threshold, re-evaluated against the SAME real held-out test set, before any production threshold change is made.",
+            "achievable": "A real threshold-sweep re-evaluation using Notebook 3's already-saved test-set scores -- no retraining required.",
+            "relevant": f"BP4 contributes the platform's single largest real BENEFIT-category-2 dollar figure ({_fmt_usd(cat2['bp4'])}) -- its real operating point deserves the platform's closest scrutiny.",
+            "time_bound": "Before BP4's real threshold is next changed in production.",
+        }
+    )
 
     b5 = bps["BP5"]["variants"][bps["BP5"]["primary_variant"]]
-    recs.append({
-        "bp": "BP5", "title": f"Audit BP5's {b5.get('n_features', 'N/A')} real cross-border features for redundancy",
-        "specific": (
-            f"BP5's real champion ({b5['champion']}) uses {b5.get('n_features', 'N/A')} real features -- "
-            f"the most of any binary BP on the platform -- at a real threshold of "
-            f"{b5.get('threshold', 0):.4f}, achieving real precision {b5['test_metrics']['precision']:.3f} "
-            f"and real recall {b5['test_metrics']['recall']:.3f} on {bps['BP5']['primary_variant']}."
-        ),
-        "measurable": "Real SHAP global-importance ranking (already computed by BP5's own Notebook 3) reviewed for any cross-border feature contributing materially less than BP1's shared base features.",
-        "achievable": "Uses BP5's already-computed SHAP output -- a review, not a new computation.",
-        "relevant": f"BP5 delivers the platform's single largest real BENEFIT-category-1 dollar figure ({_fmt_usd(cat1['bp5'])}) -- confirming its extra features earn their real complexity protects that result.",
-        "time_bound": "Before BP5's feature set is next changed.",
-    })
+    recs.append(
+        {
+            "bp": "BP5",
+            "title": f"Audit BP5's {b5.get('n_features', 'N/A')} real cross-border features for redundancy",
+            "specific": (
+                f"BP5's real champion ({b5['champion']}) uses {b5.get('n_features', 'N/A')} real features -- "
+                f"the most of any binary BP on the platform -- at a real threshold of "
+                f"{b5.get('threshold', 0):.4f}, achieving real precision {b5['test_metrics']['precision']:.3f} "
+                f"and real recall {b5['test_metrics']['recall']:.3f} on {bps['BP5']['primary_variant']}."
+            ),
+            "measurable": "Real SHAP global-importance ranking (already computed by BP5's own Notebook 3) reviewed for any cross-border feature contributing materially less than BP1's shared base features.",
+            "achievable": "Uses BP5's already-computed SHAP output -- a review, not a new computation.",
+            "relevant": f"BP5 delivers the platform's single largest real BENEFIT-category-1 dollar figure ({_fmt_usd(cat1['bp5'])}) -- confirming its extra features earn their real complexity protects that result.",
+            "time_bound": "Before BP5's feature set is next changed.",
+        }
+    )
 
-    recs.append({
-        "bp": "BP3", "title": "Keep BP3's real network-coverage volume as a portfolio-scale line, never dollarized or summed with BENEFIT",
-        "specific": (
-            f"BP3's real network covers {scale['bp3_n_nodes']:,} nodes and {scale['bp3_n_edges']:,} edges -- "
-            f"structurally distinct from BP1/BP2/BP4/BP5's transaction-level populations, with no sourced "
-            f"per-account investigation-cost basis to dollarize it (disclosed honestly, never invented)."
-        ),
-        "measurable": "Any future platform dashboard reporting a single 'accounts covered' or 'network scale' figure cites this real count directly, never converts it to a dollar estimate.",
-        "achievable": "A reporting convention, not a new computation -- BP3's own RULE_CARD.md already discloses the same real no-cost-basis limitation.",
-        "relevant": "Prevents a fabricated per-account cost figure from entering platform-wide financial reporting.",
-        "time_bound": "Immediate -- applies to this report and every future one referencing BP3's portfolio scale.",
-    })
+    recs.append(
+        {
+            "bp": "BP3",
+            "title": "Keep BP3's real network-coverage volume as a portfolio-scale line, never dollarized or summed with BENEFIT",
+            "specific": (
+                f"BP3's real network covers {scale['bp3_n_nodes']:,} nodes and {scale['bp3_n_edges']:,} edges -- "
+                f"structurally distinct from BP1/BP2/BP4/BP5's transaction-level populations, with no sourced "
+                f"per-account investigation-cost basis to dollarize it (disclosed honestly, never invented)."
+            ),
+            "measurable": "Any future platform dashboard reporting a single 'accounts covered' or 'network scale' figure cites this real count directly, never converts it to a dollar estimate.",
+            "achievable": "A reporting convention, not a new computation -- BP3's own RULE_CARD.md already discloses the same real no-cost-basis limitation.",
+            "relevant": "Prevents a fabricated per-account cost figure from entering platform-wide financial reporting.",
+            "time_bound": "Immediate -- applies to this report and every future one referencing BP3's portfolio scale.",
+        }
+    )
 
     if failing:
-        recs.append({
-            "bp": "", "title": f"Resolve the real validation failure on {', '.join(failing)} before citing platform-wide PASS",
-            "specific": f"{', '.join(failing)} did not pass its own two-gate validation (real recorded verdict{'s' if len(failing) > 1 else ''}: {', '.join(f'{bp}={verdicts[bp]}' for bp in failing)}).",
-            "measurable": "Re-run that BP's own Notebook 3 until both gates PASS, then re-run the BP6 extractor + rollup pipeline.",
-            "achievable": "Uses each BP's own existing, already-built Notebook 3 pipeline -- no new methodology required at the rollup level.",
-            "relevant": "This platform's locked policy requires every contributing BP to PASS before the platform-wide status is reported as fully recommended.",
-            "time_bound": "Before this platform rollup is cited in any external or regulatory-facing report.",
-        })
+        recs.append(
+            {
+                "bp": "",
+                "title": f"Resolve the real validation failure on {', '.join(failing)} before citing platform-wide PASS",
+                "specific": f"{', '.join(failing)} did not pass its own two-gate validation (real recorded verdict{'s' if len(failing) > 1 else ''}: {', '.join(f'{bp}={verdicts[bp]}' for bp in failing)}).",
+                "measurable": "Re-run that BP's own Notebook 3 until both gates PASS, then re-run the BP6 extractor + rollup pipeline.",
+                "achievable": "Uses each BP's own existing, already-built Notebook 3 pipeline -- no new methodology required at the rollup level.",
+                "relevant": "This platform's locked policy requires every contributing BP to PASS before the platform-wide status is reported as fully recommended.",
+                "time_bound": "Before this platform rollup is cited in any external or regulatory-facing report.",
+            }
+        )
     else:
-        recs.append({
-            "bp": "", "title": "Maintain the real five-BP all-PASS standard on every future platform-wide retrain cycle",
-            "specific": f"All five real business problems currently pass both validation gates ({', '.join(verdicts.keys())}).",
-            "measurable": "Every BP must continue to PASS both gates before its figures feed the next platform rollup regeneration.",
-            "achievable": "Enforced automatically by each BP's own existing Notebook 3 gate logic plus BP6 Notebook 3's own reconciliation gate.",
-            "relevant": "This is the basis for this report's current platform-wide recommended status.",
-            "time_bound": "Every retrain cycle, before the next rollup regeneration.",
-        })
+        recs.append(
+            {
+                "bp": "",
+                "title": "Maintain the real five-BP all-PASS standard on every future platform-wide retrain cycle",
+                "specific": f"All five real business problems currently pass both validation gates ({', '.join(verdicts.keys())}).",
+                "measurable": "Every BP must continue to PASS both gates before its figures feed the next platform rollup regeneration.",
+                "achievable": "Enforced automatically by each BP's own existing Notebook 3 gate logic plus BP6 Notebook 3's own reconciliation gate.",
+                "relevant": "This is the basis for this report's current platform-wide recommended status.",
+                "time_bound": "Every retrain cycle, before the next rollup regeneration.",
+            }
+        )
 
     return recs
 
@@ -4645,18 +5045,32 @@ def _citation_names(regulatory_mapping: list, indices: list) -> list:
 # ============================================================================
 def build_bp_business_narratives_platform(platform_source_data: dict) -> dict:
     bps = platform_source_data["bps"]
-    b1f, b2f, b3f, b4f, b5f = (bps["BP1"]["financial"], bps["BP2"]["financial"], bps["BP3"]["financial"],
-                               bps["BP4"]["financial"], bps["BP5"]["financial"])
+    b1f, b2f, b3f, b4f, b5f = (
+        bps["BP1"]["financial"],
+        bps["BP2"]["financial"],
+        bps["BP3"]["financial"],
+        bps["BP4"]["financial"],
+        bps["BP5"]["financial"],
+    )
     b1 = bps["BP1"]["variants"][bps["BP1"]["primary_variant"]]
     b2 = bps["BP2"]["variants"][bps["BP2"]["primary_variant"]]
     b3 = bps["BP3"]["variants"][bps["BP3"]["primary_variant"]]
     b4 = bps["BP4"]["variants"][bps["BP4"]["primary_variant"]]
     b5 = bps["BP5"]["variants"][bps["BP5"]["primary_variant"]]
-    v1, v2, v3, v4, v5 = (bps["BP1"]["primary_variant"], bps["BP2"]["primary_variant"],
-                          bps["BP3"]["primary_variant"], bps["BP4"]["primary_variant"],
-                          bps["BP5"]["primary_variant"])
-    accents = [PALETTE["series_1_blue"], PALETTE["series_2_orange"], PALETTE["series_3_aqua"],
-               PALETTE["series_1_blue"], PALETTE["series_2_orange"]]
+    v1, v2, v3, v4, v5 = (
+        bps["BP1"]["primary_variant"],
+        bps["BP2"]["primary_variant"],
+        bps["BP3"]["primary_variant"],
+        bps["BP4"]["primary_variant"],
+        bps["BP5"]["primary_variant"],
+    )
+    accents = [
+        PALETTE["series_1_blue"],
+        PALETTE["series_2_orange"],
+        PALETTE["series_3_aqua"],
+        PALETTE["series_1_blue"],
+        PALETTE["series_2_orange"],
+    ]
 
     narratives = {
         "BP1": {
@@ -4739,11 +5153,14 @@ def build_bp_business_narratives_platform(platform_source_data: dict) -> dict:
                 f"(verdict {b2.get('verdict', 'N/A')}) using {b2.get('n_features', 'N/A')} real "
                 f"engineered features, achieving a real macro-F1 of "
                 f"{b2['test_metrics']['macro_f1']:.3f} across the typologies with enough real matched "
-                f"examples this run" +
-                (f" (the two largest real classes: "
-                 f"{max(b2.get('class_counts', {'N/A': 0}), key=b2.get('class_counts', {'N/A': 0}).get)} "
-                 f"with {max(b2.get('class_counts', {'N/A': 0}).values(), default=0):,} real examples)."
-                 if b2.get("class_counts") else ".")
+                f"examples this run"
+                + (
+                    f" (the two largest real classes: "
+                    f"{max(b2.get('class_counts', {'N/A': 0}), key=b2.get('class_counts', {'N/A': 0}).get)} "
+                    f"with {max(b2.get('class_counts', {'N/A': 0}).values(), default=0):,} real examples)."
+                    if b2.get("class_counts")
+                    else "."
+                )
             ),
             "production_meaning": (
                 f"Deployed, BP2 would auto-classify {b2f['more_cases_auto_typed']:,} more real cases by "
@@ -4879,9 +5296,9 @@ def build_bp_business_narratives_platform(platform_source_data: dict) -> dict:
                 f"specifically to evade Bank Secrecy Act reporting requirements, and detecting this "
                 f"pattern is a mandatory examination area at every BSA-regulated institution. Beyond "
                 f"BP1's shared feature set, BP4 adds its own real {len(bps['BP4'].get('named_engineered_features', []))} "
-                f"named structuring-specific features -- " +
-                ", ".join(f"`{f}`" for f in bps['BP4'].get('named_engineered_features', [])) +
-                f" -- of which `amount_to_rolling_window_mean_ratio` ranks among the real top-5 "
+                f"named structuring-specific features -- "
+                + ", ".join(f"`{f}`" for f in bps["BP4"].get("named_engineered_features", []))
+                + f" -- of which `amount_to_rolling_window_mean_ratio` ranks among the real top-5 "
                 f"global SHAP drivers this run: the model overall is driven most by "
                 f"{_top_shap_phrase(bps['BP4'].get('top_shap_features', []))}. Regulatory basis: BP4's "
                 f"own named statute, the BSA structuring statute (31 U.S.C. Section 5324), sits "
@@ -4936,9 +5353,9 @@ def build_bp_business_narratives_platform(platform_source_data: dict) -> dict:
                 f"sanctioned-party exposure and cross-border money-laundering flow: wires crossing a "
                 f"national border. Beyond the platform's shared 19-feature transaction-monitoring set, "
                 f"BP5 adds its own real {len(bps['BP5'].get('named_engineered_features', []))} named "
-                f"cross-border features -- " +
-                ", ".join(f"`{f}`" for f in bps['BP5'].get('named_engineered_features', [])) +
-                f". None of these 8 cross-border-specific features broke into the real top-5 overall "
+                f"cross-border features -- "
+                + ", ".join(f"`{f}`" for f in bps["BP5"].get("named_engineered_features", []))
+                + f". None of these 8 cross-border-specific features broke into the real top-5 overall "
                 f"SHAP drivers this run -- the model overall remains driven most by "
                 f"{_top_shap_phrase(bps['BP5'].get('top_shap_features', []))} -- though this BP's own "
                 f"MODEL_CARD.md separately ranks `sender_country_empirical_risk` as the top driver "
@@ -4973,7 +5390,9 @@ def write_platform_word_report(path: Path, context: dict) -> Path:
     _apply_word_brand_styles(doc)
     doc.add_heading(f"{context['bp_id']}: {context['bp_name']}", level=0)
     p = doc.add_paragraph()
-    p.add_run(f"Platform-Wide Compliance-Impact Rollup -- generated {context['generated_at_utc']} UTC").italic = True
+    p.add_run(
+        f"Platform-Wide Compliance-Impact Rollup -- generated {context['generated_at_utc']} UTC"
+    ).italic = True
 
     doc.add_heading("Business Objective", level=1)
     doc.add_paragraph(context["business_objective"])
@@ -4984,8 +5403,11 @@ def write_platform_word_report(path: Path, context: dict) -> Path:
     run = p.add_run(status["label"])
     run.bold = True
     run.font.size = Pt(14)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     run.font.color.rgb = status_colors.get(status["css_class"], RGBColor(0x0B, 0x0B, 0x0B))
     doc.add_paragraph(status["rationale"])
 
@@ -5098,9 +5520,9 @@ def write_platform_word_report(path: Path, context: dict) -> Path:
 # ============================================================================
 def write_platform_excel_workbook(path: Path, context: dict) -> Path:
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
-    from openpyxl.workbook.properties import CalcProperties
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.properties import CalcProperties
 
     psd = context["platform_source_data"]
     roll = psd["platform_rollup"]
@@ -5119,37 +5541,83 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
         cell.font = header_font
         cell.fill = header_fill
     prov_rows = [
-        ("BP1 FP-reduction $ savings", _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp1"]),
-         "reports/bp1_transaction_monitoring_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP4 FP-reduction $ savings", _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp4"]),
-         "reports/bp4_structuring_smurfing_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP5 FP-reduction $ savings", _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp5"]),
-         "reports/bp5_correspondent_banking_crossborder_risk/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP1 TP-uplift illustrative $", _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp1"]),
-         "reports/bp1_transaction_monitoring_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP4 TP-uplift illustrative $", _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp4"]),
-         "reports/bp4_structuring_smurfing_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP5 TP-uplift illustrative $", _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp5"]),
-         "reports/bp5_correspondent_banking_crossborder_risk/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP2 auto-typing efficiency savings", _fmt_usd(roll["benefit_category_3_bp2_typology_lines"]["auto_typing_efficiency_savings_usd"]),
-         "reports/bp2_typology_redflag_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP2 typology confirmation value", _fmt_usd(roll["benefit_category_3_bp2_typology_lines"]["typology_confirmation_value_usd"]),
-         "reports/bp2_typology_redflag_detection/MODEL_CARD.md -- Financial Impact Summary", "Regex-parsed, verbatim"),
-        ("BP3 real network nodes", f"{roll['portfolio_scale']['bp3_n_nodes']:,}",
-         "reports/bp3_network_graph_intelligence/bp3_notebook3_validation_report_li_medium.json", "JSON field read, verbatim"),
-        ("BP3 real network edges", f"{roll['portfolio_scale']['bp3_n_edges']:,}",
-         "reports/bp3_network_graph_intelligence/bp3_notebook3_validation_report_li_medium.json", "JSON field read, verbatim"),
-        ("All-BP verdict summary", ", ".join(f"{k}={v}" for k, v in roll["all_bps_verdict_summary"].items()),
-         "Each BP's own bpN_notebook3_validation_report_*.json -- overall_verdict field", "JSON field read, verbatim"),
+        (
+            "BP1 FP-reduction $ savings",
+            _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp1"]),
+            "reports/bp1_transaction_monitoring_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP4 FP-reduction $ savings",
+            _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp4"]),
+            "reports/bp4_structuring_smurfing_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP5 FP-reduction $ savings",
+            _fmt_usd(roll["benefit_category_1_fp_reduction_savings"]["bp5"]),
+            "reports/bp5_correspondent_banking_crossborder_risk/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP1 TP-uplift illustrative $",
+            _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp1"]),
+            "reports/bp1_transaction_monitoring_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP4 TP-uplift illustrative $",
+            _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp4"]),
+            "reports/bp4_structuring_smurfing_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP5 TP-uplift illustrative $",
+            _fmt_usd(roll["benefit_category_2_tp_uplift_value"]["bp5"]),
+            "reports/bp5_correspondent_banking_crossborder_risk/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP2 auto-typing efficiency savings",
+            _fmt_usd(roll["benefit_category_3_bp2_typology_lines"]["auto_typing_efficiency_savings_usd"]),
+            "reports/bp2_typology_redflag_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP2 typology confirmation value",
+            _fmt_usd(roll["benefit_category_3_bp2_typology_lines"]["typology_confirmation_value_usd"]),
+            "reports/bp2_typology_redflag_detection/MODEL_CARD.md -- Financial Impact Summary",
+            "Regex-parsed, verbatim",
+        ),
+        (
+            "BP3 real network nodes",
+            f"{roll['portfolio_scale']['bp3_n_nodes']:,}",
+            "reports/bp3_network_graph_intelligence/bp3_notebook3_validation_report_li_medium.json",
+            "JSON field read, verbatim",
+        ),
+        (
+            "BP3 real network edges",
+            f"{roll['portfolio_scale']['bp3_n_edges']:,}",
+            "reports/bp3_network_graph_intelligence/bp3_notebook3_validation_report_li_medium.json",
+            "JSON field read, verbatim",
+        ),
+        (
+            "All-BP verdict summary",
+            ", ".join(f"{k}={v}" for k, v in roll["all_bps_verdict_summary"].items()),
+            "Each BP's own bpN_notebook3_validation_report_*.json -- overall_verdict field",
+            "JSON field read, verbatim",
+        ),
     ]
     for r, (label, val, src, via) in enumerate(prov_rows, start=2):
         ws_p.cell(row=r, column=1, value=label)
         ws_p.cell(row=r, column=2, value=val)
         ws_p.cell(row=r, column=3, value=src)
         ws_p.cell(row=r, column=4, value=via)
-    ws_p.cell(row=len(prov_rows) + 3, column=1,
-              value=f"Sourcing method (verbatim, from the extractor script): {psd['sourcing_method']}").font = \
-        Font(italic=True, color="52514E")
+    ws_p.cell(
+        row=len(prov_rows) + 3,
+        column=1,
+        value=f"Sourcing method (verbatim, from the extractor script): {psd['sourcing_method']}",
+    ).font = Font(italic=True, color="52514E")
     ws_p.column_dimensions["A"].width = 34
     ws_p.column_dimensions["B"].width = 22
     ws_p.column_dimensions["C"].width = 70
@@ -5160,7 +5628,9 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
 
     # --- Executive Summary sheet ---
     status = context.get("status") or compute_platform_status(psd)
-    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(status["css_class"], "2A78D6")
+    status_hex = {"good": "0CA30C", "warning": "FAB219", "critical": "D03B3B"}.get(
+        status["css_class"], "2A78D6"
+    )
     ws_e = wb.create_sheet("Executive Summary")
     ws_e["A1"] = "Status"
     ws_e["B1"] = "Rationale"
@@ -5186,9 +5656,11 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
         cell = ws_b.cell(row=1, column=c, value=h)
         cell.font = header_font
         cell.fill = header_fill
-    cat1, cat2, cat3 = (roll["benefit_category_1_fp_reduction_savings"],
-                        roll["benefit_category_2_tp_uplift_value"],
-                        roll["benefit_category_3_bp2_typology_lines"])
+    cat1, cat2, cat3 = (
+        roll["benefit_category_1_fp_reduction_savings"],
+        roll["benefit_category_2_tp_uplift_value"],
+        roll["benefit_category_3_bp2_typology_lines"],
+    )
     r = 2
     cat1_start = r
     for label, key in [("BP1", "bp1"), ("BP4", "bp4"), ("BP5", "bp5")]:
@@ -5204,8 +5676,12 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
     ws_b.cell(row=r, column=3, value=f"=SUM(C{cat1_start}:C{cat1_total_row - 1})")
     ws_b.cell(row=r, column=3).number_format = _EXCEL_USD_FORMAT
     ws_b.cell(row=r, column=4, value=_excel_usd_shorthand_formula(f"C{r}"))
-    ws_b.cell(row=r, column=5, value=f"{cat1['total_investigator_hours_saved']:,} hrs saved, "
-                                      f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts")
+    ws_b.cell(
+        row=r,
+        column=5,
+        value=f"{cat1['total_investigator_hours_saved']:,} hrs saved, "
+        f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts",
+    )
     for c in range(1, 4):
         ws_b.cell(row=r, column=c).font = Font(bold=True)
     r += 2
@@ -5257,10 +5733,13 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
     ws_b.cell(row=r, column=3, value=roll["portfolio_scale"]["bp3_n_edges"])
     r += 2
 
-    ws_b.cell(row=r, column=1, value="Note: the figures above are never summed across categories -- "
-                                      "this platform reports three separate BENEFIT lines, never one "
-                                      "blended grand total (locked Section 7A/8 policy).").font = \
-        Font(italic=True, color="52514E")
+    ws_b.cell(
+        row=r,
+        column=1,
+        value="Note: the figures above are never summed across categories -- "
+        "this platform reports three separate BENEFIT lines, never one "
+        "blended grand total (locked Section 7A/8 policy).",
+    ).font = Font(italic=True, color="52514E")
 
     for c, w in zip(range(1, 6), [40, 32, 18, 24, 48]):
         ws_b.column_dimensions[get_column_letter(c)].width = w
@@ -5297,9 +5776,17 @@ def write_platform_excel_workbook(path: Path, context: dict) -> Path:
     # off the same single real source. ---
     narratives = context.get("bp_narratives") or build_bp_business_narratives_platform(psd)
     ws_n = wb.create_sheet("Per-BP Business & Methodology")
-    narr_headers = ["BP", "Business Objective", "Champion / Signal", "Feature Count",
-                    "Threshold", "Top SHAP Drivers", "Named Engineered Features",
-                    "Regulatory Citations", "Business Impact"]
+    narr_headers = [
+        "BP",
+        "Business Objective",
+        "Champion / Signal",
+        "Feature Count",
+        "Threshold",
+        "Top SHAP Drivers",
+        "Named Engineered Features",
+        "Regulatory Citations",
+        "Business Impact",
+    ]
     for c, h in enumerate(narr_headers, start=1):
         cell = ws_n.cell(row=1, column=c, value=h)
         cell.font = header_font
@@ -5363,9 +5850,11 @@ def write_platform_html_dashboard(path: Path, context: dict, chartjs_js_path: Pa
     recommendations = context.get("smart_recommendations") or generate_platform_smart_recommendations(psd)
     narratives = context.get("bp_narratives") or build_bp_business_narratives_platform(psd)
 
-    cat1, cat2, cat3 = (roll["benefit_category_1_fp_reduction_savings"],
-                        roll["benefit_category_2_tp_uplift_value"],
-                        roll["benefit_category_3_bp2_typology_lines"])
+    cat1, cat2, cat3 = (
+        roll["benefit_category_1_fp_reduction_savings"],
+        roll["benefit_category_2_tp_uplift_value"],
+        roll["benefit_category_3_bp2_typology_lines"],
+    )
     scale = roll["portfolio_scale"]
 
     bp_rows = []
@@ -5373,7 +5862,9 @@ def write_platform_html_dashboard(path: Path, context: dict, chartjs_js_path: Pa
     for bp_id, d in psd["bps"].items():
         primary = d["variants"][d["primary_variant"]]
         row = {
-            "bp_id": bp_id, "name": d["name"], "phase": d["phase"],
+            "bp_id": bp_id,
+            "name": d["name"],
+            "phase": d["phase"],
             "primary_variant": d["primary_variant"],
             "champion": primary.get("champion", "N/A"),
             "verdict": primary.get("verdict", "N/A"),
@@ -5394,32 +5885,57 @@ def write_platform_html_dashboard(path: Path, context: dict, chartjs_js_path: Pa
         "BP3 real network edges": "BP3",
     }
     _cat_prefix_to_key = {
-        "BENEFIT 1": "cat1", "BENEFIT 2": "cat2", "BENEFIT 3": "cat3",
-        "COST CONTEXT": "cost", "PORTFOLIO SCALE": "scale",
+        "BENEFIT 1": "cat1",
+        "BENEFIT 2": "cat2",
+        "BENEFIT 3": "cat3",
+        "COST CONTEXT": "cost",
+        "PORTFOLIO SCALE": "scale",
     }
     benefit_rows = []
     ben_df = context.get("benefit_table")
     if ben_df is not None:
         for _, r in ben_df.iterrows():
-            cat_key = next((v for k, v in _cat_prefix_to_key.items() if str(r["Category"]).startswith(k)), "other")
-            benefit_rows.append({
-                "category": r["Category"], "category_key": cat_key,
-                "line_item": r["Line Item"], "value": r["Value"], "note": r["Note"],
-                "bp_key": _line_item_to_bp.get(r["Line Item"]),
-            })
+            cat_key = next(
+                (v for k, v in _cat_prefix_to_key.items() if str(r["Category"]).startswith(k)), "other"
+            )
+            benefit_rows.append(
+                {
+                    "category": r["Category"],
+                    "category_key": cat_key,
+                    "line_item": r["Line Item"],
+                    "value": r["Value"],
+                    "note": r["Note"],
+                    "bp_key": _line_item_to_bp.get(r["Line Item"]),
+                }
+            )
 
-    data_json = json.dumps({
-        "cat1": {"bp1": cat1["bp1"], "bp4": cat1["bp4"], "bp5": cat1["bp5"], "total": cat1["total_usd"],
-                 "hours": cat1["total_investigator_hours_saved"], "fewer_fp": cat1["total_fewer_fp_alerts"]},
-        "cat2": {"bp1": cat2["bp1"], "bp4": cat2["bp4"], "bp5": cat2["bp5"], "total": cat2["total_usd"],
-                 "cases": cat2["total_additional_cases_caught"]},
-        "cat3": {"auto_typing": cat3["auto_typing_efficiency_savings_usd"],
-                 "typology_confirmation": cat3["typology_confirmation_value_usd"]},
-        "scale": {"nodes": scale["bp3_n_nodes"], "edges": scale["bp3_n_edges"]},
-        "bp_rows": bp_rows,
-        "phase_groups": phase_groups,
-        "benefit_rows": benefit_rows,
-    })
+    data_json = json.dumps(
+        {
+            "cat1": {
+                "bp1": cat1["bp1"],
+                "bp4": cat1["bp4"],
+                "bp5": cat1["bp5"],
+                "total": cat1["total_usd"],
+                "hours": cat1["total_investigator_hours_saved"],
+                "fewer_fp": cat1["total_fewer_fp_alerts"],
+            },
+            "cat2": {
+                "bp1": cat2["bp1"],
+                "bp4": cat2["bp4"],
+                "bp5": cat2["bp5"],
+                "total": cat2["total_usd"],
+                "cases": cat2["total_additional_cases_caught"],
+            },
+            "cat3": {
+                "auto_typing": cat3["auto_typing_efficiency_savings_usd"],
+                "typology_confirmation": cat3["typology_confirmation_value_usd"],
+            },
+            "scale": {"nodes": scale["bp3_n_nodes"], "edges": scale["bp3_n_edges"]},
+            "bp_rows": bp_rows,
+            "phase_groups": phase_groups,
+            "benefit_rows": benefit_rows,
+        }
+    )
     status_json = json.dumps(status)
     recs_json = json.dumps(recommendations)
     narratives_json = json.dumps(narratives)
@@ -6079,8 +6595,6 @@ document.getElementById("filter-reset").addEventListener("click", () => {{
     return path
 
 
-
-
 # ============================================================================
 # Real matplotlib grouped-bar PNG (category 1 vs category 2 per contributing BP) -- for
 # the PPTX deck's static chart slide, same convention as render_before_after_chart_png /
@@ -6088,6 +6602,7 @@ document.getElementById("filter-reset").addEventListener("click", () => {{
 # ============================================================================
 def render_platform_benefit_chart_png(platform_rollup: dict, out_path: Path) -> Path:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -6100,8 +6615,20 @@ def render_platform_benefit_chart_png(platform_rollup: dict, out_path: Path) -> 
     x = range(len(bps))
     width = 0.35
     fig, ax = plt.subplots(figsize=(8, 4.2), dpi=150)
-    ax.bar([i - width / 2 for i in x], c1_vals, width, label="Category 1 -- FP-Reduction $", color=PALETTE["series_1_blue"])
-    ax.bar([i + width / 2 for i in x], c2_vals, width, label="Category 2 -- TP-Uplift $", color=PALETTE["series_2_orange"])
+    ax.bar(
+        [i - width / 2 for i in x],
+        c1_vals,
+        width,
+        label="Category 1 -- FP-Reduction $",
+        color=PALETTE["series_1_blue"],
+    )
+    ax.bar(
+        [i + width / 2 for i in x],
+        c2_vals,
+        width,
+        label="Category 2 -- TP-Uplift $",
+        color=PALETTE["series_2_orange"],
+    )
     ax.set_xticks(list(x))
     ax.set_xticklabels(bps)
     ax.set_ylabel("USD")
@@ -6122,8 +6649,8 @@ def render_platform_benefit_chart_png(platform_rollup: dict, out_path: Path) -> 
 # ============================================================================
 def write_platform_pptx_deck(path: Path, context: dict, chart_png_paths: Optional[dict] = None) -> Path:
     from pptx import Presentation
-    from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
+    from pptx.util import Inches, Pt
 
     psd = context["platform_source_data"]
     roll = psd["platform_rollup"]
@@ -6132,15 +6659,20 @@ def write_platform_pptx_deck(path: Path, context: dict, chart_png_paths: Optiona
 
     slide = _add_branded_slide(prs, 0)
     slide.shapes.title.text = f"{context['bp_id']}: {context['bp_name']}"
-    slide.placeholders[1].text = f"Platform-Wide Compliance-Impact Rollup -- {context['generated_at_utc']} UTC"
+    slide.placeholders[1].text = (
+        f"Platform-Wide Compliance-Impact Rollup -- {context['generated_at_utc']} UTC"
+    )
 
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Business Objective"
     slide.placeholders[1].text_frame.text = context["business_objective"]
 
     status = context.get("status") or compute_platform_status(psd)
-    status_colors = {"good": RGBColor(0x0C, 0xA3, 0x0C), "warning": RGBColor(0xC9, 0x85, 0x00),
-                      "critical": RGBColor(0xD0, 0x3B, 0x3B)}
+    status_colors = {
+        "good": RGBColor(0x0C, 0xA3, 0x0C),
+        "warning": RGBColor(0xC9, 0x85, 0x00),
+        "critical": RGBColor(0xD0, 0x3B, 0x3B),
+    }
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Recommendation & Status"
     body = slide.placeholders[1].text_frame
@@ -6201,22 +6733,24 @@ def write_platform_pptx_deck(path: Path, context: dict, chart_png_paths: Optiona
         p.level = 1
         if bp_data.get("top_shap_features"):
             p = body.add_paragraph()
-            p.text = "Top real SHAP drivers: " + ", ".join(
-                f["name"] for f in bp_data["top_shap_features"])
+            p.text = "Top real SHAP drivers: " + ", ".join(f["name"] for f in bp_data["top_shap_features"])
             p.level = 1
         if bp_data.get("named_engineered_features"):
             p = body.add_paragraph()
-            p.text = f"Named engineered features ({len(bp_data['named_engineered_features'])}): " + \
-                     ", ".join(bp_data["named_engineered_features"])
+            p.text = f"Named engineered features ({len(bp_data['named_engineered_features'])}): " + ", ".join(
+                bp_data["named_engineered_features"]
+            )
             p.level = 1
         if n.get("regulatory_citations"):
             p = body.add_paragraph()
             p.text = "Regulatory basis: " + "; ".join(n["regulatory_citations"])
             p.level = 1
 
-    cat1, cat2, cat3 = (roll["benefit_category_1_fp_reduction_savings"],
-                        roll["benefit_category_2_tp_uplift_value"],
-                        roll["benefit_category_3_bp2_typology_lines"])
+    cat1, cat2, cat3 = (
+        roll["benefit_category_1_fp_reduction_savings"],
+        roll["benefit_category_2_tp_uplift_value"],
+        roll["benefit_category_3_bp2_typology_lines"],
+    )
     scale = roll["portfolio_scale"]
     slide = _add_branded_slide(prs, 1)
     slide.shapes.title.text = "Three-Category Financial Rollup (never blended)"
@@ -6235,7 +6769,9 @@ def write_platform_pptx_deck(path: Path, context: dict, chart_png_paths: Optiona
     if chart_png_paths and "platform_benefit" in chart_png_paths:
         slide = _add_branded_slide(prs, 5)
         slide.shapes.title.text = "Per-BP Benefit Breakdown"
-        slide.shapes.add_picture(str(chart_png_paths["platform_benefit"]), Inches(0.5), Inches(1.3), width=Inches(9))
+        slide.shapes.add_picture(
+            str(chart_png_paths["platform_benefit"]), Inches(0.5), Inches(1.3), width=Inches(9)
+        )
 
     slide = _add_branded_slide(prs, 5)
     slide.shapes.title.text = "Per-BP Status Grid"
@@ -6289,69 +6825,77 @@ def write_platform_card(path: Path, context: dict) -> Path:
     roll = psd["platform_rollup"]
     status = context.get("status") or compute_platform_status(psd)
     recs = context.get("smart_recommendations") or generate_platform_smart_recommendations(psd)
-    cat1, cat2, cat3 = (roll["benefit_category_1_fp_reduction_savings"],
-                        roll["benefit_category_2_tp_uplift_value"],
-                        roll["benefit_category_3_bp2_typology_lines"])
+    cat1, cat2, cat3 = (
+        roll["benefit_category_1_fp_reduction_savings"],
+        roll["benefit_category_2_tp_uplift_value"],
+        roll["benefit_category_3_bp2_typology_lines"],
+    )
     scale = roll["portfolio_scale"]
 
-    lines = [
-        f"# Platform Card -- {context['bp_id']}: {context['bp_name']}",
-        "",
-        f"_Generated {context['generated_at_utc']} UTC._",
-        "",
-        "**This is a PLATFORM CARD, not a model card or rule card.** BP6 has no trained ML "
-        "model and no structural signal of its own -- the real deployable artifact is a "
-        "pure, read-only rollup of BP1-BP5's own already-computed real figures. No figure "
-        "below is recomputed, estimated, or fabricated.",
-        "",
-        f"## Status: {status['label']}",
-        status["rationale"],
-        "",
-        "## Business Objective",
-        context["business_objective"],
-        "",
-        "## Sourcing Method (verbatim)",
-        f"> {psd['sourcing_method']}",
-        "",
-        "## What This Means for the Business",
-    ] + [f"- {point}" for point in context["business_benefits"]] + [
-        "",
-        "## Three-Category Financial Rollup (never blended into one grand total)",
-        roll["headline_grand_total_note"],
-        "",
-        "### Category 1 -- FP-Reduction Savings (ASSUMPTION)",
-        f"- BP1: {_fmt_usd(cat1['bp1'])}",
-        f"- BP4: {_fmt_usd(cat1['bp4'])}",
-        f"- BP5: {_fmt_usd(cat1['bp5'])}",
-        f"- **TOTAL: {_fmt_usd(cat1['total_usd'])}** "
-        f"({cat1['total_investigator_hours_saved']:,} investigator hours saved, "
-        f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts)",
-        "",
-        "### Category 2 -- TP-Uplift Illustrative Value (ASSUMPTION)",
-        f"- BP1: {_fmt_usd(cat2['bp1'])}",
-        f"- BP4: {_fmt_usd(cat2['bp4'])}",
-        f"- BP5: {_fmt_usd(cat2['bp5'])}",
-        f"- **TOTAL: {_fmt_usd(cat2['total_usd'])}** ({cat2['total_additional_cases_caught']:+,} additional real cases caught)",
-        "",
-        "### Category 3 -- BP2 Typology Lines (kept separate -- different unit basis)",
-        f"- Auto-typing efficiency savings: {_fmt_usd(cat3['auto_typing_efficiency_savings_usd'])}",
-        f"- Typology confirmation value: {_fmt_usd(cat3['typology_confirmation_value_usd'])}",
-        "",
-        "### Cost Context (informational only, never summed)",
-        roll["cost_context"]["description"],
-        "",
-        "### Portfolio Scale (volume only, never dollarized)",
-        f"- BP3 real network nodes: {scale['bp3_n_nodes']:,}",
-        f"- BP3 real network edges: {scale['bp3_n_edges']:,}",
-        "",
-        "## Per-BP Breakdown",
-        "| BP | Name | Phase | Primary Variant | Champion / Signal | Verdict |",
-        "|---|---|---|---|---|---|",
-    ]
+    lines = (
+        [
+            f"# Platform Card -- {context['bp_id']}: {context['bp_name']}",
+            "",
+            f"_Generated {context['generated_at_utc']} UTC._",
+            "",
+            "**This is a PLATFORM CARD, not a model card or rule card.** BP6 has no trained ML "
+            "model and no structural signal of its own -- the real deployable artifact is a "
+            "pure, read-only rollup of BP1-BP5's own already-computed real figures. No figure "
+            "below is recomputed, estimated, or fabricated.",
+            "",
+            f"## Status: {status['label']}",
+            status["rationale"],
+            "",
+            "## Business Objective",
+            context["business_objective"],
+            "",
+            "## Sourcing Method (verbatim)",
+            f"> {psd['sourcing_method']}",
+            "",
+            "## What This Means for the Business",
+        ]
+        + [f"- {point}" for point in context["business_benefits"]]
+        + [
+            "",
+            "## Three-Category Financial Rollup (never blended into one grand total)",
+            roll["headline_grand_total_note"],
+            "",
+            "### Category 1 -- FP-Reduction Savings (ASSUMPTION)",
+            f"- BP1: {_fmt_usd(cat1['bp1'])}",
+            f"- BP4: {_fmt_usd(cat1['bp4'])}",
+            f"- BP5: {_fmt_usd(cat1['bp5'])}",
+            f"- **TOTAL: {_fmt_usd(cat1['total_usd'])}** "
+            f"({cat1['total_investigator_hours_saved']:,} investigator hours saved, "
+            f"{cat1['total_fewer_fp_alerts']:,} fewer FP alerts)",
+            "",
+            "### Category 2 -- TP-Uplift Illustrative Value (ASSUMPTION)",
+            f"- BP1: {_fmt_usd(cat2['bp1'])}",
+            f"- BP4: {_fmt_usd(cat2['bp4'])}",
+            f"- BP5: {_fmt_usd(cat2['bp5'])}",
+            f"- **TOTAL: {_fmt_usd(cat2['total_usd'])}** ({cat2['total_additional_cases_caught']:+,} additional real cases caught)",
+            "",
+            "### Category 3 -- BP2 Typology Lines (kept separate -- different unit basis)",
+            f"- Auto-typing efficiency savings: {_fmt_usd(cat3['auto_typing_efficiency_savings_usd'])}",
+            f"- Typology confirmation value: {_fmt_usd(cat3['typology_confirmation_value_usd'])}",
+            "",
+            "### Cost Context (informational only, never summed)",
+            roll["cost_context"]["description"],
+            "",
+            "### Portfolio Scale (volume only, never dollarized)",
+            f"- BP3 real network nodes: {scale['bp3_n_nodes']:,}",
+            f"- BP3 real network edges: {scale['bp3_n_edges']:,}",
+            "",
+            "## Per-BP Breakdown",
+            "| BP | Name | Phase | Primary Variant | Champion / Signal | Verdict |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
     for bp_id, d in psd["bps"].items():
         primary = d["variants"][d["primary_variant"]]
-        lines.append(f"| {bp_id} | {d['name']} | {d['phase']} | {d['primary_variant']} | "
-                     f"{primary.get('champion', 'N/A')} | {primary.get('verdict', 'N/A')} |")
+        lines.append(
+            f"| {bp_id} | {d['name']} | {d['phase']} | {d['primary_variant']} | "
+            f"{primary.get('champion', 'N/A')} | {primary.get('verdict', 'N/A')} |"
+        )
 
     narratives = context.get("bp_narratives") or build_bp_business_narratives_platform(psd)
     lines += ["", "## Per-BP Business Narratives"]
