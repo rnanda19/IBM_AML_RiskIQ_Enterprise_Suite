@@ -126,3 +126,38 @@ def test_score_endpoint_rejects_missing_feature(stub_service):
     incomplete = {c: 1.0 for c in FEATURE_COLS[:-1]}  # drop one required feature
     resp = client.post("/score", json=incomplete)
     assert resp.status_code == 422  # Pydantic validation error, not a 500
+
+
+def test_score_endpoint_open_mode_by_default(stub_service):
+    """This project's own test suite never sets AML_RISKIQ_API_KEYS, so every real
+    service -- including this one -- runs in the documented open-auth mode and /score
+    stays reachable with no X-API-Key header. This is the integration-level proof that
+    bp1's real route wiring (src/services/_security.py's require_api_key dependency,
+    attached via Depends in the real score_endpoint) behaves exactly like the isolated
+    unit coverage in tests/shared/test_security.py says it should."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+
+
+def test_score_endpoint_requires_api_key_when_configured(stub_service, monkeypatch):
+    """Flips the real service into closed mode via the real env var and confirms the
+    real /score route -- not a synthetic stand-in -- actually enforces it: no header =
+    401, wrong key = 401, correct key = 200."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "bp1-integration-test-key")
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+
+    resp_no_key = client.post("/score", json=payload)
+    assert resp_no_key.status_code == 401
+
+    resp_wrong_key = client.post("/score", json=payload, headers={"X-API-Key": "nope"})
+    assert resp_wrong_key.status_code == 401
+
+    resp_correct_key = client.post("/score", json=payload, headers={"X-API-Key": "bp1-integration-test-key"})
+    assert resp_correct_key.status_code == 200

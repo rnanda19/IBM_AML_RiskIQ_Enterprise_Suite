@@ -82,7 +82,12 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
+
+try:
+    from services._security import harden_app, require_api_key, score_rate_limit
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.services._security import harden_app, require_api_key, score_rate_limit
 from pydantic import create_model
 
 
@@ -149,18 +154,18 @@ if not REPORT_PATH.exists():
         f"rf_impute_value -- run Notebook 3 for '{DATASET_VARIANT}' first."
     )
 
-with open(CHAMPION_MODEL_PATH, "rb") as _f:
+with open(CHAMPION_MODEL_PATH, "rb") as _model_f:
     champion_model = pickle.load(
-        _f
+        _model_f
     )  # nosec B301 -- loads this project's own real trained artifact from a path resolved via PROJECT_ROOT/env var, never untrusted external input  # noqa: E501
 
-with open(LABEL_ENCODER_PATH, "rb") as _f:
+with open(LABEL_ENCODER_PATH, "rb") as _encoder_f:
     label_encoder = pickle.load(
-        _f
+        _encoder_f
     )  # nosec B301 -- loads this project's own real label encoder artifact, same trust boundary as the champion model above  # noqa: E501
 
-with open(REPORT_PATH, encoding="utf-8") as _f:
-    _report = json.load(_f)
+with open(REPORT_PATH, encoding="utf-8") as _report_f:
+    _report = json.load(_report_f)
 
 # Real, saved values -- never re-typed by hand (that would risk drifting from the notebook
 # that actually computed them, the exact failure mode Lesson #2 exists to prevent).
@@ -197,6 +202,21 @@ print(
     f"champion_needs_rf_impute={CHAMPION_NEEDS_RF_IMPUTE}."
 )
 
+# Real model-registry fingerprint -- computed once at import time from the actual on-disk
+# model file (never cached across different files, never guessed); exposed via /health so a
+# caller can verify exactly which model artifact this running process loaded.
+try:
+    from services._model_registry import build_registry_entry
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.services._model_registry import build_registry_entry
+
+MODEL_REGISTRY_ENTRY = build_registry_entry(
+    model_path=CHAMPION_MODEL_PATH,
+    champion_name=CHAMPION_NAME,
+    dataset_variant=DATASET_VARIANT,
+    report_generated_at_utc=_report.get("generated_at_utc"),
+)
+
 # ----------------------------------------------------------------------------------------
 # Real request schema -- one float field per real feature column, identical in shape to
 # Notebook 3's own in-notebook FastAPI self-test schema, except the one real, disclosed
@@ -205,7 +225,13 @@ print(
 # own service already applies for its own NaN-prone column).
 # ----------------------------------------------------------------------------------------
 _FIELD_TYPES = {c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...)) for c in FEATURE_COLS}
-TxnFeatures = create_model("TxnFeatures", **_FIELD_TYPES)
+TxnFeatures = create_model(
+    "TxnFeatures", **_FIELD_TYPES
+)  # type: ignore[call-overload]  # pydantic's mypy plugin only validates create_model()
+# calls that use literal field definitions; here the fields are built dynamically from
+# FEATURE_COLS (loaded from the real saved validation report at runtime, per Lesson #2 --
+# never hardcode feature names), which mypy cannot statically verify. This is pydantic's
+# own documented limitation for dynamic create_model() usage, not a real type error.
 
 
 def score_transaction(record: dict) -> dict:
@@ -241,6 +267,7 @@ def score_transaction(record: dict) -> dict:
 
 
 app = FastAPI(title=f"BP2 Typology & Red-Flag Pattern Scoring Service ({DATASET_VARIANT})")
+_limiter = harden_app(app, "bp2_scoring_service")
 
 
 @app.get("/health")
@@ -252,9 +279,11 @@ def health() -> dict:
         "class_names": CLASS_NAMES,
         "feature_count": len(FEATURE_COLS),
         "champion_needs_rf_impute": CHAMPION_NEEDS_RF_IMPUTE,
+        "model_registry": MODEL_REGISTRY_ENTRY,
     }
 
 
 @app.post("/score")
-def score_endpoint(txn: TxnFeatures) -> dict:
+@_limiter.limit(score_rate_limit())
+def score_endpoint(request: Request, txn: TxnFeatures, _caller: str = Depends(require_api_key)) -> dict:
     return score_transaction(txn.model_dump())

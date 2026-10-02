@@ -62,7 +62,12 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
+
+try:
+    from services._security import harden_app, require_api_key, score_rate_limit
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.services._security import harden_app, require_api_key, score_rate_limit
 from pydantic import BaseModel
 
 
@@ -234,6 +239,7 @@ def score_account(account_key: str) -> dict:
 
 
 app = FastAPI(title=f"BP3 Network-Signal Rule Scoring Service ({DATASET_VARIANT})")
+_limiter = harden_app(app, "bp3_rule_scoring_service")
 
 
 @app.get("/health")
@@ -254,5 +260,6 @@ def health() -> dict:
 
 
 @app.post("/score")
-def score_endpoint(acct: AccountKey) -> dict:
+@_limiter.limit(score_rate_limit())
+def score_endpoint(request: Request, acct: AccountKey, _caller: str = Depends(require_api_key)) -> dict:
     return score_account(acct.account_key)
