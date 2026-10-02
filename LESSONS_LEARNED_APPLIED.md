@@ -1605,3 +1605,64 @@ from here, and was never silently assumed to have been done. The real, bit-ident
 each service's `score_transaction` logic is correct comes entirely from Notebook 3's own
 in-kernel FastAPI self-test, run by the user in their own real environment (which does have
 xgboost/sklearn) -- not from anything this sandbox can independently confirm end-to-end.
+
+================================================================================
+Lesson #49 (2026-10-02): GitHub-readiness final sweep + closing BP6's missing
+test-coverage gap -- platform-wide hardening pass, post-BP1-BP6.
+================================================================================
+Context: with BP1-BP5 real-confirmed and BP6's Dockerfile/requirements.txt gap
+closed (Lesson #48), the user asked to "start GitHub works for BP1-BP6" and to
+harden whatever was left. Did a final readiness sweep before `git init`:
+- Large-file scan (`find -size +10M`, `+5M -10M`) outside already-gitignored
+  data/models dirs -- only the known 167MB bp1_score_baseline_li_medium.json
+  (already covered by the Lesson #48 .gitignore pattern). models/ itself is a
+  real 11GB of .pkl files, already excluded via `models/**/*.pkl`.
+- Secret scan (`.env`/`.pem`/`.key`/`*credentials*`/`*token*`/API-key-shaped
+  strings) across src/, notebooks/, configs/ -- clean (the only hits were
+  data/raw/*_Patterns.txt matching the `*_pat*` glob, a harmless false
+  positive, already gitignored anyway).
+- Final bandit (-lll, matches the CI gate) and py_compile across all of src/
+  -- 0 findings, clean.
+`git init` + `git branch -m main` + local identity (name "Nandagopal", email
+rnanda19@hotmail.com -- the user's own stated resume/LinkedIn email; trivially
+changeable with one `git config` command if they want a different one, e.g. a
+GitHub-noreply address). Staged 254 files, 4.9MB total -- confirmed via
+`git status --short | grep -E "models/.*\.pkl|data/raw/|score_baseline"` that
+nothing large slipped through. Initial commit made locally. No remote push yet
+-- no repo URL or PAT has been provided for this project (unlike the AMEX
+platform's own repo, which the user already has). This sandbox's device_bash
+VM has no `gh` CLI, no global git config, and no SSH keys -- confirmed before
+assuming any credential path was already available.
+
+Second, separate real gap found and closed during this same pass: every other
+BP's tests/ folder had its own test_<bp>_scoring_service.py; BP6's folder had
+only a README.md -- the one BP with no test file platform-wide. Not a scoring-
+service gap (BP6 has no model, no API -- disclosed explicitly in its own
+Dockerfile/PLATFORM_CARD.md) but a real gap in exercising BP6's own
+report_builder.py code path (compute_platform_status,
+build_platform_benefit_table, generate_platform_smart_recommendations,
+build_bp_business_narratives_platform, write_platform_html_dashboard). Built
+tests/bp6_enterprise_compliance_monitoring/test_bp6_report_builder.py against
+a small, clearly-synthetic platform_source_data fixture matching the real
+documented shape field-for-field (read every real field-access path directly
+from report_builder.py before writing the fixture, per the standing Lesson #3
+no-guessing rule) -- never the project's real bp6_platform_source_data.json or
+any real trained model/data. Verified standalone first (ran in a scratch
+location, not tests/, caught one real missing fixture field
+`headline_grand_total_note` via a real KeyError, fixed, re-ran clean) before
+moving it into the real tests/ folder.
+
+This test doubles as a permanent regression test for the same day's "Phase 1 /
+Phase 2 label repeated on every row" dashboard fix: the fixture deliberately
+gives BP1/BP2 and BP3/BP4 the same phase (mirroring the real platform's own
+phase grouping, confirmed from the real bp6_platform_source_data.json read
+during that fix's QA), and asserts the generated dashboard's JS passes
+`node --check` and still contains the data-sort/collapseRepeatedCell/
+COLLAPSE_CONFIG code -- so a future edit that silently reintroduces the
+repeated-label bug fails this test, not just a future screenshot complaint.
+
+Platform-wide test count: 33 -> 39, all passing. Committed to the new local
+git repo as a second commit, after the initial-commit baseline. Per the
+project's own standing "code should give the outputs, not Claude" rule: this
+entire pass only wrote/tested code and ran `git`/`pytest`/`bandit` -- it never
+executed any BP's real notebook or generated a real deliverable report.
