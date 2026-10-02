@@ -1,0 +1,51 @@
+# IBM AML RiskIQ Enterprise Suite
+
+Enterprise AI-Driven Anti-Money Laundering & Financial Crime Intelligence Platform.
+Independent professional portfolio project. Not affiliated with IBM or any financial institution.
+
+Authoritative plan: `docs/master_plan/` (not yet written - see Status below).
+Once a master execution plan document is delivered, it becomes the ONLY master plan for this project and
+supersedes any earlier draft on every conflicting point, exactly as on the three prior platforms below.
+
+## Methodology lineage
+AMEX RiskIQ Enterprise Credit Risk Platform -> Home Credit RiskIQ 5-Mega-Project Suite ->
+Customer360 Navigator Enterprise Suite -> IBM AML RiskIQ (this project).
+Standing rules inherited across all four: zero-fabrication, the Claude execution-boundary rule, WARP (runtime
+performance), HYPER (delivery speed), the 6-Gate governance SOP, and the Evidence Ledger. See
+`LESSONS_LEARNED_APPLIED.md` for the specific real bugs from the first two builds this structure and its
+conventions were designed to prevent.
+
+## Structure
+See `PROJECT_STRUCTURE_LOCKED.md` for the folder layout and the rule that it does not get renamed or reorganized
+once notebooks start writing paths into it.
+
+## Business Problems (6) - finalized, real-ground-truth-verified
+BP1 Transaction Monitoring & Suspicious Activity Detection - BP2 Typology & Red-Flag Pattern Detection -
+BP3 Transaction Network & Graph Intelligence - BP4 Structuring & Smurfing Detection -
+BP5 Correspondent Banking & Cross-Border Wire Risk - BP6 Enterprise AML Compliance Monitoring & Regulatory
+Reporting.
+
+Each BP is independently solvable with real ground truth in the dataset (BP1: `Is Laundering`; BP2:
+`Patterns.txt`'s block-structured typology labels; BP3/BP4/BP5: real structural/behavioral fields, no proxy
+label needed; BP6: pure rollup of BP1-BP5's own outputs). Naming cross-checked against real primary-source
+terminology from a Federal Reserve consent order (American Express Bank International) and a FinCEN civil
+money penalty assessment (JPMorgan Chase) - see `docs/compliance/` once written up.
+
+Four BPs from the original 8-BP scaffold were dropped on review: Account/Entity AML Risk Scoring and Alert
+Escalation/SAR-Filing Prediction both lack an independent ground-truth label in this dataset (proxy-only);
+GenAI SAR Narrative Assistant is a generation task with nothing to validate output against; Alert Prioritization
+is a composite/policy layer, not an independently trained model. See `PROJECT_STRUCTURE_LOCKED.md` for the
+full naming history.
+
+## Status
+Scaffold created. No BP has entered Gate 1 yet. See `docs/evidence_ledger/EVIDENCE_LEDGER.md`.
+
+## Execution boundary (standing rule)
+Claude generates notebooks and src/ modules only, and never executes the real data-processing pipeline itself.
+You run every notebook on your own machine; all real numbers, charts and verdicts come from your own reported run.
+
+## Storage location (strict)
+Every file for this project - notebooks, src/ modules, trained-model artifacts, reports, configs, the
+GitHub/Kaggle/LinkedIn packaging folders, everything - lives inside this one folder tree, under
+`C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\`, and nowhere else on this laptop.
+Nothing for this project is written to Downloads, the home directory, or any other path.

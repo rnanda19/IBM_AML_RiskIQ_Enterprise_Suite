@@ -1,0 +1,96 @@
+{
+  "bp_id": "BP2",
+  "bp_name": "Typology & Red-Flag Pattern Detection",
+  "notebook": "02_feature_engineering_modeling",
+  "variant": "HI-Small",
+  "generated_at_utc": "2026-10-01T07:44:36.237135+00:00",
+  "random_seed": 42,
+  "primary_metric": "macro_f1",
+  "n_total_rows": 5078345,
+  "n_modeled_rows": 1854,
+  "n_join_matched": 1854,
+  "n_multi_typology_rows": 0,
+  "n_is_laundering_unlabeled": 3323,
+  "class_names": [
+    "CYCLE",
+    "FAN-IN",
+    "FAN-OUT",
+    "GATHER-SCATTER",
+    "RANDOM"
+  ],
+  "class_distribution": {
+    "GATHER-SCATTER": 716,
+    "FAN-OUT": 342,
+    "FAN-IN": 318,
+    "CYCLE": 287,
+    "RANDOM": 191
+  },
+  "feature_cols": [
+    "sender_txn_count_to_date",
+    "receiver_txn_count_to_date",
+    "sender_distinct_counterparties_to_date",
+    "receiver_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_hours_since_prev_txn",
+    "pair_prior_txn_count",
+    "is_same_bank",
+    "log_amount_paid",
+    "amount_paid_received_ratio",
+    "hour",
+    "day_of_week",
+    "payment_format_code"
+  ],
+  "stage_a_ranking": [
+    {
+      "name": "XGBoost",
+      "macro_f1": 0.442471760656675,
+      "per_class_recall": {
+        "CYCLE": 0.3888888888888889,
+        "FAN-IN": 0.379746835443038,
+        "FAN-OUT": 0.5348837209302325,
+        "GATHER-SCATTER": 0.6424581005586593,
+        "RANDOM": 0.22916666666666666
+      }
+    },
+    {
+      "name": "RandomForest",
+      "macro_f1": 0.44196663666603236,
+      "per_class_recall": {
+        "CYCLE": 0.4166666666666667,
+        "FAN-IN": 0.26582278481012656,
+        "FAN-OUT": 0.47674418604651164,
+        "GATHER-SCATTER": 0.7486033519553073,
+        "RANDOM": 0.22916666666666666
+      }
+    },
+    {
+      "name": "LightGBM",
+      "macro_f1": 0.4374661123396774,
+      "per_class_recall": {
+        "CYCLE": 0.375,
+        "FAN-IN": 0.43037974683544306,
+        "FAN-OUT": 0.4186046511627907,
+        "GATHER-SCATTER": 0.664804469273743,
+        "RANDOM": 0.25
+      }
+    },
+    {
+      "name": "CatBoost",
+      "macro_f1": 0.4370674559855566,
+      "per_class_recall": {
+        "CYCLE": 0.375,
+        "FAN-IN": 0.3924050632911392,
+        "FAN-OUT": 0.46511627906976744,
+        "GATHER-SCATTER": 0.6536312849162011,
+        "RANDOM": 0.25
+      }
+    }
+  ],
+  "isolation_forest_mean_anomaly_by_class": {
+    "GATHER-SCATTER": 0.43620431527132514,
+    "RANDOM": 0.4343973250191329,
+    "FAN-IN": 0.4323921747494291,
+    "FAN-OUT": 0.426524387279658,
+    "CYCLE": 0.42550179752280115
+  }
+}

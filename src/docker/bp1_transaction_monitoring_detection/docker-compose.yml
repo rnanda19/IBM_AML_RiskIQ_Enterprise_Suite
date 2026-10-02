@@ -1,0 +1,10 @@
+services:
+  bp1-transaction-monitoring:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp1_transaction_monitoring_detection/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - BP1_DATASET_VARIANT=LI-Medium
+    restart: unless-stopped

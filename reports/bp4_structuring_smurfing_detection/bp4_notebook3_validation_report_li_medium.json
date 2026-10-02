@@ -1,0 +1,172 @@
+{
+  "generated_at_utc": "2026-10-01T16:42:51.285856+00:00",
+  "dataset_variant": "LI-Medium",
+  "random_seed": 42,
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency",
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "structuring_feature_cols": [
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "stage_a_ranking": [
+    {
+      "name": "XGBoost",
+      "pr_auc": 0.12528983335770155
+    },
+    {
+      "name": "CatBoost",
+      "pr_auc": 0.10054818394642029
+    },
+    {
+      "name": "RandomForest",
+      "pr_auc": 0.0767294309951752
+    },
+    {
+      "name": "LightGBM",
+      "pr_auc": 0.0038419316005871
+    }
+  ],
+  "isolation_forest_unsupervised_pr_auc": 0.0011036198951142073,
+  "stage_a_top2": [
+    "XGBoost",
+    "CatBoost"
+  ],
+  "stage_b_cv_results": {
+    "XGBoost": {
+      "fold_pr_aucs": [
+        0.11968964333603302,
+        0.10872235885106889,
+        0.12081149697671198,
+        0.12592139686910658,
+        0.12880896131971029
+      ],
+      "mean_pr_auc": 0.12079077147052615,
+      "std_pr_auc": 0.007705098657816985,
+      "ci95_low": 0.11122362786450665,
+      "ci95_high": 0.13035791507654565,
+      "coeff_of_variation": 0.0637888024392417
+    },
+    "CatBoost": {
+      "fold_pr_aucs": [
+        0.09967549634288479,
+        0.09373918980630719,
+        0.10198371791822795,
+        0.10233586003065538,
+        0.10879438207559174
+      ],
+      "mean_pr_auc": 0.10130572923473342,
+      "std_pr_auc": 0.005420123100219743,
+      "ci95_low": 0.094575757515358,
+      "ci95_high": 0.10803570095410885,
+      "coeff_of_variation": 0.05350263150133283
+    }
+  },
+  "champion_name": "XGBoost",
+  "champion_needs_rf_impute": false,
+  "rf_impute_value": null,
+  "selected_threshold": 0.9792634844779968,
+  "test_metrics": {
+    "pr_auc": 0.12528983335770155,
+    "precision": 0.0863649182177101,
+    "recall": 0.3054862842892768,
+    "f2": 0.20265352038115406
+  },
+  "random_baseline_pr_auc": 0.000513255626516808,
+  "shap_mean_abs_importance": {
+    "Payment Format": 2.2144582271575928,
+    "sender_distinct_counterparties_to_date": 1.6631454229354858,
+    "sender_hours_since_prev_txn": 0.7866845726966858,
+    "log_amount_received": 0.3760490417480469,
+    "amount_to_rolling_window_mean_ratio": 0.343232125043869,
+    "receiver_txn_count_to_date": 0.31831255555152893,
+    "daily_fanout_count": 0.29869845509529114,
+    "sender_amount_zscore": 0.2893330454826355,
+    "structuring_window_txn_count": 0.2557153105735779,
+    "is_self_transaction": 0.24936331808567047,
+    "sender_txn_count_to_date": 0.2342795729637146,
+    "day_of_week": 0.17685747146606445,
+    "log_amount_paid": 0.15992867946624756,
+    "structuring_window_amount_sum": 0.10959279537200928,
+    "receiver_amount_sum_to_date": 0.09425821155309677,
+    "Payment Currency": 0.08684629201889038,
+    "hour": 0.08076576888561249,
+    "sender_amount_sum_to_date": 0.07050353288650513,
+    "Receiving Currency": 0.046547625213861465,
+    "currency_mismatch": 0.04239024221897125,
+    "near_threshold_flag": 0.033281635493040085,
+    "is_cross_bank": 0.009061146527528763,
+    "amount_diff": 0.0,
+    "is_weekend": 0.0
+  },
+  "lime_examples": null,
+  "gate1_structural_checks": {
+    "feature_columns_correct_count": true,
+    "no_nulls_in_X_train_except_disclosed_ratio_column": true,
+    "no_nulls_in_X_test_except_disclosed_ratio_column": true,
+    "train_test_sizes_sum_to_total": true,
+    "stratification_preserved_within_20pct_relative": true,
+    "champion_has_predict_proba": true,
+    "selected_threshold_is_finite_and_in_0_1": true,
+    "near_threshold_flag_fit_on_train_only": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_statistical_robustness_checks": {
+    "cv_ci95_lower_bound_clears_random_baseline": true,
+    "cv_coefficient_of_variation_under_0.60": true
+  },
+  "gate2_verdict": "PASS",
+  "overall_verdict": "PASS",
+  "calibration": {
+    "method": "isotonic (CalibratedClassifierCV, train-only 20% holdout)",
+    "brier_score_uncalibrated": 0.06788565963506699,
+    "brier_score_calibrated": 0.0004766785399731311,
+    "brier_improvement": 0.06740898109509386,
+    "pr_auc_rank_invariance_check_delta": 0.011385195609930066
+  },
+  "score_baseline_path": "C:\\Users\\rnand\\Documents\\IBM_AML_RiskIQ_Enterprise_Suite\\reports\\bp4_structuring_smurfing_detection\\bp4_score_baseline_li_medium.json",
+  "alert_routing_policy": {
+    "method": "percentile (top real decile of flagged test-set alerts)",
+    "tier1_auto_sar_recommend": {
+      "calibrated_probability_cutoff": 0.12182740122079849,
+      "n_alerts": 1433,
+      "real_precision_within_tier": 0.30844382414515004
+    },
+    "tier2_structuring_investigator_queue": {
+      "n_alerts": 12751,
+      "real_precision_within_tier": 0.06140694847462944
+    }
+  },
+  "fastapi_self_test": {
+    "rows_checked": 5000,
+    "mismatches": 0,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0
+  }
+}

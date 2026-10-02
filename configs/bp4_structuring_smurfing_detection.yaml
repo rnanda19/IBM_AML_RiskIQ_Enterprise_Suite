@@ -1,0 +1,34 @@
+business_problem: BP4 - Structuring & Smurfing Detection
+random_seed: 42
+primary_metric: pr_auc
+task_framing: supervised_imbalanced_binary_classification
+target_column: Is Laundering
+ground_truth_note: Same real direct label as BP1 -- this dataset's Patterns.txt 8
+  typologies do not include a 'structuring' typology; BP4 tests whether rule-derived
+  structuring/smurfing BEHAVIOR features carry real predictive lift for Is Laundering
+  generally.
+mandatory_validation_tier: LI-Medium
+optional_stretch_tier: LI-Large
+structuring_feature_policy:
+  window_hours: 24
+  window_closed: left
+  near_threshold_percentile_low: 0.8
+  near_threshold_percentile_high: 0.99
+  currency_aware_thresholds: true
+  fanout_bucket: calendar_day
+  vectorized_method: global_sort_key_encode_searchsorted
+  vectorized_method_evidence: 'Lesson #28 -- real naive groupby+rolling(''24h'') timed
+    out >120s at 31M-row/2M-account representative scale; vectorized key-encode+searchsorted
+    completed in ~29s, ~3.6GB peak RSS, same scale, correctness spot-checked.'
+  features:
+  - structuring_window_txn_count
+  - structuring_window_amount_sum
+  - near_threshold_flag
+  - daily_fanout_count
+  - amount_to_rolling_window_mean_ratio
+leakage_discipline: 'near_threshold_flag percentile cutoffs and any rolling-window
+  statistic normalization are fit on TRAIN rows only (Lesson #11) -- enforced as its
+  own structural [CHECK] gate in Notebook 3.'
+before_baseline_policy: bp1_fixed_percentile_amount_rule_plus_structuring_features
+notebook_count: 4
+status: notebook_1_business_understanding_policy_complete

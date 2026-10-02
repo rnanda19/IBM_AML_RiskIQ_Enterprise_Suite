@@ -1,0 +1,293 @@
+{
+  "generated_at_utc": "2026-10-02T10:40:41.903389+00:00",
+  "dataset_variant": "LI-Medium",
+  "random_seed": 42,
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency",
+    "sender_country",
+    "receiver_country",
+    "is_cross_border",
+    "sender_is_foreign",
+    "receiver_is_foreign",
+    "foreign_to_foreign",
+    "sender_country_empirical_risk",
+    "receiver_country_empirical_risk"
+  ],
+  "crossborder_feature_cols": [
+    "sender_country",
+    "receiver_country",
+    "is_cross_border",
+    "sender_is_foreign",
+    "receiver_is_foreign",
+    "foreign_to_foreign",
+    "sender_country_empirical_risk",
+    "receiver_country_empirical_risk"
+  ],
+  "stage_a_ranking": [
+    {
+      "name": "XGBoost",
+      "pr_auc": 0.13988285214218793
+    },
+    {
+      "name": "CatBoost",
+      "pr_auc": 0.10897182557539856
+    },
+    {
+      "name": "RandomForest",
+      "pr_auc": 0.08799121448165255
+    },
+    {
+      "name": "LightGBM",
+      "pr_auc": 0.004050046431498761
+    }
+  ],
+  "isolation_forest_unsupervised_pr_auc": 0.000849269773707897,
+  "stage_a_top2": [
+    "XGBoost",
+    "CatBoost"
+  ],
+  "stage_b_cv_results": {
+    "XGBoost": {
+      "fold_pr_aucs": [
+        0.11969059305720353,
+        0.12081068946434818,
+        0.12849048386589437,
+        0.11399310565251228,
+        0.13933334375385956
+      ],
+      "mean_pr_auc": 0.1244636431587636,
+      "std_pr_auc": 0.00978623619559333,
+      "ci95_low": 0.1123124259967768,
+      "ci95_high": 0.1366148603207504,
+      "coeff_of_variation": 0.07862726774846356
+    },
+    "CatBoost": {
+      "fold_pr_aucs": [
+        0.09499778708603178,
+        0.0943938987947607,
+        0.10799443901577833,
+        0.09945257459088992,
+        0.11015771935156715
+      ],
+      "mean_pr_auc": 0.10139928376780558,
+      "std_pr_auc": 0.007315232765035147,
+      "ci95_low": 0.09231622260498086,
+      "ci95_high": 0.11048234493063029,
+      "coeff_of_variation": 0.07214284453711046
+    }
+  },
+  "champion_name": "XGBoost",
+  "selected_threshold": 0.9814317226409912,
+  "test_metrics": {
+    "pr_auc": 0.13988285214218793,
+    "precision": 0.17627281460134486,
+    "recall": 0.18304239401496258,
+    "f2": 0.1816471985745397
+  },
+  "random_baseline_pr_auc": 0.000513255626516808,
+  "shap_mean_abs_importance": {
+    "Payment Format": 2.279789924621582,
+    "sender_distinct_counterparties_to_date": 1.8098725080490112,
+    "sender_hours_since_prev_txn": 0.9706858396530151,
+    "log_amount_received": 0.3939807116985321,
+    "sender_txn_count_to_date": 0.3665614724159241,
+    "sender_amount_zscore": 0.333488792181015,
+    "receiver_txn_count_to_date": 0.3110656440258026,
+    "is_self_transaction": 0.22514325380325317,
+    "log_amount_paid": 0.16521982848644257,
+    "day_of_week": 0.16029642522335052,
+    "receiver_amount_sum_to_date": 0.09556441754102707,
+    "sender_amount_sum_to_date": 0.0850062295794487,
+    "sender_country_empirical_risk": 0.07953830808401108,
+    "Payment Currency": 0.07374081015586853,
+    "is_cross_border": 0.07237295061349869,
+    "receiver_country_empirical_risk": 0.06817561388015747,
+    "sender_country": 0.06454919278621674,
+    "hour": 0.0638299435377121,
+    "currency_mismatch": 0.0488152876496315,
+    "Receiving Currency": 0.025790924206376076,
+    "receiver_country": 0.023141227662563324,
+    "receiver_is_foreign": 0.01699349284172058,
+    "is_cross_bank": 0.013532689772546291,
+    "foreign_to_foreign": 0.01245163194835186,
+    "sender_is_foreign": 0.012047345750033855,
+    "amount_diff": 0.0,
+    "is_weekend": 0.0
+  },
+  "lime_examples": [
+    {
+      "row_index": 70474,
+      "explanation": [
+        [
+          "is_self_transaction <= 0.00",
+          0.04593891767926273
+        ],
+        [
+          "receiver_txn_count_to_date <= 7.00",
+          0.0392850178702033
+        ],
+        [
+          "currency_mismatch <= 0.00",
+          0.03909445333978828
+        ],
+        [
+          "sender_distinct_counterparties_to_date > 7.00",
+          0.031231894668613723
+        ],
+        [
+          "Payment Format=3",
+          -0.028875785815090777
+        ],
+        [
+          "sender_hours_since_prev_txn <= 0.03",
+          0.022580763025182454
+        ],
+        [
+          "Payment Currency=9",
+          -0.015958201683138808
+        ],
+        [
+          "sender_amount_zscore > 0.09",
+          0.015485522384961453
+        ]
+      ]
+    },
+    {
+      "row_index": 146814,
+      "explanation": [
+        [
+          "Payment Format=4",
+          -0.04723480996366098
+        ],
+        [
+          "receiver_txn_count_to_date <= 7.00",
+          0.04246734045775939
+        ],
+        [
+          "is_self_transaction <= 0.00",
+          0.0417237615232644
+        ],
+        [
+          "currency_mismatch <= 0.00",
+          0.03572749584651415
+        ],
+        [
+          "sender_distinct_counterparties_to_date > 7.00",
+          0.034772717329306306
+        ],
+        [
+          "sender_hours_since_prev_txn <= 0.03",
+          0.024503963988119614
+        ],
+        [
+          "7.28 < log_amount_received <= 9.39",
+          0.02304339856632519
+        ],
+        [
+          "receiver_country=11",
+          0.018694663002130435
+        ]
+      ]
+    },
+    {
+      "row_index": 202389,
+      "explanation": [
+        [
+          "is_self_transaction <= 0.00",
+          0.04599581070287869
+        ],
+        [
+          "sender_distinct_counterparties_to_date > 7.00",
+          0.04279840097324637
+        ],
+        [
+          "receiver_txn_count_to_date <= 7.00",
+          0.04206732679616754
+        ],
+        [
+          "currency_mismatch <= 0.00",
+          0.03696231666452343
+        ],
+        [
+          "Payment Format=3",
+          -0.02822623897735432
+        ],
+        [
+          "sender_hours_since_prev_txn <= 0.03",
+          0.02821109286946001
+        ],
+        [
+          "Payment Currency=6",
+          0.024128581841159114
+        ],
+        [
+          "sender_txn_count_to_date > 71.00",
+          -0.018978557006244456
+        ]
+      ]
+    }
+  ],
+  "gate1_structural_checks": {
+    "feature_columns_correct_count": true,
+    "no_nulls_in_X_train": true,
+    "no_nulls_in_X_test": true,
+    "train_test_sizes_sum_to_total": true,
+    "stratification_preserved_within_20pct_relative": true,
+    "champion_has_predict_proba": true,
+    "selected_threshold_is_finite_and_in_0_1": true,
+    "country_empirical_risk_fit_on_train_only": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_statistical_robustness_checks": {
+    "cv_ci95_lower_bound_clears_random_baseline": true,
+    "cv_coefficient_of_variation_under_0.60": true
+  },
+  "gate2_verdict": "PASS",
+  "overall_verdict": "PASS",
+  "calibration": {
+    "method": "isotonic (CalibratedClassifierCV, cv='prefit'/FrozenEstimator, fit on a train-only 20% holdout)",
+    "brier_score_uncalibrated": 0.07154722511768341,
+    "brier_score_calibrated": 0.00046837491295372734,
+    "brier_improvement": 0.07107885020472968,
+    "pr_auc_rank_invariance_check_delta": 0.013314328431805633,
+    "note": "Calibration changes the raw probability's real-world meaning; it does NOT change the champion's RANKING of transactions except where isotonic regression ties several raw scores to the same calibrated value (expected on real, severely-imbalanced data)."
+  },
+  "score_baseline_path": "C:\\Users\\rnand\\Documents\\IBM_AML_RiskIQ_Enterprise_Suite\\reports\\bp5_correspondent_banking_crossborder_risk\\bp5_score_baseline_li_medium.json",
+  "alert_routing_policy": {
+    "method": "percentile (top real decile of flagged test-set alerts by calibrated probability)",
+    "tier1_auto_sar_recommend": {
+      "calibrated_probability_cutoff": 0.5555555820465088,
+      "n_alerts": 445,
+      "real_precision_within_tier": 0.7460674157303371
+    },
+    "tier2_correspondent_banking_investigator_queue": {
+      "n_alerts": 3719,
+      "real_precision_within_tier": 0.10809357354127454
+    }
+  },
+  "fastapi_self_test": {
+    "rows_checked": 5000,
+    "mismatches": 0,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0
+  },
+  "note": "BP5 Notebook 3 real run against LI-Medium. Compare this report's test_metrics.pr_auc side by side with the OTHER variant's own separately-saved report -- never blend the two into one unlabeled figure, per locked policy."
+}

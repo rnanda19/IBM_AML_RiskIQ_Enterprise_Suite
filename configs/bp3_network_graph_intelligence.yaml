@@ -1,0 +1,21 @@
+business_problem: "BP3 - Transaction Network & Graph Intelligence"
+random_seed: 42
+primary_metric: "network_lift_ratio"
+secondary_metric: "per_account_structural_stats"
+task_framing: "graph_analytics_unsupervised_structural_detection"
+ground_truth_note: "account-to-account structure -- no label needed to construct; Is Laundering used only as an external validity check (unsupervised-diagnostic discipline, same as Isolation Forest in BP1/BP2)"
+node_key_policy: "composite (Bank, Account) key -- real Account-Number collisions confirmed across banks, see Notebook 1 Section 2"
+mandatory_validation_tier: "LI-Medium"
+optional_stretch_tier: "HI-Large or LI-Large -- this BP benefits most from Large (long chains/deep fan-out only show up at real scale)"
+graph_feasibility_policy:
+  full_graph_algorithms_allowed: ["degree_in_out", "pagerank"]
+  full_graph_algorithms_excluded: ["louvain_community_detection", "betweenness_centrality"]
+  bounded_subgraph_scope: "2-hop ego-network around each real Is-Laundering-flagged account"
+  bounded_subgraph_node_cap: 2000
+  ram_safety_gate: "assert_ram_safe() before every graph algorithm call, no exceptions"
+  evidence: "Lesson #21, LESSONS_LEARNED_APPLIED.md -- real Louvain test on HI-Small did not finish in 120s"
+leakage_discipline: "every graph feature computed only within the same train/test (and CV fold) boundary -- Lesson #11 -- enforced as its own structural [CHECK] gate in Notebook 3"
+before_baseline_policy: "single_account_non_network_review"
+after_policy: "bounded_2hop_ego_network_review -- volume-scale KPI, never dollarized without a sourced per-account cost"
+notebook_count: 4
+status: "notebook_1_business_understanding_policy_complete"

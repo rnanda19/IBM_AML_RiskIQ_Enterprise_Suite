@@ -1,0 +1,115 @@
+{
+  "bp_id": "BP3",
+  "bp_name": "Transaction Network & Graph Intelligence",
+  "generated_at_utc": "2026-10-01T08:51:30.582280+00:00",
+  "dataset_variant": "LI-Medium",
+  "random_seed": 42,
+  "primary_metric": "network_lift_ratio",
+  "n_nodes": 2032095,
+  "n_distinct_edges": 4363197,
+  "n_transaction_edges": 31251483,
+  "base_rate_all": 0.011569341000297722,
+  "n_train_nodes": 1524071,
+  "n_test_nodes": 508024,
+  "base_rate_train": 0.011569014829361624,
+  "base_rate_test": 0.011570319512463978,
+  "pagerank_self_test_max_abs_diff_vs_networkx": 1.4510271389399365e-06,
+  "hi_small_stage_a_prior_champion": "In-degree (top decile)",
+  "stage_results": [
+    {
+      "signal": "Out-degree (top decile)",
+      "threshold": 4.0,
+      "n_test_flagged": 57685,
+      "n_test_flagged_exposed": 1115,
+      "flagged_exposure_rate": 0.019329115021236024,
+      "lift_ratio": 1.6705774633461057
+    },
+    {
+      "signal": "In-degree (top decile)",
+      "threshold": 4.0,
+      "n_test_flagged": 87398,
+      "n_test_flagged_exposed": 2564,
+      "flagged_exposure_rate": 0.029337055767866542,
+      "lift_ratio": 2.5355441339596174
+    },
+    {
+      "signal": "Total-degree (top decile)",
+      "threshold": 8.0,
+      "n_test_flagged": 55953,
+      "n_test_flagged_exposed": 1542,
+      "flagged_exposure_rate": 0.027558844029810733,
+      "lift_ratio": 2.3818567845186402
+    },
+    {
+      "signal": "PageRank (top decile)",
+      "threshold": 1.0940714466148055e-06,
+      "n_test_flagged": 50553,
+      "n_test_flagged_exposed": 1039,
+      "flagged_exposure_rate": 0.020552687278697603,
+      "lift_ratio": 1.776328411376841
+    },
+    {
+      "signal": "2-hop proximity to a TRAIN-flagged account",
+      "threshold": null,
+      "n_test_flagged": 141157,
+      "n_test_flagged_exposed": 5207,
+      "flagged_exposure_rate": 0.03688800413723726,
+      "lift_ratio": 3.188157777103746
+    }
+  ],
+  "champion_name": "2-hop proximity to a TRAIN-flagged account",
+  "test_metrics": {
+    "lift_ratio": 3.188157777103746
+  },
+  "bootstrap": {
+    "n_resamples": 2000,
+    "n_invalid_resamples": 0,
+    "ci95_low": 3.156695401315344,
+    "ci95_high": 3.2187089123900723,
+    "bootstrap_mean": 3.1879537373457847
+  },
+  "example_ego_networks": [
+    {
+      "seed_node_key": "070|10042B660",
+      "real_nodes_before_cap": 181831,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 4109,
+      "truncated": true
+    },
+    {
+      "seed_node_key": "070|10042B978",
+      "real_nodes_before_cap": 15360,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 4098,
+      "truncated": true
+    },
+    {
+      "seed_node_key": "070|10042B8A0",
+      "real_nodes_before_cap": 15174,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 4099,
+      "truncated": true
+    }
+  ],
+  "gate1_structural_checks": {
+    "all_candidate_signals_computed": true,
+    "pagerank_implementation_self_test_passed": true,
+    "train_test_sizes_sum_to_total": true,
+    "champion_selected_from_defined_lift_ratios_only": true,
+    "ram_safety_gates_passed_every_heavy_step": true,
+    "leakage_discipline_train_fit_test_measured": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_statistical_robustness_checks": {
+    "bootstrap_ci95_lower_bound_excludes_no_lift": true,
+    "bootstrap_had_at_least_95pct_valid_resamples": true
+  },
+  "gate2_verdict": "PASS",
+  "overall_verdict": "PASS",
+  "fastapi_self_test": {
+    "rows_checked": 2000,
+    "mismatches": 0
+  },
+  "no_trained_model_note": "BP3 has no trained ML model -- every candidate is a directly-interpretable structural signal; SHAP/LIME are N/A, not attempted.",
+  "scaling_engineering_note": "networkx avoided for the full graph (Lesson #21/#26) -- hand-rolled vectorized sparse PageRank (self-tested above) and a memory-efficient frontier-expansion BFS used instead; networkx used only for the small capped illustrative ego-networks (Section 8)."
+}

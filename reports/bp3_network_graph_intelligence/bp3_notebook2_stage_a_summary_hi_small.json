@@ -1,0 +1,101 @@
+{
+  "bp_id": "BP3",
+  "bp_name": "Transaction Network & Graph Intelligence",
+  "notebook": "02_feature_engineering_modeling",
+  "variant": "HI-Small",
+  "generated_at_utc": "2026-10-01T08:47:43.042252+00:00",
+  "random_seed": 42,
+  "primary_metric": "network_lift_ratio",
+  "n_nodes": 515088,
+  "n_distinct_edges": 1015736,
+  "n_transaction_edges": 5078345,
+  "base_rate_all": 0.01234158046780356,
+  "n_train_nodes": 386316,
+  "n_test_nodes": 128772,
+  "base_rate_train": 0.012342227606415474,
+  "base_rate_test": 0.012339639051967818,
+  "ego_hops": 2,
+  "ego_node_cap": 2000,
+  "stage_a_ranking": [
+    {
+      "signal": "Out-degree (top decile)",
+      "threshold": 4.0,
+      "n_test_flagged": 13249,
+      "n_test_flagged_exposed": 330,
+      "flagged_exposure_rate": 0.024907540191712582,
+      "lift_ratio": 2.018498279148655
+    },
+    {
+      "signal": "In-degree (top decile)",
+      "threshold": 4.0,
+      "n_test_flagged": 17238,
+      "n_test_flagged_exposed": 641,
+      "flagged_exposure_rate": 0.03718528831651004,
+      "lift_ratio": 3.0134826602225493
+    },
+    {
+      "signal": "Total-degree (top decile)",
+      "threshold": 7.0,
+      "n_test_flagged": 17053,
+      "n_test_flagged_exposed": 573,
+      "flagged_exposure_rate": 0.033601125901600894,
+      "lift_ratio": 2.7230234012592516
+    },
+    {
+      "signal": "PageRank (top decile)",
+      "threshold": 3.9387770868215385e-06,
+      "n_test_flagged": 12878,
+      "n_test_flagged_exposed": 281,
+      "flagged_exposure_rate": 0.021820158409690947,
+      "lift_ratio": 1.7682979475976859
+    },
+    {
+      "signal": "2-hop proximity to a TRAIN-flagged account",
+      "threshold": null,
+      "n_test_flagged": 39542,
+      "n_test_flagged_exposed": 1463,
+      "flagged_exposure_rate": 0.03699863436346164,
+      "lift_ratio": 2.998356289648636
+    }
+  ],
+  "champion_signal": "In-degree (top decile)",
+  "champion_lift_ratio": 3.0134826602225493,
+  "example_ego_networks": [
+    {
+      "seed_node_key": "070|100428660",
+      "real_nodes_before_cap": 44294,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 4107,
+      "truncated": true
+    },
+    {
+      "seed_node_key": "070|1004286A8",
+      "real_nodes_before_cap": 27157,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 3943,
+      "truncated": true
+    },
+    {
+      "seed_node_key": "070|100428978",
+      "real_nodes_before_cap": 5527,
+      "nodes_after_cap": 2000,
+      "edges_after_cap": 3878,
+      "truncated": true
+    }
+  ],
+  "graph_feasibility_policy": {
+    "full_graph_algorithms_allowed": [
+      "degree_in_out",
+      "pagerank"
+    ],
+    "full_graph_algorithms_excluded": [
+      "louvain_community_detection",
+      "betweenness_centrality"
+    ],
+    "bounded_subgraph_scope": "2-hop ego-network around each real Is-Laundering-flagged account",
+    "bounded_subgraph_node_cap": 2000,
+    "ram_safety_gate": "assert_ram_safe() before every graph algorithm call, no exceptions"
+  },
+  "no_trained_model_note": "BP3 has no trained ML model -- every candidate is a directly-interpretable structural signal; SHAP/LIME are N/A here (not 'unavailable', genuinely not applicable), disclosed explicitly rather than fabricated in Notebook 3/4.",
+  "leakage_discipline_note": "graph edges built from the full real file (structural, label-independent); every signal's threshold/seed-set is fit on TRAIN nodes only and lift is measured on disjoint TEST nodes only (Lesson #11 applied to an unsupervised structural-signal problem)."
+}

@@ -1,0 +1,10 @@
+services:
+  bp5-correspondent-banking-crossborder:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp5_correspondent_banking_crossborder_risk/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - BP5_DATASET_VARIANT=LI-Medium
+    restart: unless-stopped

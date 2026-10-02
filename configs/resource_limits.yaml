@@ -1,0 +1,24 @@
+# WARP standing resource ceilings
+# Safety caps, never targets to pad toward. Set via configure_performance() as the FIRST
+# executable step in every notebook, before any heavy import (Lessons Learned #5).
+hardware:
+  cpu_physical_cores: 8
+  cpu_logical_threads: 16
+  cpu_max_boost_ghz: 5.0          # [ASSUMPTION - confirm via 00_hardware_benchmark]
+  ram_gb: 32
+  ram_speed_mhz: 7500              # [ASSUMPTION - confirm via 00_hardware_benchmark]
+  ssd_free_gb_approx: null         # [ASSUMPTION - re-check at Sprint 1 kickoff]
+  gpu: "integrated AMD Radeon 8xx (no CUDA)"
+  npu: "integrated Ryzen AI NPU"
+
+ceilings:
+  max_ram_fraction: 0.92
+  max_cpu_thread_fraction: 0.95    # 15 of 16 logical threads
+  never_target_100_percent: true
+
+cv:
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+
+benchmark_thread_counts: [4, 8, 12, 16]

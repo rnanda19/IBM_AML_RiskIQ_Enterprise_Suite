@@ -1,0 +1,46 @@
+# Core data / performance (WARP standard)
+polars>=1.9
+duckdb>=1.1
+pyarrow>=17.0
+numpy>=1.26
+pandas>=2.2
+numba>=0.60
+psutil>=6.0
+
+# Graph / network analytics (BP4 money-flow & mule-network analytics)
+networkx>=3.3
+python-igraph>=0.11
+
+# NLP / GenAI (BP6 SAR narrative & investigation assistant)
+spacy>=3.7
+sentence-transformers>=3.1
+transformers>=4.44
+tokenizers>=0.20
+
+# Classical ML (BP1, BP2, BP3, BP5, BP7) - the 6-model benchmark set
+scikit-learn>=1.5
+xgboost>=2.1
+catboost>=1.2
+lightgbm>=4.5
+
+# Explainability / stats
+shap>=0.46
+scipy>=1.13
+statsmodels>=0.14
+
+# Reporting (HYPER shared reporting module)
+python-docx>=1.1
+openpyxl>=3.1
+matplotlib>=3.9
+
+# Service layer (optional, BP6/BP7)
+fastapi>=0.115
+uvicorn>=0.30
+
+# Quality / CI (HYPER)
+pytest>=8.3
+black>=24.8
+flake8>=7.1
+isort>=5.13
+mypy>=1.11
+pre-commit>=3.8

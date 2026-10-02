@@ -1,0 +1,9 @@
+services:
+  bp6-enterprise-compliance-monitoring:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp6_enterprise_compliance_monitoring/Dockerfile
+    volumes:
+      - ../../../reports:/app/reports
+      - ../../../models:/app/models
+    restart: "no"

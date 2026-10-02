@@ -1,0 +1,41 @@
+# Raw / processed data - never committed (Quality Gates, zero-fabrication + compliance)
+data/raw/**
+data/processed/**
+data/external/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# Models / large artifacts
+models/**/*.joblib
+models/**/*.pkl
+models/**/*.onnx
+*.parquet
+
+# Real per-row score baselines (raw per-row model output, same governance as data/raw --
+# never committed; one of these was found 167MB, far larger than this platform's other
+# baseline files, during the 2026-10-02 hardening pass's GitHub-readiness check)
+reports/**/*score_baseline*.json
+
+# Notebook checkpoints / caches
+.ipynb_checkpoints/
+**/__pycache__/
+*.pyc
+
+# Env / secrets
+.env
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+logs/**
+!logs/.gitkeep
+
+# Power BI local cache
+powerbi/**/*.pbix.bak

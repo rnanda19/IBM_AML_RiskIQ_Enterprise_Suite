@@ -1,0 +1,35 @@
+business_problem: BP5 - Correspondent Banking & Cross-Border Wire Risk
+random_seed: 42
+primary_metric: pr_auc
+task_framing: supervised_imbalanced_binary_classification
+target_column: Is Laundering
+ground_truth_note: Same real direct label as BP1/BP4 -- this dataset carries no independent
+  sanctions-hit or correspondent-risk label; BP5 tests whether real structural cross-border/corridor
+  features carry real predictive lift for Is Laundering generally.
+mandatory_validation_tier: LI-Medium
+optional_stretch_tier: HI-Large
+crossborder_feature_policy:
+  country_tag_method: bank_name_regex_against_common_country_name_reference_list
+  country_tag_form: '^{Country} Bank #{integer}$'
+  empirical_risk_smoothing: laplace_train_only
+  empirical_risk_pseudo_count: 20
+  leakage_discipline: 'sender/receiver_country_empirical_risk fit on TRAIN rows only
+    (Lesson #11); enforced as its own structural [CHECK] gate in Notebook 3.'
+  features:
+  - sender_country
+  - receiver_country
+  - is_cross_border
+  - sender_is_foreign
+  - receiver_is_foreign
+  - foreign_to_foreign
+  - sender_country_empirical_risk
+  - receiver_country_empirical_risk
+  ofac_sanctions_screening_note: Not Possible -- Data Limitation (no real sanctions-list
+    field in this dataset) -- flagged honestly, never silently skipped.
+leakage_discipline: 'sender/receiver_country_empirical_risk fit on TRAIN rows only
+  (Lesson #11) -- enforced as its own structural [CHECK] gate in Notebook 3.'
+before_baseline_policy: platform_existing_feature_set_plus_crossborder_features
+ofac_sanctions_screening_note: Not Possible -- Data Limitation (disclosed, Section
+  6).
+notebook_count: 4
+status: notebook_1_business_understanding_policy_complete

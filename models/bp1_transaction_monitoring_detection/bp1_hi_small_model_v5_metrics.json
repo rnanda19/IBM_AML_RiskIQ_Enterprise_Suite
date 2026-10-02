@@ -1,0 +1,66 @@
+{
+  "generated_at_utc": "2026-09-30T05:09:38.611474+00:00",
+  "dataset_variant": "HI-Small",
+  "model_name": "lightgbm (tuned v5: {'n_estimators': 400, 'learning_rate': 0.03, 'num_leaves': 127, 'min_child_samples': 200, 'reg_lambda': 2.0})",
+  "best_params": {
+    "n_estimators": 400,
+    "learning_rate": 0.03,
+    "num_leaves": 127,
+    "min_child_samples": 200,
+    "reg_lambda": 2.0
+  },
+  "search_subsample_size": 1500000,
+  "selected_threshold": 1.0,
+  "threshold_p999_cap": 1.0,
+  "threshold_selection_method": "F2-optimal, out-of-fold 5-fold CV on train only, clipped to p99.9",
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "is_round_amount",
+    "amount_just_under_10k",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "sender_24h_amount_sum",
+    "sender_24h_txn_count",
+    "sender_1h_amount_sum",
+    "sender_1h_txn_count",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "receiver_amount_zscore",
+    "sender_bank_prefix",
+    "receiver_bank_prefix",
+    "cross_bank_prefix",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency"
+  ],
+  "naive_baseline": {
+    "precision": 0.001266624445851805,
+    "recall": 0.012364760432766615,
+    "f2": 0.004492362982929021
+  },
+  "random_baseline_pr_auc": 0.0010192290878844852,
+  "model_metrics": {
+    "precision": 0.017403960477225207,
+    "recall": 0.6561051004636785,
+    "f2": 0.07867230067830534,
+    "pr_auc": 0.013256208255632557
+  },
+  "prior_runs": {
+    "v1_pr_auc": 0.0053,
+    "v2_pr_auc": 0.0048,
+    "v3_pr_auc": 0.0192,
+    "v4": "crashed (rolling-window TypeError, fixed in v5)"
+  },
+  "note": "v5: v4's feature set (structuring-proxy, rolling 1h/24h window, receiver z-score, cross-border bank-prefix) with the real rolling-window realignment bug fixed (positional scatter instead of index-label alignment). Threshold search capped at p99.9 to avoid v3's fragile threshold=1.0 result. Still HI-Small-only. Not yet validated against LI-Medium (Notebook 3, mandatory tier)."
+}

@@ -1,0 +1,36 @@
+# Raw / processed data - never committed (Quality Gates, zero-fabrication + compliance)
+data/raw/**
+data/processed/**
+data/external/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/external/.gitkeep
+
+# Models / large artifacts
+models/**/*.joblib
+models/**/*.pkl
+models/**/*.onnx
+*.parquet
+
+# Notebook checkpoints / caches
+.ipynb_checkpoints/
+**/__pycache__/
+*.pyc
+
+# Env / secrets
+.env
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+logs/**
+!logs/.gitkeep
+
+# Power BI local cache
+powerbi/**/*.pbix.bak

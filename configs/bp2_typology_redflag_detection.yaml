@@ -1,0 +1,12 @@
+business_problem: "BP2 - Typology & Red-Flag Pattern Detection"
+random_seed: 42
+primary_metric: "macro_f1"
+secondary_metric: "per_typology_recall"
+task_framing: "multi_class_typology_classification"
+target_source: "Patterns.txt (block-structured, row-level parsed) -- NOT Is Laundering"
+n_typologies_locked: 8
+mandatory_validation_tier: "LI-Medium (or HI-Medium if typology counts are thin -- confirm in Notebook 3)"
+cross_typology_overlap_policy: "Real cross-typology overlap is under 1.0% on both variants -- Notebook 2 will build a clean multi-CLASS target (single typology per row), assigning the real first-encountered pattern_id's typology to the small number of overlapping rows and flagging them explicitly in that notebook's own label-construction cell (never silently dropped or merged)."
+before_baseline_policy: "single_typology_heuristic_fanout_only"
+notebook_count: 4
+status: "notebook_1_business_understanding_policy_complete"

@@ -1,0 +1,45 @@
+{
+  "generated_at_utc": "2026-09-30T04:22:26.552697+00:00",
+  "dataset_variant": "HI-Small",
+  "model_name": "lightgbm (tuned: {'n_estimators': 300, 'learning_rate': 0.05, 'num_leaves': 63})",
+  "best_params": {
+    "n_estimators": 300,
+    "learning_rate": 0.05,
+    "num_leaves": 63
+  },
+  "selected_threshold": 0.9099418313724147,
+  "threshold_selection_method": "F2-optimal, out-of-fold 5-fold CV on train only",
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency"
+  ],
+  "naive_baseline": {
+    "precision": 0.001266624445851805,
+    "recall": 0.012364760432766615,
+    "f2": 0.004492362982929021
+  },
+  "model_metrics": {
+    "precision": 0.005087891413015319,
+    "recall": 0.9258114374034003,
+    "f2": 0.024892265113012547,
+    "pr_auc": 0.004786063208638512
+  },
+  "note": "v2 (hardened): leakage-free expanding features, tuned hyperparameters, F2-optimal threshold from train-only OOF predictions. Still HI-Small-only -- not yet validated against LI-Medium (Notebook 3, mandatory tier)."
+}

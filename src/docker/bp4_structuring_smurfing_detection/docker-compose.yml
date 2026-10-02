@@ -1,0 +1,10 @@
+services:
+  bp4-structuring-smurfing:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp4_structuring_smurfing_detection/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - BP4_DATASET_VARIANT=LI-Medium
+    restart: unless-stopped

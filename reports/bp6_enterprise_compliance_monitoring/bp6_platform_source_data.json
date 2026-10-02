@@ -1,0 +1,377 @@
+{
+  "generated_at_utc": "2026-10-02T14:23:27.264864+00:00",
+  "sourcing_method": "Every figure below was parsed verbatim from a real, already-generated BP1-BP5 report file (MODEL_CARD.md / RULE_CARD.md Financial Impact / Rule Details section, and each BP's own real NB3 validation_report JSON). No figure here is recomputed, estimated, or fabricated -- this script performs pure extraction of already-computed real output, per the locked master plan's Section 8 'recomputing nothing' rule and Section 7A's 'Pure sum of BP1-BP5's own already-computed deltas' rule for BP6.",
+  "bps": {
+    "BP1": {
+      "name": "Transaction Monitoring & Suspicious Activity Detection",
+      "phase": "Phase 1 -- Detection Foundation",
+      "category": "binary",
+      "financial": {
+        "bp_id": "BP1",
+        "fp_dollar_savings": 4792239,
+        "investigator_hours_saved": 73727,
+        "fewer_fp_alerts": 294907,
+        "tp_dollar_illustrative": 15950000,
+        "additional_real_cases_caught": 319
+      },
+      "primary_variant": "LI-Medium",
+      "business_objective": "BP1 (Transaction Monitoring & Suspicious Activity Detection) builds the core transaction-monitoring capability every Bank Secrecy Act (31 U.S.C. Section 5311) regulated institution must operate under the FFIEC BSA/AML Examination Manual's five pillars. Its objective is to score individual transactions for real likelihood of money laundering, feeding investigator alert review and any downstream Suspicious Activity Report decision (31 CFR Section 1020.320), while controlling the false-positive alert volume that consumes most AML investigation teams' real capacity. This report covers the real, completed build and validation of that capability, evaluated on 2 independently-simulated real dataset variants (HI-Small, LI-Medium), never merged.",
+      "regulatory_mapping": [
+        "Bank Secrecy Act (31 U.S.C. Section 5311) -- Platform-wide",
+        "USA PATRIOT Act Section 326 (CIP), Section 314(a)/(b) -- BP1, BP5",
+        "FinCEN SAR filing requirements (31 CFR Section 1020.320) -- BP1, BP2 (evidence feed, not itself a SAR-prediction model)",
+        "OFAC sanctions-list screening -- BP1, BP5",
+        "FFIEC BSA/AML Examination Manual (5 pillars) -- Platform-wide",
+        "SR 11-7 Model Risk Management -- Every model-bearing BP"
+      ],
+      "top_shap_features": [
+        {
+          "name": "Payment Format",
+          "value": 2.321058511734009
+        },
+        {
+          "name": "sender_distinct_counterparties_to_date",
+          "value": 1.6462160348892212
+        },
+        {
+          "name": "sender_hours_since_prev_txn",
+          "value": 1.0058116912841797
+        },
+        {
+          "name": "sender_txn_count_to_date",
+          "value": 0.4479387402534485
+        },
+        {
+          "name": "log_amount_received",
+          "value": 0.3542976975440979
+        }
+      ],
+      "variants": {
+        "HI-Small": {
+          "champion": "XGBoost",
+          "threshold": 0.9725682139396667,
+          "test_metrics": {
+            "pr_auc": 0.42141723583415414,
+            "precision": 0.35093696763202725,
+            "recall": 0.4775888717156105,
+            "f2": 0.44543750900965834
+          },
+          "verdict": "PASS",
+          "n_features": 19
+        },
+        "LI-Medium": {
+          "champion": "XGBoost",
+          "threshold": 0.9798382520675659,
+          "test_metrics": {
+            "pr_auc": 0.12421199240115831,
+            "precision": 0.14178662985604418,
+            "recall": 0.17930174563591023,
+            "f2": 0.1702903699493155
+          },
+          "verdict": "PASS",
+          "n_features": 19
+        }
+      }
+    },
+    "BP2": {
+      "name": "Typology & Red-Flag Pattern Detection",
+      "phase": "Phase 1 -- Detection Foundation",
+      "category": "multiclass",
+      "financial": {
+        "bp_id": "BP2",
+        "auto_typing_efficiency_savings": 1313,
+        "auto_typing_hours_saved": 20.2,
+        "more_cases_auto_typed": 101,
+        "typology_confirmation_value": 1104000,
+        "cases_old_rule_missed": 138
+      },
+      "primary_variant": "LI-Medium",
+      "business_objective": "BP2 (Typology & Red-Flag Pattern Detection) builds the real capability to classify transactions already known to be laundering (`Is Laundering==1`, real dataset label) into the specific real money-laundering typology they exhibit -- directly matching the 'red flags' terminology used in real regulatory enforcement actions (FinCEN assessment, JPMorgan Chase, re: the Madoff/BLM case). Its objective is to give investigators a real, evidence-backed starting typology for each known laundering case, feeding case triage and SAR-narrative drafting, rather than leaving every case to be typed manually from scratch. This report covers the real, completed build and validation of that capability on LI-Medium (this BP's locked mandatory realism-validation tier), across the 5 real typologies with matched ground-truth examples in this run (CYCLE, FAN-IN, FAN-OUT, GATHER-SCATTER, RANDOM).",
+      "regulatory_mapping": [
+        "Bank Secrecy Act (31 U.S.C. Section 5311) -- Platform-wide",
+        "FinCEN 'red flags' typology guidance (JPMorgan Chase assessment, Madoff/BLM case) -- BP2 (this BP's own real-world terminology match)",
+        "FinCEN SAR filing requirements (31 CFR Section 1020.320) -- BP1, BP2 (evidence feed for SAR narrative typology, not itself a SAR-filing decision)",
+        "FFIEC BSA/AML Examination Manual (5 pillars) -- Platform-wide",
+        "SR 11-7 Model Risk Management -- Every model-bearing BP"
+      ],
+      "top_shap_features": [
+        {
+          "name": "receiver_distinct_counterparties_to_date",
+          "value": 0.0626021387145562
+        },
+        {
+          "name": "sender_distinct_counterparties_to_date",
+          "value": 0.06024562887833031
+        },
+        {
+          "name": "receiver_hours_since_prev_txn",
+          "value": 0.032448518075145365
+        },
+        {
+          "name": "sender_txn_count_to_date",
+          "value": 0.02373276299321946
+        },
+        {
+          "name": "sender_hours_since_prev_txn",
+          "value": 0.016296915607327045
+        }
+      ],
+      "variants": {
+        "LI-Medium": {
+          "champion": "RandomForest",
+          "test_metrics": {
+            "macro_f1": 0.4439936784536049
+          },
+          "verdict": "PASS",
+          "n_features": 13,
+          "class_counts": {
+            "GATHER-SCATTER": 541,
+            "FAN-OUT": 489,
+            "FAN-IN": 329,
+            "CYCLE": 283,
+            "RANDOM": 278
+          }
+        }
+      }
+    },
+    "BP3": {
+      "name": "Transaction Network & Graph Intelligence",
+      "phase": "Phase 2 -- Network & Specialized Typology",
+      "category": "structural_rule",
+      "financial": {
+        "bp_id": "BP3",
+        "has_dollar_figure": false,
+        "no_dollar_reason": "No sourced real per-account investigation-cost basis exists for this BP (disclosed honestly in the real RULE_CARD.md -- none is invented here).",
+        "n_nodes": 2032095,
+        "n_edges": 4363197,
+        "network_lift_ratio": 3.1882,
+        "ci95_low": 3.1567,
+        "ci95_high": 3.2187,
+        "base_rate_pct": 1.157,
+        "ego_network_sizes": [
+          181831,
+          15360,
+          15174
+        ]
+      },
+      "primary_variant": "LI-Medium",
+      "business_objective": "BP3 (Transaction Network & Graph Intelligence) builds the real capability to flag accounts using directly-interpretable graph-structural signals -- real degree, real PageRank, and real network proximity to already-flagged accounts -- computed from the real account-to-account transaction structure, no ground-truth label required to construct them. Its objective is to give investigators a real, evidence-backed structural starting point for which accounts' surrounding networks deserve review next, and to surface a real bounded 2-hop ego-network around each flagged account rather than leaving every case to single-account review. This report covers the real, completed build and validation of that capability on LI-Medium (this BP's locked mandatory realism-validation tier) -- 2,032,095 real distinct (Bank, Account) nodes, 4,363,197 real distinct directed edges.",
+      "regulatory_mapping": [
+        "Bank Secrecy Act (31 U.S.C. Section 5311) -- Platform-wide",
+        "FFIEC BSA/AML Examination Manual (5 pillars -- link analysis / relationship mapping is a recognized investigative technique) -- BP3 (real-world terminology match not independently confirmed against a primary enforcement document, disclosed honestly per Notebook 1 Section 3)",
+        "FinCEN SAR filing requirements (31 CFR Section 1020.320) -- BP3 (evidence feed for SAR narrative network context, not itself a SAR-filing decision)",
+        "SR 11-7 Model Risk Management -- Every model/rule-bearing BP -- applied here to a RULE artifact, not a trained model"
+      ],
+      "variants": {
+        "LI-Medium": {
+          "champion": "2-hop proximity to a TRAIN-flagged account",
+          "test_metrics": {
+            "lift_ratio": 3.188157777103746
+          },
+          "verdict": "PASS"
+        }
+      }
+    },
+    "BP4": {
+      "name": "Structuring & Smurfing Detection",
+      "phase": "Phase 2 -- Network & Specialized Typology",
+      "category": "binary",
+      "financial": {
+        "bp_id": "BP4",
+        "fp_dollar_savings": 4232784,
+        "investigator_hours_saved": 65120,
+        "fewer_fp_alerts": 260479,
+        "tp_dollar_illustrative": 65000000,
+        "additional_real_cases_caught": 1300
+      },
+      "primary_variant": "LI-Medium",
+      "business_objective": "BP4 (Structuring & Smurfing Detection) targets a federal crime with its own named statute: 31 U.S.C. Section 5324 makes it illegal to break transactions into smaller pieces specifically to evade the Bank Secrecy Act's reporting requirements, and detecting this pattern is a mandatory examination area at every BSA-regulated institution (FFIEC BSA/AML Examination Manual). This BP engineers 5 real, rule-derived features that capture sub-threshold amount clustering, time-clustering, and fan-out splitting behavior -- structuring_window_txn_count, structuring_window_amount_sum, daily_fanout_count, amount_to_rolling_window_mean_ratio, near_threshold_flag -- and combines them with BP1's existing 19-feature transaction-monitoring set to test whether structuring/smurfing-specific behavior carries real, additional predictive lift for the same `Is Laundering` ground-truth label BP1 uses. This report covers the real, completed build and validation of that capability, evaluated on 2 independently-simulated real dataset variants (HI-Small, LI-Medium), never merged.",
+      "regulatory_mapping": [
+        "Bank Secrecy Act (31 U.S.C. Section 5311) -- Platform-wide",
+        "BSA structuring statute (31 U.S.C. Section 5324) -- BP4 -- this BP's own named statute",
+        "FinCEN SAR filing requirements (31 CFR Section 1020.320) -- BP1, BP2, BP4 (evidence feed, not itself a SAR-prediction model)",
+        "FFIEC BSA/AML Examination Manual (5 pillars) -- Platform-wide",
+        "SR 11-7 Model Risk Management -- Every model-bearing BP"
+      ],
+      "named_engineered_features": [
+        "structuring_window_txn_count",
+        "structuring_window_amount_sum",
+        "daily_fanout_count",
+        "amount_to_rolling_window_mean_ratio",
+        "near_threshold_flag"
+      ],
+      "top_shap_features": [
+        {
+          "name": "Payment Format",
+          "value": 2.2144582271575928
+        },
+        {
+          "name": "sender_distinct_counterparties_to_date",
+          "value": 1.6631454229354858
+        },
+        {
+          "name": "sender_hours_since_prev_txn",
+          "value": 0.7866845726966858
+        },
+        {
+          "name": "log_amount_received",
+          "value": 0.3760490417480469
+        },
+        {
+          "name": "amount_to_rolling_window_mean_ratio",
+          "value": 0.343232125043869
+        }
+      ],
+      "variants": {
+        "HI-Small": {
+          "champion": "XGBoost",
+          "threshold": 0.971088707447052,
+          "test_metrics": {
+            "pr_auc": 0.4387199253629387,
+            "precision": 0.3253731343283582,
+            "recall": 0.5054095826893354,
+            "f2": 0.45505148900640136
+          },
+          "verdict": "PASS",
+          "n_features": 24
+        },
+        "LI-Medium": {
+          "champion": "XGBoost",
+          "threshold": 0.9792634844779968,
+          "test_metrics": {
+            "pr_auc": 0.12528983335770155,
+            "precision": 0.0863649182177101,
+            "recall": 0.3054862842892768,
+            "f2": 0.20265352038115406
+          },
+          "verdict": "PASS",
+          "n_features": 24
+        }
+      }
+    },
+    "BP5": {
+      "name": "Correspondent Banking & Cross-Border Wire Risk",
+      "phase": "Phase 3 -- Cross-Border Intelligence",
+      "category": "binary",
+      "financial": {
+        "bp_id": "BP5",
+        "fp_dollar_savings": 4852169,
+        "investigator_hours_saved": 74649,
+        "fewer_fp_alerts": 298595,
+        "tp_dollar_illustrative": 17000000,
+        "additional_real_cases_caught": 340
+      },
+      "primary_variant": "LI-Medium",
+      "business_objective": "BP5 (Correspondent Banking & Cross-Border Wire Risk) targets the single highest-risk channel for sanctioned-party exposure and cross-border money-laundering flow: wires crossing a national border. It is governed by the USA PATRIOT Act Section 326 (Customer Identification Program) and Section 314(a)/(b) (cross-border information sharing), OFAC sanctions-list screening, the Wolfsberg Group's own Correspondent Banking Due Diligence Questionnaire principles, and GDPR / cross-border personal-data rules wherever a wire's KYC data crosses an EU boundary. This BP engineers 8 real, policy-derived cross-border features -- sender_country, receiver_country, is_cross_border, sender_is_foreign, receiver_is_foreign, foreign_to_foreign, sender_country_empirical_risk, receiver_country_empirical_risk -- and combines them with the platform's existing 19-feature transaction-monitoring set (27 features in total) to test whether cross-border-specific behavior carries real, additional predictive lift for the same `Is Laundering` ground-truth label BP1 uses. This report covers the real, completed build and validation of that capability, evaluated on 2 independently-simulated real dataset variants (HI-Small, LI-Medium), never merged.",
+      "regulatory_mapping": [
+        "Bank Secrecy Act (31 U.S.C. Section 5311) -- Platform-wide",
+        "USA PATRIOT Act Section 326 (Customer Identification Program) -- BP5 -- correspondent-banking account onboarding",
+        "USA PATRIOT Act Section 314(a)/(b) (cross-border information sharing) -- BP5 -- this BP's own named cross-border information-sharing obligation",
+        "OFAC sanctions-list screening -- BP5 -- Not Possible - Data Limitation on this dataset (see Caveats/Fairness)",
+        "Wolfsberg Group Correspondent Banking Due Diligence Questionnaire (CBDDQ) principles -- BP5 -- correspondent-banking relationship due diligence",
+        "GDPR / cross-border personal-data-handling rules -- BP5 -- flagged for completeness; this dataset is fully synthetic, so no real GDPR obligation is actually triggered",
+        "FinCEN SAR filing requirements (31 CFR Section 1020.320) -- BP1, BP4, BP5 (evidence feed, not itself a SAR-prediction model)",
+        "FFIEC BSA/AML Examination Manual (5 pillars) -- Platform-wide",
+        "SR 11-7 Model Risk Management -- Every model-bearing BP"
+      ],
+      "named_engineered_features": [
+        "sender_country",
+        "receiver_country",
+        "is_cross_border",
+        "sender_is_foreign",
+        "receiver_is_foreign",
+        "foreign_to_foreign",
+        "sender_country_empirical_risk",
+        "receiver_country_empirical_risk"
+      ],
+      "top_shap_features": [
+        {
+          "name": "Payment Format",
+          "value": 2.279789924621582
+        },
+        {
+          "name": "sender_distinct_counterparties_to_date",
+          "value": 1.8098725080490112
+        },
+        {
+          "name": "sender_hours_since_prev_txn",
+          "value": 0.9706858396530151
+        },
+        {
+          "name": "log_amount_received",
+          "value": 0.3939807116985321
+        },
+        {
+          "name": "sender_txn_count_to_date",
+          "value": 0.3665614724159241
+        }
+      ],
+      "variants": {
+        "HI-Small": {
+          "champion": "XGBoost",
+          "threshold": 0.9747767448425293,
+          "test_metrics": {
+            "pr_auc": 0.43060982402097786,
+            "precision": 0.3935040599625234,
+            "recall": 0.4868624420401855,
+            "f2": 0.4648074369189907
+          },
+          "verdict": "PASS",
+          "n_features": 27
+        },
+        "LI-Medium": {
+          "champion": "XGBoost",
+          "threshold": 0.9814317226409912,
+          "test_metrics": {
+            "pr_auc": 0.13988285214218793,
+            "precision": 0.17627281460134486,
+            "recall": 0.18304239401496258,
+            "f2": 0.1816471985745397
+          },
+          "verdict": "PASS",
+          "n_features": 27
+        }
+      }
+    }
+  },
+  "platform_rollup": {
+    "benefit_category_1_fp_reduction_savings": {
+      "description": "Pure sum of BP1+BP4+BP5's own already-computed false-positive-reduction $ savings (ASSUMPTION-labeled). BP2's analogous auto-typing efficiency savings is kept as its own separate line (different unit basis -- investigator-hours-per-alert vs. auto-typing-hours -- never blended into this sum, per the locked never-blend-categories rule).",
+      "bp1": 4792239,
+      "bp4": 4232784,
+      "bp5": 4852169,
+      "total_usd": 13877192,
+      "total_investigator_hours_saved": 213496,
+      "total_fewer_fp_alerts": 853981
+    },
+    "benefit_category_2_tp_uplift_value": {
+      "description": "Pure sum of BP1+BP4+BP5's own already-computed true-positive-uplift illustrative regulatory-exposure-avoidance $ (ASSUMPTION-labeled). BP2's analogous typology-confirmation value is kept separate (different real case subset and ASSUMPTION basis -- never blended, per the locked rule).",
+      "bp1": 15950000,
+      "bp4": 65000000,
+      "bp5": 17000000,
+      "total_usd": 97950000,
+      "total_additional_cases_caught": 1959
+    },
+    "benefit_category_3_bp2_typology_lines": {
+      "description": "BP2's two real figures, kept on their own two lines -- never summed into categories 1 or 2 above (different ASSUMPTION bases and case subsets).",
+      "auto_typing_efficiency_savings_usd": 1313,
+      "typology_confirmation_value_usd": 1104000
+    },
+    "cost_context": {
+      "description": "Informational only, never summed into any headline figure (locked Section 8 rule). This platform has no real sourced build/operating-cost figure for any BP -- none is invented here; this section intentionally carries no dollar figure, consistent with this platform's zero-fabrication discipline."
+    },
+    "portfolio_scale": {
+      "description": "Volume context only, never dollarized or summed into the headline (locked Section 8 rule). BP3's real network-coverage volume is structurally distinct from BP1/2/4/5's transaction-level populations and is shown on its own line, never combined with them.",
+      "bp3_n_nodes": 2032095,
+      "bp3_n_edges": 4363197
+    },
+    "headline_grand_total_note": "This platform reports THREE separate BENEFIT lines (categories 1, 2, and 3 above) -- never one blended grand total -- per the locked Section 7A/Section 8 never-summed-across-categories discipline. A reader wanting a single number must choose which category answers their question; none is privileged as 'the' headline by this report.",
+    "all_bps_verdict_summary": {
+      "BP1": "PASS",
+      "BP2": "PASS",
+      "BP3": "PASS",
+      "BP4": "PASS",
+      "BP5": "PASS"
+    }
+  }
+}

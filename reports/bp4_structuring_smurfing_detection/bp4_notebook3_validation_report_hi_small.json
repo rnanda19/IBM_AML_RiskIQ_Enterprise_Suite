@@ -1,0 +1,174 @@
+{
+  "generated_at_utc": "2026-10-01T17:46:29.879445+00:00",
+  "dataset_variant": "HI-Small",
+  "random_seed": 42,
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency",
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "structuring_feature_cols": [
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "stage_a_ranking": [
+    {
+      "name": "XGBoost",
+      "pr_auc": 0.4387199253629387
+    },
+    {
+      "name": "CatBoost",
+      "pr_auc": 0.4200469754259417
+    },
+    {
+      "name": "RandomForest",
+      "pr_auc": 0.3312670242589691
+    },
+    {
+      "name": "LightGBM",
+      "pr_auc": 0.01388441271573865
+    }
+  ],
+  "isolation_forest_unsupervised_pr_auc": 0.0016436112979710269,
+  "stage_a_top2": [
+    "XGBoost",
+    "CatBoost"
+  ],
+  "stage_b_cv_results": {
+    "XGBoost": {
+      "fold_pr_aucs": [
+        0.44936010995893616,
+        0.42837621395084785,
+        0.42526848377960924,
+        0.4726734980698,
+        0.3937533923051454
+      ],
+      "mean_pr_auc": 0.4338863396128677,
+      "std_pr_auc": 0.02940732737543713,
+      "ci95_low": 0.3973723199273954,
+      "ci95_high": 0.47040035929834,
+      "coeff_of_variation": 0.06777656886288613
+    },
+    "CatBoost": {
+      "fold_pr_aucs": [
+        0.43921328336138304,
+        0.42147874545115643,
+        0.4161834464134921,
+        0.45132311015382,
+        0.3607972709893552
+      ],
+      "mean_pr_auc": 0.41779917127384136,
+      "std_pr_auc": 0.034813018913617495,
+      "ci95_low": 0.3745730990200158,
+      "ci95_high": 0.46102524352766694,
+      "coeff_of_variation": 0.08332476775259022
+    }
+  },
+  "champion_name": "XGBoost",
+  "champion_needs_rf_impute": false,
+  "rf_impute_value": 0.37622512568646943,
+  "selected_threshold": 0.971088707447052,
+  "test_metrics": {
+    "pr_auc": 0.4387199253629387,
+    "precision": 0.3253731343283582,
+    "recall": 0.5054095826893354,
+    "f2": 0.45505148900640136
+  },
+  "random_baseline_pr_auc": 0.0010192290878844852,
+  "shap_mean_abs_importance": {
+    "Payment Format": 2.4297642707824707,
+    "sender_hours_since_prev_txn": 0.7585662603378296,
+    "daily_fanout_count": 0.72551429271698,
+    "sender_distinct_counterparties_to_date": 0.546339213848114,
+    "is_self_transaction": 0.3966957926750183,
+    "structuring_window_txn_count": 0.38310495018959045,
+    "log_amount_received": 0.3768306076526642,
+    "log_amount_paid": 0.2556649148464203,
+    "amount_to_rolling_window_mean_ratio": 0.2540836036205292,
+    "receiver_txn_count_to_date": 0.22270840406417847,
+    "sender_txn_count_to_date": 0.2053312510251999,
+    "sender_amount_zscore": 0.19318465888500214,
+    "receiver_amount_sum_to_date": 0.16688978672027588,
+    "structuring_window_amount_sum": 0.16161707043647766,
+    "day_of_week": 0.14221599698066711,
+    "sender_amount_sum_to_date": 0.13174815475940704,
+    "hour": 0.12677982449531555,
+    "near_threshold_flag": 0.0931391641497612,
+    "Payment Currency": 0.07298493385314941,
+    "Receiving Currency": 0.06932631134986877,
+    "is_cross_bank": 0.03185011073946953,
+    "currency_mismatch": 0.03035496361553669,
+    "amount_diff": 0.0,
+    "is_weekend": 0.0
+  },
+  "lime_examples": null,
+  "gate1_structural_checks": {
+    "feature_columns_correct_count": true,
+    "no_nulls_in_X_train_except_disclosed_ratio_column": true,
+    "no_nulls_in_X_test_except_disclosed_ratio_column": true,
+    "train_test_sizes_sum_to_total": true,
+    "stratification_preserved_within_20pct_relative": true,
+    "champion_has_predict_proba": true,
+    "selected_threshold_is_finite_and_in_0_1": true,
+    "near_threshold_flag_fit_on_train_only": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_statistical_robustness_checks": {
+    "cv_ci95_lower_bound_clears_random_baseline": true,
+    "cv_coefficient_of_variation_under_0.60": true
+  },
+  "gate2_verdict": "PASS",
+  "overall_verdict": "PASS",
+  "calibration": {
+    "method": "isotonic (CalibratedClassifierCV, cv='prefit'/FrozenEstimator, fit on a train-only 20% holdout)",
+    "brier_score_uncalibrated": 0.03364131599664688,
+    "brier_score_calibrated": 0.0007078025717241989,
+    "brier_improvement": 0.032933513424922685,
+    "pr_auc_rank_invariance_check_delta": 0.012532930501553463,
+    "note": "Calibration changes the raw probability's real-world meaning; it does NOT change the champion's RANKING of transactions except where isotonic regression ties several raw scores to the same calibrated value (expected on real, severely-imbalanced data)."
+  },
+  "score_baseline_path": "C:\\Users\\rnand\\Documents\\IBM_AML_RiskIQ_Enterprise_Suite\\reports\\bp4_structuring_smurfing_detection\\bp4_score_baseline_hi_small.json",
+  "alert_routing_policy": {
+    "method": "percentile (top real decile of flagged test-set alerts by calibrated probability)",
+    "tier1_auto_sar_recommend": {
+      "calibrated_probability_cutoff": 0.9499999284744263,
+      "n_alerts": 232,
+      "real_precision_within_tier": 0.9482758620689655
+    },
+    "tier2_structuring_investigator_queue": {
+      "n_alerts": 1778,
+      "real_precision_within_tier": 0.2440944881889764
+    }
+  },
+  "fastapi_self_test": {
+    "rows_checked": 5000,
+    "mismatches": 0,
+    "max_abs_diff": 0.0,
+    "mean_abs_diff": 0.0
+  },
+  "note": "BP4 Notebook 3 real run against HI-Small. Compare this report's test_metrics.pr_auc side by side with the OTHER variant's own separately-saved report -- never blend the two into one unlabeled figure, per locked policy."
+}

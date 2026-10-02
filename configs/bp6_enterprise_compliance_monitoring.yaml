@@ -1,0 +1,5 @@
+business_problem: "BP6 - Enterprise AML Compliance Monitoring & Regulatory Reporting"
+random_seed: 42
+primary_metric: "PR-AUC"
+notebook_count: 4
+status: "scaffolded - not yet built"

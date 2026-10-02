@@ -1,0 +1,10 @@
+services:
+  bp3-network-graph-intelligence:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp3_network_graph_intelligence/Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - BP3_DATASET_VARIANT=LI-Medium
+    restart: unless-stopped

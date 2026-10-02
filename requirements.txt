@@ -1,0 +1,52 @@
+# Core data / performance (WARP standard)
+polars>=1.9
+duckdb>=1.1
+pyarrow>=17.0
+numpy>=1.26
+pandas>=2.2
+numba>=0.60
+psutil>=6.0
+
+# Graph / network analytics (BP4 money-flow & mule-network analytics)
+networkx>=3.3
+python-igraph>=0.11
+
+
+# Classical ML (BP1, BP2, BP3, BP5, BP7) - the 6-model benchmark set
+scikit-learn>=1.5
+xgboost>=2.1
+catboost>=1.2
+lightgbm>=4.5
+
+# Explainability / stats
+shap>=0.46
+lime>=0.2.0.1
+scipy>=1.13
+statsmodels>=0.14
+imbalanced-learn>=0.12
+
+# Reporting (HYPER shared reporting module)
+python-docx>=1.1
+openpyxl>=3.1
+python-pptx>=0.6.23
+matplotlib>=3.9
+
+# Service layer (optional, BP6/BP7)
+fastapi>=0.115
+uvicorn>=0.30
+
+# Notebook execution (BP6 platform-rollup Docker batch job -- hardening pass, 2026-10-02:
+# closes this image's own previously disclosed gap -- jupyter nbconvert --execute needs these)
+nbformat>=5.10
+nbconvert>=7.16
+ipykernel>=6.29
+
+# Quality / CI (HYPER)
+pytest>=8.3
+pytest-cov>=5.0
+bandit>=1.7
+black>=24.8
+flake8>=7.1
+isort>=5.13
+mypy>=1.11
+pre-commit>=3.8

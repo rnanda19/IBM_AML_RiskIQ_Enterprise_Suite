@@ -1,0 +1,327 @@
+{
+  "bp_id": "BP2",
+  "bp_name": "Typology & Red-Flag Pattern Detection",
+  "generated_at_utc": "2026-10-01T08:00:27.273774+00:00",
+  "dataset_variant": "LI-Medium",
+  "random_seed": 42,
+  "primary_metric": "macro_f1",
+  "class_names": [
+    "CYCLE",
+    "FAN-IN",
+    "FAN-OUT",
+    "GATHER-SCATTER",
+    "RANDOM"
+  ],
+  "class_counts": {
+    "GATHER-SCATTER": 541,
+    "FAN-OUT": 489,
+    "FAN-IN": 329,
+    "CYCLE": 283,
+    "RANDOM": 278
+  },
+  "min_class_count": 278,
+  "min_class_name": "RANDOM",
+  "used_stratified_cv": true,
+  "n_multi_typology_rows": 0,
+  "before_baseline_typology": "FAN-OUT",
+  "before_macro_f1": 0.08119551681195517,
+  "before_after_recall_by_class": {
+    "CYCLE": {
+      "before_recall": 0.0,
+      "after_recall": 0.3380281690140845
+    },
+    "FAN-IN": {
+      "before_recall": 0.0,
+      "after_recall": 0.5609756097560976
+    },
+    "FAN-OUT": {
+      "before_recall": 1.0,
+      "after_recall": 0.6967213114754098
+    },
+    "GATHER-SCATTER": {
+      "before_recall": 0.0,
+      "after_recall": 0.26666666666666666
+    },
+    "RANDOM": {
+      "before_recall": 0.0,
+      "after_recall": 0.45714285714285713
+    }
+  },
+  "feature_cols": [
+    "sender_txn_count_to_date",
+    "receiver_txn_count_to_date",
+    "sender_distinct_counterparties_to_date",
+    "receiver_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_hours_since_prev_txn",
+    "pair_prior_txn_count",
+    "is_same_bank",
+    "log_amount_paid",
+    "amount_paid_received_ratio",
+    "hour",
+    "day_of_week",
+    "payment_format_code"
+  ],
+  "stage_a_ranking": [
+    {
+      "name": "RandomForest",
+      "macro_f1": 0.4439936784536049
+    },
+    {
+      "name": "CatBoost",
+      "macro_f1": 0.4392293895072109
+    },
+    {
+      "name": "XGBoost",
+      "macro_f1": 0.433194685498833
+    },
+    {
+      "name": "LightGBM",
+      "macro_f1": 0.4253274363571847
+    }
+  ],
+  "isolation_forest_mean_anomaly_by_class": {
+    "GATHER-SCATTER": -0.05920579292626866,
+    "CYCLE": -0.06929756376444288,
+    "RANDOM": -0.06954660197035661,
+    "FAN-IN": -0.0738613283362032,
+    "FAN-OUT": -0.07635883894469307
+  },
+  "stage_a_top2": [
+    "RandomForest",
+    "CatBoost"
+  ],
+  "stage_b_cv_results": {
+    "RandomForest": {
+      "fold_macro_f1s": [
+        0.4162985933050082,
+        0.4824960884183894,
+        0.4642612442877171,
+        0.4761170208068872,
+        0.47927283676216764
+      ],
+      "mean_macro_f1": 0.46368915671603383,
+      "std_macro_f1": 0.027373328050778634,
+      "ci95_low": 0.4297006807643608,
+      "ci95_high": 0.49767763266770687,
+      "coeff_of_variation": 0.059033789456375475
+    },
+    "CatBoost": {
+      "fold_macro_f1s": [
+        0.41703084789965894,
+        0.4779380556756796,
+        0.42346083858486416,
+        0.4720281890033921,
+        0.5175748019098226
+      ],
+      "mean_macro_f1": 0.4616065466146835,
+      "std_macro_f1": 0.041682917292633986,
+      "ci95_low": 0.40985036887231474,
+      "ci95_high": 0.5133627243570522,
+      "coeff_of_variation": 0.09029966667138267
+    }
+  },
+  "champion_name": "RandomForest",
+  "test_metrics": {
+    "macro_f1": 0.4439936784536049
+  },
+  "after_classification_report": {
+    "CYCLE": {
+      "precision": 0.3116883116883117,
+      "recall": 0.3380281690140845,
+      "f1-score": 0.32432432432432434,
+      "support": 71.0
+    },
+    "FAN-IN": {
+      "precision": 0.4423076923076923,
+      "recall": 0.5609756097560976,
+      "f1-score": 0.4946236559139785,
+      "support": 82.0
+    },
+    "FAN-OUT": {
+      "precision": 0.5821917808219178,
+      "recall": 0.6967213114754098,
+      "f1-score": 0.6343283582089553,
+      "support": 122.0
+    },
+    "GATHER-SCATTER": {
+      "precision": 0.5373134328358209,
+      "recall": 0.26666666666666666,
+      "f1-score": 0.3564356435643564,
+      "support": 135.0
+    },
+    "RANDOM": {
+      "precision": 0.37209302325581395,
+      "recall": 0.45714285714285713,
+      "f1-score": 0.41025641025641024,
+      "support": 70.0
+    },
+    "accuracy": 0.46458333333333335,
+    "macro avg": {
+      "precision": 0.4491188481819114,
+      "recall": 0.46390692281102314,
+      "f1-score": 0.4439936784536049,
+      "support": 480.0
+    },
+    "weighted avg": {
+      "precision": 0.47502150670857846,
+      "recall": 0.46458333333333335,
+      "f1-score": 0.45377288981792213,
+      "support": 480.0
+    }
+  },
+  "shap_mean_abs_importance": {
+    "receiver_distinct_counterparties_to_date": 0.0626021387145562,
+    "sender_distinct_counterparties_to_date": 0.06024562887833031,
+    "receiver_hours_since_prev_txn": 0.032448518075145365,
+    "sender_txn_count_to_date": 0.02373276299321946,
+    "sender_hours_since_prev_txn": 0.016296915607327045,
+    "receiver_txn_count_to_date": 0.016154013321464412,
+    "log_amount_paid": 0.012471525852090165,
+    "day_of_week": 0.010403020383462153,
+    "pair_prior_txn_count": 0.010117888217500481,
+    "hour": 0.008961079464274336,
+    "is_same_bank": 0.00047531460641034247,
+    "payment_format_code": 4.2006010415149636e-05,
+    "amount_paid_received_ratio": 0.0
+  },
+  "lime_examples": [
+    {
+      "row_index": 8309428,
+      "predicted_typology": "RANDOM",
+      "explanation": [
+        [
+          "sender_distinct_counterparties_to_date <= 2.00",
+          0.09105168479232725
+        ],
+        [
+          "receiver_distinct_counterparties_to_date <= 2.00",
+          0.07052984090773128
+        ],
+        [
+          "payment_format_code=0",
+          -0.0401129632477863
+        ],
+        [
+          "3.00 < sender_txn_count_to_date <= 12.00",
+          -0.03857823727443101
+        ],
+        [
+          "day_of_week=6",
+          0.027190936354788302
+        ],
+        [
+          "pair_prior_txn_count <= 0.00",
+          -0.022548815613116044
+        ],
+        [
+          "hour <= 8.00",
+          0.017861590202603708
+        ],
+        [
+          "receiver_txn_count_to_date <= 3.00",
+          0.012736112246733197
+        ]
+      ]
+    },
+    {
+      "row_index": 21559628,
+      "predicted_typology": "FAN-OUT",
+      "explanation": [
+        [
+          "sender_distinct_counterparties_to_date > 7.00",
+          0.27603808479296
+        ],
+        [
+          "pair_prior_txn_count <= 0.00",
+          0.029337844045646797
+        ],
+        [
+          "is_same_bank=0",
+          -0.02230453819376906
+        ],
+        [
+          "log_amount_paid <= 8.72",
+          0.02132624618546606
+        ],
+        [
+          "payment_format_code=0",
+          0.016253561767934573
+        ],
+        [
+          "16.77 < receiver_hours_since_prev_txn <= 87.77",
+          0.01590611019878215
+        ],
+        [
+          "sender_hours_since_prev_txn <= 0.00",
+          0.0083461015194517
+        ],
+        [
+          "8.00 < hour <= 12.00",
+          0.008217886634852942
+        ]
+      ]
+    },
+    {
+      "row_index": 14287387,
+      "predicted_typology": "GATHER-SCATTER",
+      "explanation": [
+        [
+          "receiver_distinct_counterparties_to_date > 5.00",
+          0.16901417141715913
+        ],
+        [
+          "sender_distinct_counterparties_to_date <= 2.00",
+          -0.05972279104196123
+        ],
+        [
+          "is_same_bank=0",
+          -0.03884686080682894
+        ],
+        [
+          "payment_format_code=0",
+          0.03840581370699672
+        ],
+        [
+          "sender_txn_count_to_date <= 3.00",
+          -0.03205343803235351
+        ],
+        [
+          "sender_hours_since_prev_txn > 28.83",
+          -0.026298389538060626
+        ],
+        [
+          "4.63 < receiver_hours_since_prev_txn <= 16.77",
+          -0.007881931432322572
+        ],
+        [
+          "10.00 < receiver_txn_count_to_date <= 27.00",
+          -0.0067021446935190375
+        ]
+      ]
+    }
+  ],
+  "gate1_structural_checks": {
+    "feature_columns_correct_count": true,
+    "no_nulls_in_X_train_excl_disclosed_ratio_col": true,
+    "no_nulls_in_X_test_excl_disclosed_ratio_col": true,
+    "train_test_sizes_sum_to_total": true,
+    "stratification_preserved_within_30pct_relative_per_class": true,
+    "champion_has_predict_proba": true,
+    "label_encoder_classes_match_this_run": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_statistical_robustness_checks": {
+    "cv_ci95_lower_bound_clears_real_before_baseline": true,
+    "cv_coefficient_of_variation_under_0.60": true
+  },
+  "gate2_verdict": "PASS",
+  "overall_verdict": "PASS",
+  "fastapi_self_test": {
+    "rows_checked": 480,
+    "mismatches": 0,
+    "max_abs_diff": 2.220446049250313e-16,
+    "mean_abs_diff": 4.6613465402393454e-17
+  },
+  "note": "BP2 Notebook 3 real run against LI-Medium. If the thin-class WARNING above fired, re-run with DATASET_VARIANT='HI-Medium' for a real, more stable comparison -- this report and that one would be saved separately (variant-tagged filenames), never blended into one unlabeled figure."
+}

@@ -1,0 +1,28 @@
+name: Code Quality
+
+on: [push, pull_request]
+
+jobs:
+  bandit-security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install bandit
+      # Blocking: scans src/ only (the real deployable code -- services, feature pipelines, reporting
+      # module). tests/ and notebooks/ are excluded to avoid bandit false-positives on test fixtures and
+      # notebook-style flattened scripts, same scoping as the AMEX platform's own code-quality.yml.
+      - run: bandit -r src/ -x src/docker/ -ll
+
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install black isort
+      # Advisory only (|| true) -- a repo-wide reformat is deliberately deferred, same policy as AMEX's
+      # Phase 2 hardening pass, so this never blocks a PR on pure style.
+      - run: black --check src/ tests/ || true
+      - run: isort --check-only --profile black src/ tests/ || true

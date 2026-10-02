@@ -1,0 +1,10 @@
+services:
+  bp2-typology-detection:
+    build:
+      context: ../../..
+      dockerfile: src/docker/bp2_typology_redflag_detection/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - BP2_DATASET_VARIANT=LI-Medium
+    restart: unless-stopped

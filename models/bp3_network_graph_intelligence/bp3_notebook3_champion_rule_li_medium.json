@@ -1,0 +1,7 @@
+{
+  "champion_signal": "2-hop proximity to a TRAIN-flagged account",
+  "champion_column": "near_train_flagged",
+  "is_threshold_signal": false,
+  "threshold": null,
+  "note": "BP3 has no trained ML model (Notebook 2/3 header) -- this is a RULE artifact (a threshold or a set-membership test), not a pickled classifier. NB4's reporting layer and any deployment reads this file directly, never a .pkl model object."
+}

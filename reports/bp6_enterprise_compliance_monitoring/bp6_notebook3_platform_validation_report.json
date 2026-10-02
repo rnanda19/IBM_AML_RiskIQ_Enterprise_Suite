@@ -1,0 +1,63 @@
+{
+  "bp_id": "BP6",
+  "bp_name": "Enterprise AML Compliance Monitoring & Regulatory Reporting",
+  "generated_at_utc": "2026-10-02T16:37:07.673053+00:00",
+  "random_seed": 42,
+  "source_phase_rollup_generated_at_utc": "2026-10-02T16:36:55.623226+00:00",
+  "source_platform_data_generated_at_utc": "2026-10-02T14:23:27.264864+00:00",
+  "master_rollup": {
+    "benefit_category_1_fp_reduction_savings": {
+      "bp1": 4792239,
+      "bp4": 4232784,
+      "bp5": 4852169,
+      "total_usd": 13877192,
+      "total_investigator_hours_saved": 213496,
+      "total_fewer_fp_alerts": 853981
+    },
+    "benefit_category_2_tp_uplift_value": {
+      "bp1": 15950000,
+      "bp4": 65000000,
+      "bp5": 17000000,
+      "total_usd": 97950000,
+      "total_additional_cases_caught": 1959
+    },
+    "benefit_category_3_bp2_typology_lines": {
+      "auto_typing_efficiency_savings_usd": 1313,
+      "typology_confirmation_value_usd": 1104000
+    },
+    "cost_context": {
+      "description": "NOT SOURCED -- none invented (same disclosed gap carried from the phase level)."
+    },
+    "portfolio_scale": {
+      "bp3_n_nodes": 2032095,
+      "bp3_n_edges": 4363197
+    },
+    "all_bps_verdict_summary": {
+      "BP1": "PASS",
+      "BP2": "PASS",
+      "BP3": "PASS",
+      "BP4": "PASS",
+      "BP5": "PASS"
+    }
+  },
+  "gate1_structural_checks": {
+    "no_bp_double_counted_across_phases": true,
+    "every_bp_accounted_for_exactly_once": true,
+    "five_financial_categories_kept_structurally_separate": true,
+    "cost_context_carries_no_dollar_figure": true,
+    "portfolio_scale_carries_no_dollar_figure": true
+  },
+  "gate1_verdict": "PASS",
+  "gate2_reconciliation_checks": {
+    "benefit_cat1_total_reconciles_exactly": true,
+    "benefit_cat2_total_reconciles_exactly": true,
+    "cat1_investigator_hours_reconcile_exactly": true,
+    "cat1_fewer_fp_alerts_reconcile_exactly": true,
+    "cat2_additional_cases_caught_reconcile_exactly": true,
+    "portfolio_scale_reconciles_exactly": true,
+    "all_bp_verdicts_reconcile_exactly": true
+  },
+  "gate2_verdict": "PASS",
+  "gate2_methodology_note": "Deterministic reconciliation against bp6_platform_source_data.json's own platform_rollup -- NOT a statistical bootstrap. BP6 has no held-out test set of its own to bootstrap against (unlike BP1-BP5's own Gate 2), so exact equality against the independently-sourced figure is the real, meaningful bar here.",
+  "overall_verdict": "PASS"
+}

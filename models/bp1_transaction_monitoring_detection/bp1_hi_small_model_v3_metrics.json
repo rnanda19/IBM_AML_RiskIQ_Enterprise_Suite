@@ -1,0 +1,53 @@
+{
+  "generated_at_utc": "2026-09-30T04:38:03.184746+00:00",
+  "dataset_variant": "HI-Small",
+  "model_name": "lightgbm (tuned v3: {'n_estimators': 500, 'learning_rate': 0.03, 'num_leaves': 63, 'min_child_samples': 200, 'reg_lambda': 5.0})",
+  "best_params": {
+    "n_estimators": 500,
+    "learning_rate": 0.03,
+    "num_leaves": 63,
+    "min_child_samples": 200,
+    "reg_lambda": 5.0
+  },
+  "search_subsample_size": 1500000,
+  "selected_threshold": 1.0,
+  "threshold_selection_method": "F2-optimal, out-of-fold 5-fold CV on train only",
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency"
+  ],
+  "naive_baseline": {
+    "precision": 0.001266624445851805,
+    "recall": 0.012364760432766615,
+    "f2": 0.004492362982929021
+  },
+  "random_baseline_pr_auc": 0.0010192290878844852,
+  "model_metrics": {
+    "precision": 0.025597732686103658,
+    "recall": 0.6561051004636785,
+    "f2": 0.11071121195524607,
+    "pr_auc": 0.019216112055078588
+  },
+  "prior_runs": {
+    "v1_pr_auc": 0.0053,
+    "v2_pr_auc": 0.0048
+  },
+  "note": "v3: widened hyperparameter search (1.5M-row subsample vs v2's 500k, added regularization terms to the grid). Still HI-Small-only, still a subsample-based search (not full-data) -- flagged honestly. Not yet validated against LI-Medium (Notebook 3, mandatory tier)."
+}

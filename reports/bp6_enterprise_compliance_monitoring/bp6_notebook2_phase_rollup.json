@@ -1,0 +1,85 @@
+{
+  "bp_id": "BP6",
+  "generated_at_utc": "2026-10-02T16:36:55.623226+00:00",
+  "source_platform_data_generated_at_utc": "2026-10-02T14:23:27.264864+00:00",
+  "phases": {
+    "Phase 1 -- Detection Foundation": {
+      "phase_name": "Phase 1 -- Detection Foundation",
+      "bp_ids": [
+        "BP1",
+        "BP2"
+      ],
+      "benefit_category_1_fp_reduction_savings_usd": 4792239,
+      "benefit_category_2_tp_uplift_value_usd": 15950000,
+      "benefit_category_3_bp2_typology_lines": {
+        "auto_typing_efficiency_savings_usd": 1313,
+        "typology_confirmation_value_usd": 1104000
+      },
+      "cost_context": "NOT SOURCED -- none invented (same disclosed gap as the platform level).",
+      "portfolio_scale": null,
+      "verdicts": {
+        "BP1": "PASS",
+        "BP2": "PASS"
+      },
+      "champions": {
+        "BP1": "XGBoost",
+        "BP2": "RandomForest"
+      },
+      "summary_lines": [
+        "BP1 real champion XGBoost (verdict PASS): $4,792,239 FP-reduction savings, $15,950,000 TP-uplift illustrative value.",
+        "BP2 real champion RandomForest (verdict PASS): $1,313 auto-typing efficiency savings, $1,104,000 typology-confirmation value (kept on its own lines -- different unit basis than BP1's figures above)."
+      ]
+    },
+    "Phase 2 -- Network & Specialized Typology": {
+      "phase_name": "Phase 2 -- Network & Specialized Typology",
+      "bp_ids": [
+        "BP3",
+        "BP4"
+      ],
+      "benefit_category_1_fp_reduction_savings_usd": 4232784,
+      "benefit_category_2_tp_uplift_value_usd": 65000000,
+      "benefit_category_3_bp2_typology_lines": null,
+      "cost_context": "NOT SOURCED -- none invented (same disclosed gap as the platform level).",
+      "portfolio_scale": {
+        "bp3_n_nodes": 2032095,
+        "bp3_n_edges": 4363197
+      },
+      "verdicts": {
+        "BP3": "PASS",
+        "BP4": "PASS"
+      },
+      "champions": {
+        "BP3": "2-hop proximity to a TRAIN-flagged account",
+        "BP4": "XGBoost"
+      },
+      "summary_lines": [
+        "BP3 real champion signal '2-hop proximity to a TRAIN-flagged account' (verdict PASS): 2,032,095 real network nodes, 4,363,197 real edges -- volume only, never dollarized (no sourced per-account cost basis).",
+        "BP4 real champion XGBoost (verdict PASS): $4,232,784 FP-reduction savings, $65,000,000 TP-uplift illustrative value."
+      ]
+    },
+    "Phase 3 -- Cross-Border Intelligence": {
+      "phase_name": "Phase 3 -- Cross-Border Intelligence",
+      "bp_ids": [
+        "BP5"
+      ],
+      "benefit_category_1_fp_reduction_savings_usd": 4852169,
+      "benefit_category_2_tp_uplift_value_usd": 17000000,
+      "benefit_category_3_bp2_typology_lines": null,
+      "cost_context": "NOT SOURCED -- none invented (same disclosed gap as the platform level).",
+      "portfolio_scale": null,
+      "verdicts": {
+        "BP5": "PASS"
+      },
+      "champions": {
+        "BP5": "XGBoost"
+      },
+      "summary_lines": [
+        "BP5 real champion XGBoost (verdict PASS): $4,852,169 FP-reduction savings, $17,000,000 TP-uplift illustrative value."
+      ]
+    }
+  },
+  "phase_coverage_check": {
+    "no_bp_double_counted": true,
+    "every_bp_accounted_for_exactly_once": true
+  }
+}

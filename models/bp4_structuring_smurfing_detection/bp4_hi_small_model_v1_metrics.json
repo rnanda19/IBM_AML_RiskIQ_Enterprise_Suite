@@ -1,0 +1,128 @@
+{
+  "generated_at_utc": "2026-10-01T10:41:22.214469+00:00",
+  "dataset_variant": "HI-Small",
+  "model_name": "lightgbm ({'n_estimators': 400, 'learning_rate': 0.03, 'num_leaves': 127, 'min_child_samples': 200, 'reg_lambda': 2.0})",
+  "best_params": {
+    "n_estimators": 400,
+    "learning_rate": 0.03,
+    "num_leaves": 127,
+    "min_child_samples": 200,
+    "reg_lambda": 2.0
+  },
+  "selected_threshold": 0.9999999999999996,
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "sender_txn_count_to_date",
+    "sender_amount_sum_to_date",
+    "sender_amount_zscore",
+    "sender_distinct_counterparties_to_date",
+    "sender_hours_since_prev_txn",
+    "receiver_txn_count_to_date",
+    "receiver_amount_sum_to_date",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency",
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "structuring_feature_cols": [
+    "structuring_window_txn_count",
+    "structuring_window_amount_sum",
+    "daily_fanout_count",
+    "amount_to_rolling_window_mean_ratio",
+    "near_threshold_flag"
+  ],
+  "near_threshold_currency_bounds_train": {
+    "Australian Dollar": {
+      "low": 13184.99,
+      "high": 3445603.4869999755
+    },
+    "Bitcoin": {
+      "low": 0.710458,
+      "high": 205.67402
+    },
+    "Canadian Dollar": {
+      "low": 10991.19,
+      "high": 3922070.79
+    },
+    "Euro": {
+      "low": 7446.37,
+      "high": 2552012.5198000153
+    },
+    "Mexican Peso": {
+      "low": 183969.28,
+      "high": 53955723.644300304
+    },
+    "Ruble": {
+      "low": 752466.29,
+      "high": 316696147.7146954
+    },
+    "Rupee": {
+      "low": 697535.3260000027,
+      "high": 274572345.3812986
+    },
+    "UK Pound": {
+      "low": 6811.69,
+      "high": 2677205.56
+    },
+    "US Dollar": {
+      "low": 8983.71,
+      "high": 3140218.643999887
+    },
+    "Yen": {
+      "low": 1001365.7,
+      "high": 366462100.0928102
+    },
+    "Yuan": {
+      "low": 62484.25,
+      "high": 21279004.34
+    },
+    "Brazil Real": {
+      "low": 51890.88,
+      "high": 23800709.01
+    },
+    "Saudi Riyal": {
+      "low": 35865.93200000005,
+      "high": 9738270.954700314
+    },
+    "Shekel": {
+      "low": 29120.56,
+      "high": 8625788.82
+    },
+    "Swiss Franc": {
+      "low": 8440.0,
+      "high": 3385626.7419999265
+    }
+  },
+  "naive_baseline": {
+    "precision": 0.001266624445851805,
+    "recall": 0.012364760432766615,
+    "f2": 0.004492362982929021
+  },
+  "random_baseline_pr_auc": 0.0010192290878844852,
+  "model_metrics": {
+    "precision": 0.019356547606919457,
+    "recall": 0.7341576506955177,
+    "f2": 0.08754953460510552,
+    "pr_auc": 0.015429784322484132
+  },
+  "structuring_feature_importance_rank": [
+    9,
+    10,
+    12,
+    16,
+    22
+  ],
+  "note": "BP4 Notebook 2 v1, HI-Small fast-iteration build. Feature set = BP1's existing 19 features + 5 new real structuring/smurfing features (vectorized trailing-window count/sum, real per-currency near-threshold flag fit on TRAIN only, real daily fan-out count, real amount-to-rolling-mean ratio). This is NOT BP4's final number -- LI-Medium validation (Notebook 3) has not run yet."
+}

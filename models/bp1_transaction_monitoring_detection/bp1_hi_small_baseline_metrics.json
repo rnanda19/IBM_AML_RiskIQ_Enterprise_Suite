@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-09-30T04:09:59.602775+00:00",
+  "dataset_variant": "HI-Small",
+  "model_name": "LightGBM",
+  "feature_cols": [
+    "hour",
+    "day_of_week",
+    "is_weekend",
+    "log_amount_paid",
+    "log_amount_received",
+    "currency_mismatch",
+    "amount_diff",
+    "is_self_transaction",
+    "is_cross_bank",
+    "out_degree",
+    "in_degree",
+    "Payment Format",
+    "Payment Currency",
+    "Receiving Currency"
+  ],
+  "naive_baseline": {
+    "precision": 0.001892147587511826,
+    "recall": 0.01854714064914992
+  },
+  "model_metrics": {
+    "precision": 0.0058383599608738184,
+    "recall": 0.8856259659969088,
+    "pr_auc": 0.005287176522541189
+  },
+  "note": "First-pass HI-Small result only -- not yet validated against LI-Medium (Notebook 3, mandatory tier)."
+}
