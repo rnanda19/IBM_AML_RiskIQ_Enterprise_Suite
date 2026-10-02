@@ -1754,3 +1754,137 @@ neither ci.yml nor .pre-commit-config.yaml, so it has never actually gated
 anything; and a stale duplicate `github_repo/` skeleton folder (47 tracked
 files, READMEs only) sits in the repo from an earlier scaffolding pass,
 whose fate is a judgment call left to the user rather than decided here.
+
+Lesson #51 (2026-10-02): Closing the deeper enterprise-grade gaps -- and finding
+a real Docker bug the closure work itself surfaced.
+
+Direct follow-on to Lesson #50's disclosed gap list ("PROCEED WITH ALL THE
+ERROR FIXING... FINISH ALL THE HARDENING CHALLENGES"). Closed every item:
+
+- Dependency lockfile: requirements.in (abstract >= spec, human intent) +
+  requirements.txt regenerated via `pip-compile` into a fully-pinned, 483-line
+  lockfile. Every notable pin cross-checked against live `pip index versions`
+  output (numpy, xgboost, pandas, scikit-learn, catboost, lightgbm, fastapi,
+  pytest, black, slowapi, etc.) -- all exactly the current real PyPI release,
+  not guessed.
+
+- mypy: actually run for the first time (previously configured + installed,
+  never called). Found 17 real errors across 5 files, all fixed for real
+  reasons, never suppressed wholesale:
+    * TextIOWrapper/BufferedReader mypy error in bp1/bp2/bp4/bp5_scoring_
+      service.py from reusing the same `with open(...) as _f:` variable name
+      across a binary-mode pickle load and a text-mode JSON load -- renamed to
+      distinct names (_model_f / _encoder_f / _report_f), a real (if harmless
+      at runtime) type-narrowing bug, not a false positive.
+    * pydantic's create_model() called with a dynamically-unpacked dict
+      (**_FIELD_TYPES, built from FEATURE_COLS loaded from the real saved
+      report -- Lesson #2's own rule) can't be statically verified by
+      pydantic's own mypy plugin, which only handles literal field kwargs.
+      Added `plugins = ["pydantic.mypy"]` to pyproject.toml for everything the
+      plugin CAN check, and a documented type: ignore[call-overload] for the
+      4 calls it structurally cannot -- this is pydantic's own stated
+      limitation for dynamic model construction, confirmed by reading what
+      the plugin actually does, not assumed.
+    * report_builder.py's `max(dict, key=dict.get)` -- dict.get's Optional
+      return type confused mypy's overload resolution; `key=lambda k:
+      dict[k]` is both the type-correct and the clearer fix.
+    * Discovered mid-fix: adding a NEW shared module (src/services/_security.
+      py) that both `services._security` (pytest's sys.path style) and
+      `src.services._security` (Docker's CMD style) can import broke mypy's
+      module-name resolution -- "Source file found twice under different
+      module names". Root cause: src/ and src/services/ were implicit
+      namespace packages (no __init__.py), which mypy's file-to-module
+      mapping tolerates right up until the same physical file is reachable
+      under two spellings. Fix was mypy's own first suggestion: add the two
+      __init__.py files. Verified this doesn't break either real import style
+      afterward (both tested directly, plus the full pytest suite).
+    * Wired into ci.yml's lint job (it already installed mypy, never called
+      it) and a real mirrors-mypy pre-commit hook; added a Makefile
+      `typecheck` target folded into `test-all`.
+
+- API hardening (auth + rate limiting + audit logging): written ONCE as
+  src/services/_security.py, imported identically by all 5 scoring services
+  (the same HYPER build-once-reuse-everywhere pattern as the shared
+  report_builder.py). Real, not cosmetic:
+    * API-key auth via one shared env var (AML_RISKIQ_API_KEYS), checked with
+      secrets.compare_digest (constant-time, no timing side-channel), never
+      logs the raw key (only an 8-hex-char SHA-256 fingerprint). Deliberately
+      left OPEN when the env var is unset -- not a weaker version of auth, a
+      documented mode with a loud startup stderr warning, chosen specifically
+      so this project's own pytest suite and CI stay green without every test
+      having to inject a fake credential. /health stays unauthenticated on
+      every service (liveness/readiness probes must reach it without a key --
+      standard practice, and it leaks nothing /health didn't already leak).
+    * Real rate limiting via slowapi (new dependency, added to requirements.in
+      properly, not just pip-installed and forgotten) -- verified by an actual
+      test that fires 3 requests at a 2/minute limit and gets a real 429 on
+      the third, not just "the decorator is present."
+    * Structured JSON audit logging (one line per request, every route,
+      stdout) -- verified by actually capturing and asserting on the emitted
+      log lines in tests, not just confirming the middleware is attached.
+    * Zero existing tests broken: all 39 prior tests + 13 new ones (11 unit on
+      _security.py in isolation, 2 integration on the real bp1 service) all
+      pass, because open-mode is the test suite's natural default state --
+      the new auth-required behavior is exercised by explicitly setting the
+      env var in its own dedicated tests, never by weakening what already
+      passed.
+
+- Model registry: src/services/_model_registry.py computes a real SHA-256 of
+  the actual on-disk model file (streamed in 1MB chunks, not loaded whole) and
+  that file's own filesystem mtime -- both real, both computed fresh, never
+  cached across different files. Zero-fabrication check that mattered here:
+  inspected every BP's real saved validation-report JSON directly and found
+  `generated_at_utc` exists in BP1's report but NOT in BP2/BP4/BP5's -- so
+  `report_generated_at_utc` is honestly `None` wherever the real field is
+  absent, rather than substituting the file's mtime (which reflects when the
+  file was last touched on THIS machine, not when the model was trained) as a
+  plausible-looking but fabricated stand-in. Exposed under /health's new
+  "model_registry" key for the 4 model-backed services; not wired into BP3
+  (rule-based, no trained model, consistent with its own existing docs).
+
+- Docker: `docker build` itself remains un-runnable in this sandbox (confirmed
+  `docker` is not on PATH) -- carried forward as a disclosed limitation, not
+  silently skipped. But writing scripts/check_docker_copy_paths.py (a real
+  static verifier of every Dockerfile's COPY source paths, to close the gap
+  that `make docker-verify`'s own comment had been overclaiming -- it checked
+  file presence, never COPY paths) immediately surfaced a REAL bug it was
+  never run against before: all 5 FastAPI-service Dockerfiles (BP1/BP2/BP3/
+  BP4/BP5) copy their model artifact(s) but never the real saved validation-
+  report JSON their own service module requires at import time -- every one
+  of those 5 images would build "successfully" and then crash with
+  FileNotFoundError on first container start. This is the exact Lesson #3
+  failure mode (a deployable artifact that doesn't actually replicate what it
+  needs to run), just never caught before because nothing had ever actually
+  checked. Fixed all 5 Dockerfiles with an explicit COPY of the real report
+  JSON (same explicit-file discipline the existing model-file COPY lines
+  already used); wired the new script into both `make docker-verify` and a
+  new ci.yml job. One already-known, already-disclosed pending artifact
+  (BP3's near-train-flagged lookup parquet, which only a real user notebook
+  re-run can produce -- this project's standing zero-pipeline-execution rule)
+  is allowlisted with a visible [PENDING] warning in the script's own output,
+  never silently treated as passing and never a hard CI failure for a gap
+  that isn't a code bug.
+
+- `github_repo/` (47 tracked files, stale duplicate README/.gitkeep skeleton
+  from an earlier scaffolding pass, left as an explicit judgment call in
+  Lesson #50): removed from git tracking. It never evolved alongside the real
+  project tree, duplicated no real content, and existing purely as dead
+  weight in the repo is worse than not having it.
+
+Takeaway: the single highest-value thing in this pass wasn't any of the
+individually-planned items (lockfile, mypy, auth, registry) -- it was writing
+a REAL verifier (check_docker_copy_paths.py) for a check that had only ever
+existed as a comment's claim, and letting it immediately prove that claim
+false by finding 5 real, previously-undetected, container-crashing bugs. This
+is the same lesson as the notebook-syntax-check `|| true` fix in Lesson #50,
+generalized: a check that exists in name only (a comment, a `|| true`, a
+Makefile target that doesn't do what its own docstring says) is worse than no
+check, because it actively creates false confidence. The fix is always the
+same -- write the real check, run it, and fix whatever it actually finds.
+
+Full re-verification after all fixes, this pass: black clean, isort clean,
+flake8 clean, bandit 0 new findings (7 low/informational, pre-existing
+baseline, unchanged), py_compile clean, pytest 52/52 (13 more than Lesson
+#50's 39), mypy 0 errors across 15 source files (first time ever run), both
+new scripts (notebook-syntax-check, check_docker_copy_paths) exit 0. Three
+discrete commits on top of Lesson #50's `d3fab48`.
