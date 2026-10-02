@@ -25,6 +25,15 @@ COPY models/bp2_typology_redflag_detection/bp2_notebook3_champion_li_medium.pkl 
 COPY models/bp2_typology_redflag_detection/bp2_notebook3_label_encoder_li_medium.pkl \
      ./models/bp2_typology_redflag_detection/bp2_notebook3_label_encoder_li_medium.pkl
 
+# FOUND + FIXED (2026-10-02, hardening pass): this image never copied the real saved
+# validation-report JSON into /app/reports/ -- the service module reads its
+# feature_cols/threshold/champion_name etc. from that exact file at import time and
+# raises FileNotFoundError if it is missing, so this image would have built "successfully"
+# and then crashed on every container start. Copied in explicitly below, same discipline as
+# the model artifact above.
+COPY reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json \
+     ./reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json
+
 ENV BP2_CHAMPION_MODEL_PATH=/app/models/bp2_typology_redflag_detection/bp2_notebook3_champion_li_medium.pkl
 ENV BP2_LABEL_ENCODER_PATH=/app/models/bp2_typology_redflag_detection/bp2_notebook3_label_encoder_li_medium.pkl
 ENV BP2_DATASET_VARIANT=LI-Medium

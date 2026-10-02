@@ -1,5 +1,0 @@
-business_problem: "BP2 - Typology & Red-Flag Pattern Detection"
-random_seed: 42
-primary_metric: "PR-AUC"
-notebook_count: 4
-status: "scaffolded - not yet built"

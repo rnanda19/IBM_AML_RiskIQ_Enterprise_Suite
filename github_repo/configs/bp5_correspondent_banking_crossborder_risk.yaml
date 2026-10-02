@@ -1,5 +1,0 @@
-business_problem: "BP5 - Correspondent Banking & Cross-Border Wire Risk"
-random_seed: 42
-primary_metric: "PR-AUC"
-notebook_count: 4
-status: "scaffolded - not yet built"

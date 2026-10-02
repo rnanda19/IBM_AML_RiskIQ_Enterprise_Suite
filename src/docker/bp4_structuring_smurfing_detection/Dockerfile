@@ -20,6 +20,15 @@ COPY src/ ./src/
 COPY models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl \
      ./models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl
 
+# FOUND + FIXED (2026-10-02, hardening pass): this image never copied the real saved
+# validation-report JSON into /app/reports/ -- the service module reads its
+# feature_cols/threshold/champion_name etc. from that exact file at import time and
+# raises FileNotFoundError if it is missing, so this image would have built "successfully"
+# and then crashed on every container start. Copied in explicitly below, same discipline as
+# the model artifact above.
+COPY reports/bp4_structuring_smurfing_detection/bp4_notebook3_validation_report_li_medium.json \
+     ./reports/bp4_structuring_smurfing_detection/bp4_notebook3_validation_report_li_medium.json
+
 ENV BP4_CHAMPION_MODEL_PATH=/app/models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl
 ENV BP4_DATASET_VARIANT=LI-Medium
 
