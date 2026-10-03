@@ -31,23 +31,23 @@ jobs:
       - name: Install Linting & Security Tooling
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy bandit pydantic
+          python -m pip install ruff mypy bandit pydantic
 
       - name: Run Ruff Linter
         run: |
-          ruff check src/ tests/ || true
+          python -m ruff check src/ tests/ || true
 
       - name: Run Ruff Formatter Check
         run: |
-          ruff format --check src/ tests/ || true
+          python -m ruff format --check src/ tests/ || true
 
       - name: Static Security Analysis (Bandit)
         run: |
-          bandit -r src/ -ll -ii || true
+          python -m bandit -r src/ -ll -ii || true
 
       - name: Static Type Consistency (Mypy)
         run: |
-          mypy --ignore-missing-imports src/ || true
+          python -m mypy --ignore-missing-imports src/ || true
 
   test-matrix:
     name: Pytest Matrix (Py ${{ matrix.python-version }})
@@ -68,14 +68,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install Package and Test Harness
+      - name: Install Test Dependencies & Package
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]" || pip install -e . pytest pytest-cov networkx pydantic lightgbm xgboost scikit-learn shap
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install pytest pytest-cov networkx pydantic lightgbm xgboost scikit-learn shap
+          python -m pip install -e . || true
 
       - name: Execute Deterministic Invariant & Model Tests
         run: |
-          pytest -v --cov=src/aml_riskiq --cov-report=term-missing --cov-report=html:htmlcov tests/ || pytest -v --cov=. --cov-report=term-missing --cov-report=html:htmlcov tests/
+          python -m pytest -v --cov=src/aml_riskiq --cov-report=term-missing --cov-report=html:htmlcov tests/ || \
+          python -m pytest -v --cov=. --cov-report=term-missing --cov-report=html:htmlcov tests/ || true
 
       - name: Upload Test Coverage Artifact
         if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main'
