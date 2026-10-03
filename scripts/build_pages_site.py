@@ -18,6 +18,12 @@ SITE = ROOT / "_site"
 
 BPS = [
     {
+        "slug": "bp6_enterprise_compliance_monitoring",
+        "dir": "bp6",
+        "title": "00 — Executive Rollup Summary",
+        "metric": "Pure rollup of BP1–BP5 · Reconciliation gate · PASS",
+    },
+    {
         "slug": "bp1_transaction_monitoring_detection",
         "dir": "bp1",
         "title": "BP1 — Transaction Monitoring & Suspicious Activity Detection",
@@ -46,12 +52,6 @@ BPS = [
         "dir": "bp5",
         "title": "BP5 — Correspondent Banking & Cross-Border Wire Risk",
         "metric": "XGBoost · Test PR-AUC 0.1399 · PASS",
-    },
-    {
-        "slug": "bp6_enterprise_compliance_monitoring",
-        "dir": "bp6",
-        "title": "BP6 — Enterprise AML Compliance Monitoring & Regulatory Reporting",
-        "metric": "Pure rollup of BP1–BP5 · Reconciliation gate · PASS",
     },
 ]
 
