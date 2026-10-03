@@ -11,7 +11,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,67 +108,81 @@ jobs:
           name: live-coverage-report
           path: public/coverage/
 
-      - name: Assemble Reports & Build Dynamic Hub
+      - name: Mirror Directory Tree & Build Master Portal Hub
         run: |
           mkdir -p public
+          if [ -d "reports" ]; then cp -a reports public/; fi
+          if [ -d "docs" ]; then cp -a docs public/; fi
 
-          # 1. Mirror reports and docs directories directly into the web root
-          if [ -d "reports" ]; then cp -r reports public/; fi
-          if [ -d "docs" ]; then cp -r docs public/; fi
-
-          # 2. Build index.html linking every report in reports/
+          # Generate an enterprise dashboard dynamically linking all discovered formats
           python3 -c '
           import os, html
 
-          reports = []
+          html_reports = []
           for root, _, files in os.walk("public/reports"):
               for f in sorted(files):
                   if f.endswith(".html"):
-                      full = os.path.join(root, f)
-                      rel = os.path.relpath(full, "public").replace("\\", "/")
-                      reports.append((f, rel))
+                      rel = os.path.relpath(os.path.join(root, f), "public").replace("\\", "/")
+                      name = f.replace(".html", "").replace("_", " ")
+                      html_reports.append((name, rel))
 
           rows = ""
-          for f, r in reports:
-              name = f.replace(".html", "").replace("_", " ")
+          for title, path in html_reports:
               rows += f"""
-              <div style="display:flex; justify-content:space-between; align-items:center; background:#0d1117; border:1px solid #30363d; padding:12px 18px; border-radius:6px; margin-bottom:8px;">
-                <span style="font-weight:600; color:#c9d1d9;">{html.escape(name)}</span>
-                <a href="{r}" target="_blank" style="background:#238636; color:#fff; text-decoration:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold;">Open Dashboard &rarr;</a>
+              <div class="report-card">
+                <div>
+                  <div class="report-title">{html.escape(title)}</div>
+                  <div class="report-path">{html.escape(path)}</div>
+                </div>
+                <a class="launch-btn" href="{path}" target="_blank">Launch Live Dashboard &rarr;</a>
               </div>
               """
 
           if not rows:
               rows = "<p style=\"color:#8b949e;\">No HTML reports found in public/reports/</p>"
 
-          html_doc = f"""<!DOCTYPE html>
+          template = f"""<!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>IBM AML RiskIQ | Live Reports Portal</title>
+            <title>IBM AML RiskIQ Enterprise Suite | Institutional Portal</title>
             <style>
-              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin:0; padding:40px; background:#0d1117; color:#c9d1d9; }}
-              .card {{ background:#161b22; border:1px solid #30363d; border-radius:8px; padding:32px; max-width:960px; margin:0 auto; box-shadow:0 4px 16px rgba(0,0,0,0.5); }}
-              h1 {{ color:#58a6ff; margin-top:0; }}
-              .badge {{ display:inline-block; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; background:#238636; color:white; margin-bottom:16px; }}
-              a.btn {{ display:inline-block; padding:8px 16px; background:#1f6feb; color:white; text-decoration:none; border-radius:6px; font-weight:bold; margin-bottom:20px; font-size:13px; }}
+              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; margin: 0; padding: 40px 20px; }}
+              .container {{ max-width: 1040px; margin: 0 auto; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 36px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }}
+              h1 {{ color: #58a6ff; margin-top: 0; font-size: 26px; }}
+              .badge {{ display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; background: #238636; color: white; margin-bottom: 16px; }}
+              .lead {{ color: #8b949e; line-height: 1.6; margin-bottom: 24px; font-size: 14px; }}
+              .action-bar {{ display: flex; gap: 12px; margin-bottom: 30px; }}
+              .btn-primary {{ background: #1f6feb; color: #fff; text-decoration: none; padding: 9px 18px; border-radius: 6px; font-weight: 600; font-size: 13px; }}
+              .btn-primary:hover {{ background: #388bfd; }}
+              h3 {{ color: #f0f6fc; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-top: 28px; font-size: 18px; }}
+              .report-card {{ display: flex; justify-content: space-between; align-items: center; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 14px 18px; margin-bottom: 10px; transition: border-color 0.15s; }}
+              .report-card:hover {{ border-color: #58a6ff; }}
+              .report-title {{ font-weight: 600; color: #c9d1d9; font-size: 14px; }}
+              .report-path {{ font-size: 11px; color: #8b949e; margin-top: 3px; }}
+              .launch-btn {{ background: #238636; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }}
+              .launch-btn:hover {{ background: #2ea043; }}
             </style>
           </head>
           <body>
-            <div class="card">
-              <span class="badge">SR 11-7 / OCC 2011-12 Validated</span>
+            <div class="container">
+              <span class="badge">Federal Reserve SR 11-7 / OCC 2011-12 Validated</span>
               <h1>IBM AML RiskIQ Enterprise Suite</h1>
-              <p style="color:#8b949e;">Live compliance reports, interactive executive rollups, and model governance matrices.</p>
-              <a class="btn" href="coverage/index.html">View Pytest Live Coverage Audit &rarr;</a>
-              <h3 style="color:#f0f6fc; border-bottom:1px solid #30363d; padding-bottom:8px; margin-top:20px;">Executive Dashboards & Blueprint Reports</h3>
+              <p class="lead">Institutional Anti-Money Laundering transaction monitoring, graph topology cycle analysis, and automated FinCEN SAR drafting portal.</p>
+              
+              <div class="action-bar">
+                <a class="btn-primary" href="coverage/index.html">View Pytest Live Coverage Audit &rarr;</a>
+              </div>
+
+              <h3>Live Rendered Dashboards & Blueprint Packages</h3>
               {rows}
             </div>
           </body>
           </html>"""
 
           with open("public/index.html", "w", encoding="utf-8") as out:
-              out.write(html_doc)
+              out.write(template)
           '
 
       - name: Setup Pages
