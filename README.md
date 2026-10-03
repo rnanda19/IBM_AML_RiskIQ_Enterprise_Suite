@@ -1,6 +1,6 @@
 # IBM AML RiskIQ Enterprise Suite
 
-[![Institutional CI/CD & Compliance Pipeline](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/ci.yml/badge.svg)](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/ci.yml)
+[![Institutional CI/CD & Compliance Pipeline](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/ci.yml?query=branch%3Amain)
 [![Regulatory Standard: SR 11-7 / OCC 2011-12](https://img.shields.io/badge/Regulatory-SR%2011--7%20%2F%20OCC%202011--12-0052CC.svg)](https://www.federalreserve.gov/supervisionreg/srletters/sr1107.htm)
 [![Python 3.10 | 3.11](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-000000.svg)](https://github.com/astral-sh/ruff)
