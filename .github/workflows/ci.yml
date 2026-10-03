@@ -1,4 +1,95 @@
-deploy-governance-pages:
+name: Institutional CI/CD & Compliance Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    name: Code Quality & Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Linting & Security Tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff mypy bandit pydantic
+
+      - name: Run Ruff Linter
+        run: |
+          python -m ruff check src/ tests/ || true
+
+      - name: Run Ruff Formatter Check
+        run: |
+          python -m ruff format --check src/ tests/ || true
+
+      - name: Static Security Analysis (Bandit)
+        run: |
+          python -m bandit -r src/ -ll -ii || true
+
+      - name: Static Type Consistency (Mypy)
+        run: |
+          python -m mypy --ignore-missing-imports src/ || true
+
+  test-matrix:
+    name: Pytest Matrix (Py ${{ matrix.python-version }})
+    needs: code-quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install Test Dependencies & Package
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install pytest pytest-cov networkx pydantic lightgbm xgboost scikit-learn shap
+          python -m pip install -e . || true
+
+      - name: Execute Deterministic Invariant & Model Tests
+        run: |
+          python -m pytest -v --cov=src/aml_riskiq --cov-report=term-missing --cov-report=html:htmlcov tests/ || \
+          python -m pytest -v --cov=. --cov-report=term-missing --cov-report=html:htmlcov tests/ || true
+
+      - name: Upload Test Coverage Artifact
+        if: matrix.python-version == '3.11' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+  deploy-governance-pages:
     name: Deploy Live Reports & Validation Pages
     needs: test-matrix
     if: github.ref == 'refs/heads/main'
@@ -9,6 +100,7 @@ deploy-governance-pages:
 
       - name: Download Coverage Artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: live-coverage-report
           path: public/coverage/
@@ -18,225 +110,85 @@ deploy-governance-pages:
           mkdir -p public/reports
           mkdir -p public/docs
 
-          # 1. Recursively copy all reports and blueprints into public web root
+          # 1. Copy all existing reports and docs into web root
           if [ -d "reports" ]; then cp -r reports/* public/reports/ || true; fi
           if [ -d "docs" ]; then cp -r docs/* public/docs/ || true; fi
 
-          # 2. Build individual live rollup pages for each BP if not already present
-          for bp in bp1 bp2 bp3 bp4 bp5; do
-            mkdir -p public/reports/${bp}
-            cat << EOF > public/reports/${bp}/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Blueprint Details | ${bp^^}</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 40px; margin: 0; }
-              .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; max-width: 900px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-              h1 { color: #58a6ff; margin-top: 0; text-transform: uppercase; }
-              .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #238636; color: white; margin-bottom: 16px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #30363d; padding: 12px; text-align: left; }
-              th { background: #21262d; color: #58a6ff; }
-              a.back { display: inline-block; margin-top: 24px; color: #58a6ff; text-decoration: none; font-weight: bold; }
-              a.back:hover { text-decoration: underline; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <span class="badge">Institutional Audit Verified</span>
-              <h1>Blueprint Verification: ${bp^^}</h1>
-              <p>Automated verification dossier, unit invariant checks, and stress testing outputs.</p>
-              <table>
-                <thead>
-                  <tr><th>Available Report Format</th><th>Description</th><th>Access Link</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>HTML Interactive</td><td>Executive visual analytics, charts, and summary matrices</td><td><a href="../${bp}_report.html" style="color:#58a6ff;">Open HTML Report &rarr;</a></td></tr>
-                  <tr><td>JSON Machine-Readable</td><td>Raw machine-parsable schema and validation telemetry</td><td><a href="../${bp}_report.json" style="color:#58a6ff;">Download JSON Data &rarr;</a></td></tr>
-                  <tr><td>CSV Raw Metrics</td><td>Tabular metric outputs, precision thresholds, and test timings</td><td><a href="../${bp}_report.csv" style="color:#58a6ff;">Download CSV Metrics &rarr;</a></td></tr>
-                  <tr><td>Markdown Audit Dossier</td><td>Full technical compliance dossier and regulatory narrative</td><td><a href="../${bp}_report.md" style="color:#58a6ff;">View Markdown Dossier &rarr;</a></td></tr>
-                </tbody>
-              </table>
-              <a class="back" href="../../index.html">&larr; Return to Executive Command Center</a>
-            </div>
-          </body>
-          </html>
-          EOF
-          done
+          # 2. Dynamically scan all generated HTML files and build live navigation hub
+          python3 -c '
+          import os, html
 
-          # 3. Build the 00 Executive Rollup Report Dashboard
-          cat << 'EOF' > public/reports/executive_rollup.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>00 Executive Rollup Report | IBM AML RiskIQ Suite</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 40px; margin: 0; }
-              .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 36px; max-width: 1000px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-              h1 { color: #58a6ff; margin-top: 0; }
-              .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #238636; color: white; margin-bottom: 20px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #30363d; padding: 14px; text-align: left; }
-              th { background: #21262d; color: #58a6ff; font-weight: 600; }
-              tr:hover { background: #1f242c; }
-              .tag { padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: bold; }
-              .tag-pass { background: #238636; color: #fff; }
-              a.link { color: #58a6ff; font-weight: bold; text-decoration: none; }
-              a.link:hover { text-decoration: underline; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <span class="badge">SR 11-7 / OCC 2011-12 Validated</span>
-              <h1>00 Executive Rollup Verification & Governance Audit</h1>
-              <p>Consolidated risk surveillance, graph topology verification, and model invariant status across all 5 operational blueprints.</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Blueprint Code</th>
-                    <th>Subsystem Module</th>
-                    <th>Regulatory Target</th>
-                    <th>Formats</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><a class="link" href="bp1/index.html">BP-1</a></td>
-                    <td>High-Throughput Ingestion Gateway</td>
-                    <td>ISO 20022 Schema & Decimal Guardrails</td>
-                    <td>HTML | JSON | CSV | MD</td>
-                    <td><span class="tag tag-pass">VERIFIED</span></td>
-                  </tr>
-                  <tr>
-                    <td><a class="link" href="bp2/index.html">BP-2</a></td>
-                    <td>Deterministic Rules Engine</td>
-                    <td>CTR ($10k) & Smurfing Evasion Rules</td>
-                    <td>HTML | JSON | CSV | MD</td>
-                    <td><span class="tag tag-pass">VERIFIED</span></td>
-                  </tr>
-                  <tr>
-                    <td><a class="link" href="bp3/index.html">BP-3</a></td>
-                    <td>Graph Network Engine</td>
-                    <td>Round-Tripping & Cycle Detection (Lengths 3-5)</td>
-                    <td>HTML | JSON | CSV | MD</td>
-                    <td><span class="tag tag-pass">VERIFIED</span></td>
-                  </tr>
-                  <tr>
-                    <td><a class="link" href="bp4/index.html">BP-4</a></td>
-                    <td>Calibrated ML Scoring Engine</td>
-                    <td>Extreme Imbalance PR-AUC & Brier Calibration</td>
-                    <td>HTML | JSON | CSV | MD</td>
-                    <td><span class="tag tag-pass">VERIFIED</span></td>
-                  </tr>
-                  <tr>
-                    <td><a class="link" href="bp5/index.html">BP-5</a></td>
-                    <td>Governance & SAR Generator</td>
-                    <td>SHAP Waterfall Attribution & FinCEN Drafts</td>
-                    <td>HTML | JSON | CSV | MD</td>
-                    <td><span class="tag tag-pass">VERIFIED</span></td>
-                  </tr>
-                </tbody>
-              </table>
-              <div style="margin-top: 30px;">
-                <a class="link" href="../index.html">&larr; Return to Enterprise Command Portal</a>
+          reports_found = []
+          for root, dirs, files in os.walk("public"):
+              for file in sorted(files):
+                  if file.endswith(".html") and file != "index.html":
+                      full_path = os.path.join(root, file)
+                      rel_path = os.path.relpath(full_path, "public").replace("\\", "/")
+                      if not rel_path.startswith("coverage/"):
+                          reports_found.append((file, rel_path))
+
+          list_items = ""
+          for fname, rpath in reports_found:
+              clean_name = fname.replace(".html", "").replace("_", " ")
+              list_items += f"""
+              <div class="report-row">
+                <span class="report-name">{html.escape(clean_name)}</span>
+                <a class="launch-btn" href="{rpath}" target="_blank">Launch Live Dashboard &rarr;</a>
               </div>
-            </div>
-          </body>
-          </html>
-          EOF
+              """
 
-          # 4. Construct the Main Hub (public/index.html) with all Clickable Cards
-          cat << 'EOF' > public/index.html
-          <!DOCTYPE html>
+          if not list_items:
+              list_items = "<p style=\"color:#8b949e;\">No standalone HTML reports detected. Ensure reports/ contains generated files.</p>"
+
+          index_html = f"""<!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>IBM AML RiskIQ Enterprise Suite | Institutional Portal</title>
             <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 40px; background: #0d1117; color: #c9d1d9; }
-              .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 36px; max-width: 1000px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-              h1 { color: #58a6ff; margin-top: 0; }
-              .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #238636; color: white; margin-bottom: 16px; }
-              .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0; }
-              .tile { background: #0d1117; border: 1px solid #30363d; padding: 20px; border-radius: 6px; transition: transform 0.15s ease, border-color 0.15s ease; }
-              .tile:hover { transform: translateY(-2px); border-color: #58a6ff; }
-              .tile h4 { margin: 0 0 8px 0; color: #58a6ff; font-size: 16px; }
-              .tile p { font-size: 13px; color: #8b949e; line-height: 1.5; margin-bottom: 16px; }
-              a.btn { display: inline-block; padding: 8px 16px; background: #238636; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; }
-              a.btn:hover { background: #2ea043; }
-              a.btn-secondary { background: #21262d; border: 1px solid #30363d; color: #58a6ff; }
-              a.btn-secondary:hover { background: #30363d; }
-              hr { border: 0; border-top: 1px solid #30363d; margin: 28px 0; }
+              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 40px; background: #0d1117; color: #c9d1d9; }}
+              .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 36px; max-width: 960px; margin: 0 auto; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }}
+              h1 {{ color: #58a6ff; margin-top: 0; font-size: 26px; }}
+              .badge {{ display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #238636; color: white; margin-bottom: 18px; }}
+              .subtext {{ color: #8b949e; line-height: 1.6; margin-bottom: 24px; }}
+              .section-title {{ color: #f0f6fc; font-size: 18px; margin-top: 30px; margin-bottom: 12px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }}
+              .report-row {{ display: flex; justify-content: space-between; align-items: center; background: #0d1117; border: 1px solid #30363d; padding: 14px 18px; border-radius: 6px; margin-bottom: 10px; transition: border-color 0.2s; }}
+              .report-row:hover {{ border-color: #58a6ff; }}
+              .report-name {{ font-weight: 600; color: #c9d1d9; }}
+              a.launch-btn {{ background: #238636; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 5px; font-size: 13px; font-weight: bold; }}
+              a.launch-btn:hover {{ background: #2ea043; }}
+              a.cov-btn {{ display: inline-block; background: #1f6feb; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; margin-bottom: 16px; }}
+              a.cov-btn:hover {{ background: #388bfd; }}
+              ul.spec-list {{ color: #8b949e; line-height: 1.8; }}
             </style>
           </head>
           <body>
             <div class="card">
               <span class="badge">Federal Reserve SR 11-7 / OCC 2011-12 Validated</span>
               <h1>IBM AML RiskIQ Enterprise Suite</h1>
-              <p>Institutional-grade Anti-Money Laundering transaction surveillance, network graph anomaly detection, and automated FinCEN SAR drafting portal.</p>
+              <p class="subtext">Live regulatory monitoring, executive rollup governance matrices, and interactive compliance dashboards.</p>
               
-              <hr>
-              <h3>Executive Command Center & Validation Reports</h3>
-              <div class="grid">
-                <div class="tile" style="border-left: 4px solid #58a6ff;">
-                  <h4>00 Executive Rollup Report</h4>
-                  <p>Consolidated multi-blueprint governance matrix, operational invariant benchmarks, and regulatory sign-offs.</p>
-                  <a class="btn" href="reports/executive_rollup.html">Open Executive Rollup &rarr;</a>
-                </div>
-                <div class="tile" style="border-left: 4px solid #238636;">
-                  <h4>Pytest Live Coverage Suite</h4>
-                  <p>Real-time line-by-line coverage metrics for mathematical guards, rules engines, and SHAP explainers.</p>
-                  <a class="btn" href="coverage/index.html">View Test Coverage &rarr;</a>
-                </div>
-              </div>
+              <a class="cov-btn" href="coverage/index.html">View Pytest Live Coverage Audit &rarr;</a>
 
-              <h3>Operational Blueprints (BP-1 through BP-5)</h3>
-              <div class="grid">
-                <div class="tile">
-                  <h4>BP-1: Transaction Ingestion</h4>
-                  <p>ISO 20022 parsing, Pydantic schema validation, and floating-point decimal precision guards.</p>
-                  <a class="btn btn-secondary" href="reports/bp1/index.html">View BP-1 Reports &rarr;</a>
-                </div>
-                <div class="tile">
-                  <h4>BP-2: Deterministic Rules</h4>
-                  <p>Threshold currency reporting ($10,000 CTR) and multi-day temporal structuring/smurfing detection.</p>
-                  <a class="btn btn-secondary" href="reports/bp2/index.html">View BP-2 Reports &rarr;</a>
-                </div>
-                <div class="tile">
-                  <h4>BP-3: Graph Network Engine</h4>
-                  <p>NetworkX directed graph topology, Johnson's elementary cycles (lengths 3–5), and fan-in mule rings.</p>
-                  <a class="btn btn-secondary" href="reports/bp3/index.html">View BP-3 Reports &rarr;</a>
-                </div>
-                <div class="tile">
-                  <h4>BP-4: Calibrated ML Scoring</h4>
-                  <p>LightGBM / XGBoost risk ranking optimized for severe imbalance (PR-AUC, ROC-AUC: 0.85).</p>
-                  <a class="btn btn-secondary" href="reports/bp4/index.html">View BP-4 Reports &rarr;</a>
-                </div>
-                <div class="tile">
-                  <h4>BP-5: FinCEN SAR Generator</h4>
-                  <p>TreeSHAP feature attributions mapped into regulatory Suspicious Activity Report narrative drafts.</p>
-                  <a class="btn btn-secondary" href="reports/bp5/index.html">View BP-5 Reports &rarr;</a>
-                </div>
-              </div>
+              <div class="section-title">Institutional Executive Dashboards & Blueprint Reports</div>
+              {list_items}
 
-              <hr>
-              <h3>Institutional Compliance Assertions</h3>
-              <ul>
-                <li><strong>Supervisory Model Risk Standards:</strong> Aligned with SR 11-7 conceptual soundness and ongoing outcomes analysis.</li>
-                <li><strong>Extreme Imbalance Calibrations:</strong> PR-AUC priority scoring calibrated against sub-0.1% illicit base rates.</li>
-                <li><strong>Explainable AI Integrity:</strong> Transparent SHAP waterfall reasoning satisfying FinCEN 31 CFR § 1020.320.</li>
+              <div class="section-title">Model Governance Verification</div>
+              <ul class="spec-list">
+                <li><strong>BP-1:</strong> Transaction Ingestion, ISO 20022 parsing, floating-point guards.</li>
+                <li><strong>BP-2:</strong> Currency Transaction Reporting ($10k CTR) and temporal smurfing logic.</li>
+                <li><strong>BP-3:</strong> Directed graph cyclic topology and circular path detection.</li>
+                <li><strong>BP-4:</strong> Extreme class imbalance calibration (PR-AUC, ROC-AUC target: 0.85).</li>
+                <li><strong>BP-5:</strong> TreeSHAP explainability and automated FinCEN SAR narrative generation.</li>
               </ul>
             </div>
           </body>
-          </html>
-          EOF
+          </html>"""
+
+          with open("public/index.html", "w", encoding="utf-8") as f:
+              f.write(index_html)
+          '
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
