@@ -2,7 +2,7 @@
 IBM AML RiskIQ Enterprise Suite - WARP resource-governance module.
 
 Standing rule (per the user's stated preference, carried forward from the
-AMEX/Home Credit platforms): target up to ~92% of available CPU threads and
+those two prior platforms' platforms): target up to ~92% of available CPU threads and
 RAM, NEVER 100% - 100% utilization hung the reference laptop during a prior
 platform's Phase 3 (real incident). This is a safety CAP, not a floor to
 force by padding workload.

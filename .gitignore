@@ -56,3 +56,4 @@ logs/**
 
 # Power BI local cache
 powerbi/**/*.pbix.bak
+_site/

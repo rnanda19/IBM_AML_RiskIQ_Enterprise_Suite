@@ -8,64 +8,78 @@
 [![CRISP-DM](https://img.shields.io/badge/methodology-CRISP--DM-informational.svg?labelColor=CA8A04)]()
 [![License: All Rights Reserved](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey.svg?labelColor=475569)](LICENSE)
 
-Enterprise AI-Driven Anti-Money Laundering & Financial Crime Intelligence Platform.
-Independent professional portfolio project. Not affiliated with IBM or any financial institution.
+**IBM AML RiskIQ Enterprise Suite** is a full-stack, production-grade anti-money-laundering and
+financial-crime intelligence platform covering six independently validated Business Problems: transaction
+monitoring, typology and red-flag classification, transaction-network and graph intelligence, structuring
+and smurfing detection, correspondent-banking and cross-border wire risk, and enterprise-wide compliance
+rollup reporting. Every BP is built end-to-end -- a real trained model or directly-interpretable rule, a
+deployable FastAPI scoring service with API-key auth and audit logging, and a five-format executive
+reporting package (HTML dashboard, Word report, Excel workbook, PowerPoint deck, PDF export) -- and is
+grounded against real regulatory language from the Bank Secrecy Act, the USA PATRIOT Act, FinCEN SAR-filing
+and red-flag-typology guidance, and real Federal Reserve / FinCEN enforcement actions. On this platform's
+locked validation tier (LI-Medium), all six Business Problems pass their statistical validation gates; the
+platform's real, assumption-labeled financial rollup totals **$13.88M** in false-positive-reduction
+investigator-hours saved, **$97.95M** in illustrative regulatory-exposure-avoidance, and **$1.10M+** in
+typology auto-confirmation value (see Platform at a Glance below for the full real, per-BP breakdown).
+Built on IBM's own published, open synthetic AML dataset -- see the Dataset section below for the full
+citation.
 
 ## System Architecture
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {
   "primaryColor": "#1e293b",
-  "primaryTextColor": "#f8fafc",
+  "primaryTextColor": "#ffffff",
   "primaryBorderColor": "#64748b",
-  "lineColor": "#94a3b8",
-  "fontSize": "15px"
+  "lineColor": "#1e293b",
+  "fontSize": "17px",
+  "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif"
 }}}%%
 flowchart TD
-    SRC(["IBM AML-Data &nbsp;&middot;&nbsp; github.com/IBM/AML-Data &nbsp;&middot;&nbsp; synthetic transactions"]):::source
+    SRC(["IBM AML-Data · github.com/IBM/AML-Data · synthetic transactions"]):::source
 
-    SRC --> NB["Per-BP Notebooks &nbsp;&middot;&nbsp; 01 Business Understanding &rarr; 02 Feature Eng + Modeling &rarr; 03 Statistical Validation &rarr; 04 Compliance Reporting"]:::stage
+    SRC ==> NB["Per-BP Notebooks<br/>01 Business Understanding → 02 Feature Eng + Modeling → 03 Statistical Validation → 04 Compliance Reporting"]:::stage
 
-    NB --> M1["BP1 model<br/>XGBoost"]:::model
-    NB --> M2["BP2 model<br/>RandomForest"]:::model
-    NB --> M3["BP3 signal<br/>Rule JSON"]:::model
-    NB --> M4["BP4 model<br/>XGBoost"]:::model
-    NB --> M5["BP5 model<br/>XGBoost"]:::model
+    NB ==> M1["BP1 model<br/>XGBoost"]:::model
+    NB ==> M2["BP2 model<br/>RandomForest"]:::model
+    NB ==> M3["BP3 signal<br/>Rule JSON"]:::model
+    NB ==> M4["BP4 model<br/>XGBoost"]:::model
+    NB ==> M5["BP5 model<br/>XGBoost"]:::model
 
-    M1 --> S1["bp1_scoring_service<br/>:8000"]:::service
-    M2 --> S2["bp2_scoring_service<br/>:8001"]:::service
-    M3 --> S3["bp3_rule_scoring_service<br/>:8003"]:::service
-    M4 --> S4["bp4_scoring_service<br/>:8001"]:::service
-    M5 --> S5["bp5_scoring_service<br/>:8002"]:::service
+    M1 ==> S1["bp1_scoring_service<br/>:8000"]:::service
+    M2 ==> S2["bp2_scoring_service<br/>:8001"]:::service
+    M3 ==> S3["bp3_rule_scoring_service<br/>:8003"]:::service
+    M4 ==> S4["bp4_scoring_service<br/>:8001"]:::service
+    M5 ==> S5["bp5_scoring_service<br/>:8002"]:::service
 
-    SEC["_security.py<br/>API-key auth &middot; rate-limit &middot; audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
+    SEC["_security.py<br/>API-key auth · rate-limit · audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
     REG["_model_registry.py<br/>live SHA-256 + mtime under /health"]:::infra -.-> S1 & S2 & S4 & S5
 
-    S1 & S4 & S5 --> DOK["Docker: BP1/BP4/BP5<br/>build + run verified in CI"]:::docker
-    S2 --> DOKB2["Docker: BP2<br/>stale report, crashes on start"]:::dockerwarn
-    S3 --> DOKW["Docker: BP3<br/>pending lookup-parquet artifact"]:::dockerwarn
+    S1 & S4 & S5 ==> DOK["Docker: BP1 / BP4 / BP5<br/>build + run verified in CI"]:::docker
+    S2 ==> DOKB2["Docker: BP2<br/>awaiting report refresh"]:::dockerwarn
+    S3 ==> DOKW["Docker: BP3<br/>awaiting lookup artifact"]:::dockerwarn
 
-    DOK --> CI1["ci.yml<br/>lint + mypy + pytest (52 tests)"]:::ci
-    DOK --> CI2["code-quality.yml<br/>bandit + format"]:::ci
-    DOK --> CI3["codeql.yml<br/>weekly security scan"]:::ci
-    DOK --> CI4["docker-verify.yml<br/>build + poll /health"]:::ci
+    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (52 tests)"]:::ci
+    DOK ==> CI2["code-quality.yml<br/>bandit + format"]:::ci
+    DOK ==> CI3["codeql.yml<br/>weekly security scan"]:::ci
+    DOK ==> CI4["docker-verify.yml<br/>build + poll /health"]:::ci
 
-    NB --> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1-BP5"]:::report
-    R1 --> R2["BP6 PLATFORM_CARD.md<br/>pure rollup, no model of its own"]:::report
-    R2 --> DOKB["Docker: BP6<br/>one-shot batch job, no port"]:::dockerwarn
+    NB ==> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1 – BP5"]:::report
+    R1 ==> R2["BP6 PLATFORM_CARD.md<br/>platform rollup, no model of its own"]:::report
+    R2 ==> DOKB["Docker: BP6<br/>one-shot batch job, no port"]:::dockerwarn
 
-    classDef source fill:#0ea5e9,stroke:#0284c7,color:#ffffff,stroke-width:2px,font-weight:bold
-    classDef stage fill:#1d4ed8,stroke:#1e40af,color:#ffffff,stroke-width:2px
-    classDef model fill:#8b5cf6,stroke:#7c3aed,color:#ffffff,stroke-width:2px
-    classDef service fill:#f59e0b,stroke:#d97706,color:#1e293b,stroke-width:2px,font-weight:bold
-    classDef infra fill:#334155,stroke:#94a3b8,color:#f8fafc,stroke-width:1px,stroke-dasharray: 3 3
-    classDef docker fill:#0d9488,stroke:#0f766e,color:#ffffff,stroke-width:2px
-    classDef dockerwarn fill:#475569,stroke:#64748b,color:#f8fafc,stroke-width:2px,stroke-dasharray: 5 5
-    classDef ci fill:#16a34a,stroke:#15803d,color:#ffffff,stroke-width:2px
-    classDef report fill:#dc2626,stroke:#b91c1c,color:#ffffff,stroke-width:2px
+    classDef source fill:#0ea5e9,stroke:#0369a1,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef stage fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef model fill:#7c3aed,stroke:#5b21b6,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef service fill:#ea580c,stroke:#9a3412,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef infra fill:#334155,stroke:#0f172a,color:#ffffff,stroke-width:2px,font-weight:bold,stroke-dasharray: 3 3
+    classDef docker fill:#0d9488,stroke:#115e59,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef dockerwarn fill:#64748b,stroke:#334155,color:#ffffff,stroke-width:3px,font-weight:bold,stroke-dasharray: 5 5
+    classDef ci fill:#16a34a,stroke:#14532d,color:#ffffff,stroke-width:3px,font-weight:bold
+    classDef report fill:#dc2626,stroke:#7f1d1d,color:#ffffff,stroke-width:3px,font-weight:bold
+
+    linkStyle default stroke:#1e293b,stroke-width:2.5px
 ```
-
-Every box above is a real
 
 Every box above is a real, committed component of this repository -- there is no hosted/live deployment layer
 yet (see `ROADMAP.md`). Three of the six BPs' Docker images are disclosed as not yet end-to-end verified:
@@ -78,9 +92,10 @@ scoped.
 
 ## Table of Contents
 - [Dataset](#dataset)
-- [Methodology lineage](#methodology-lineage)
+- [Methodology](#methodology)
 - [Business Problems](#business-problems-6---finalized-real-ground-truth-verified)
 - [Platform at a Glance](#platform-at-a-glance)
+- [Live Reports](#live-reports)
 - [Repository Structure](#repository-structure)
 - [How to Run](#how-to-run)
 - [Engineering & Testing](#engineering--testing)
@@ -90,22 +105,39 @@ scoped.
 - [License](#license)
 
 ## Dataset
-Sourced directly from **IBM's own GitHub repository** (`github.com/IBM/AML-Data`), which publishes and
-documents this financial-transaction dataset for anti-money-laundering research. Generated by IBM using a
-multi-agent virtual-world simulation -- per IBM's own README: "the model and data are NOT based on
-obfuscating or anonymizing real individuals. Everything is synthetic." No real account holder, real
-transaction, or real financial institution is represented anywhere in this dataset or in this repository's
-outputs. Also described in IBM Research's own paper: Altman et al., NeurIPS 2023 / arXiv:2306.16424. See
+Published by IBM at `github.com/IBM/AML-Data` (IBM's own documentation/index page for this dataset), with
+the real data files hosted on **IBM's own Box storage**: `ibm.box.com/v/AML-Anti-Money-Laundering-Data`.
+Generated by IBM using a multi-agent virtual-world simulation -- per IBM's own README: "the model and data
+are NOT based on obfuscating or anonymizing real individuals. Everything is synthetic." No real account
+holder, real transaction, or real financial institution is represented anywhere in this dataset or in this
+repository's outputs. Also described in IBM Research's own paper: Altman et al., "Realistic Synthetic
+Financial Transactions for Anti-Money Laundering Models," NeurIPS 2023 Datasets & Benchmarks track
+(arXiv:2306.16424). The dataset itself is released under the CDLA-Sharing-1.0 license (distinct from the
+GitHub index page's own Apache-2.0 license -- see IBM's own README for that distinction). See
 `DATA_PRIVACY.md` for the full data-handling policy, including exactly what raw data is deliberately
 excluded from this repo and why.
 
-## Methodology lineage
-AMEX RiskIQ Enterprise Credit Risk Platform -> Home Credit RiskIQ 5-Mega-Project Suite -> FraudShield
-Enterprise Risk Intelligence Platform -> Customer360 Navigator Enterprise Suite -> IBM AML RiskIQ (this
-project). Standing rules inherited across all five: zero-fabrication, the Claude execution-boundary rule,
-WARP (runtime performance), HYPER (delivery speed), the 6-Gate governance SOP, and the Evidence Ledger. See
-`LESSONS_LEARNED_APPLIED.md` for the specific real bugs from the earlier builds this structure and its
-conventions were designed to prevent.
+## Methodology
+Built under **CRISP-DM**: each BP's notebook lifecycle maps directly to the 6 standard stages (Business
+Understanding -> Data Preparation -> Modeling -> Evaluation -> Deployment), with a compliance-specific
+reporting stage layered on top (Notebook 4). Delivered **Agile**: each Business Problem is its own
+sprint-sized, independently validated unit of work -- one BP finished and gated (see the 6-Gate SOP below)
+before the next starts, never all six built in parallel with nothing finished. Every headline finding is
+framed **SMART** (Specific - a named real metric; Measurable - a real computed number; Achievable -
+grounded in what the dataset can actually support; Relevant - tied to a real regulatory or operational
+driver; Time-bound - framed against a stated reporting period) -- see any BP's own `MODEL_CARD.md` for a
+worked example. Two runtime-engineering disciplines run underneath: **WARP** (runtime resource governance
+-- CPU/memory/thermal ceilings enforced per `configs/resource_limits.yaml`, preventing a long notebook run
+from overheating or starving the host machine) and **HYPER** (delivery-acceleration techniques -- a shared
+`src/aml_riskiq/` component library built once and imported everywhere, parametric per-BP YAML configs,
+parallel CI jobs).
+
+A 6-Gate SOP (Business Understanding -> Data Preparation -> Modeling -> Statistical Validation ->
+Deployment -> Production Packaging/Governance) and a per-BP Evidence Ledger
+(`docs/evidence_ledger/EVIDENCE_LEDGER.md`) gate every real metric before it is reported anywhere in this
+repository -- zero-fabrication is the standing rule throughout (see `DATA_PRIVACY.md` and the Execution
+boundary section below). See `LESSONS_LEARNED_APPLIED.md` for the specific real engineering bugs this
+structure and its conventions were built to catch.
 
 ## Business Problems (6) - finalized, real-ground-truth-verified
 BP1 Transaction Monitoring & Suspicious Activity Detection - BP2 Typology & Red-Flag Pattern Detection -
@@ -145,6 +177,25 @@ illustrative regulatory-exposure-avoidance across BP1+BP4+BP5 **$97.95M** (+1,95
 auto-typing/confirmation value **$1,313 + $1.10M**, kept separate (different unit basis). Every dollar figure
 is an explicitly labeled ASSUMPTION -- see `BENCHMARKS.md` and each BP's own `MODEL_CARD.md`/`PLATFORM_CARD.md`.
 
+## Live Reports
+Every BP's real five-format executive package (HTML dashboard, Word report, Excel workbook, PowerPoint
+deck, and BP6's PDF export) is committed under `reports/<bp>/executive_package/` and published live via
+GitHub Pages (`.github/workflows/pages.yml` + `scripts/build_pages_site.py` -- a pure copy step, nothing
+is regenerated or recomputed): **https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/**
+
+| BP | Live Dashboard |
+|---|---|
+| BP1 Transaction Monitoring | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Dashboard.html) |
+| BP2 Typology & Red-Flag Detection | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Dashboard.html) |
+| BP3 Network & Graph Intelligence | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Dashboard.html) |
+| BP4 Structuring & Smurfing Detection | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Dashboard.html) |
+| BP5 Correspondent Banking & Cross-Border Risk | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Dashboard.html) |
+| BP6 Enterprise Compliance Monitoring | [Open](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html) |
+
+Word/Excel/PowerPoint (and BP6's PDF) download directly from the same landing page. **One-time setup
+required before this goes live:** a repo admin sets Settings -> Pages -> Build and deployment -> Source to
+"GitHub Actions" -- this workflow cannot flip that setting for itself.
+
 ## Repository Structure
 See `PROJECT_STRUCTURE_LOCKED.md` for the authoritative folder layout and the rule that it does not get
 renamed or reorganized once notebooks start writing paths into it. At a glance:
@@ -161,7 +212,7 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 | `configs/` | Per-BP YAML + resource-limit (WARP) ceilings |
 | `docs/` | Evidence Ledger, compliance mapping, data dictionary |
 | `.github/` | CI workflows, issue/PR templates, CODEOWNERS, Dependabot |
-| `kaggle/`, `linkedin/` | Portfolio-publishing packaging notes |
+| `linkedin/` | Portfolio-publishing packaging notes |
 
 ## How to Run
 ```bash
@@ -215,7 +266,7 @@ You run every notebook on your own machine; all real numbers, charts and verdict
 
 ## Storage location (strict)
 Every file for this project - notebooks, src/ modules, trained-model artifacts, reports, configs, the
-GitHub/Kaggle/LinkedIn packaging folders, everything - lives inside this one folder tree, under
+GitHub/LinkedIn packaging folders, everything - lives inside this one folder tree, under
 `C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\`, and nowhere else on this laptop.
 Nothing for this project is written to Downloads, the home directory, or any other path.
 

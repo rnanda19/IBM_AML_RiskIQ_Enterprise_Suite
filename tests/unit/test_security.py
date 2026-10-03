@@ -9,7 +9,7 @@ one small real FastAPI app built just for these tests, exercising the exact same
 `require_api_key` / `harden_app` / `score_rate_limit` wiring every real service uses. It does
 not import a real BP scoring service -- that integration-level coverage (the real services
 actually mounting this module correctly) is in each service's own test file, e.g.
-tests/bp1_transaction_monitoring_detection/test_bp1_scoring_service.py's
+tests/integration/bp1_transaction_monitoring_detection/test_bp1_scoring_service.py's
 test_score_requires_api_key_when_configured.
 """
 

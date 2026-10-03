@@ -108,7 +108,7 @@ def _import_fresh(tmp_path, monkeypatch, model_path, encoder_path):
 
     sys.modules.pop("serving.bp2_scoring_service", None)
     sys.modules.pop("src.aml_riskiq.serving.bp2_scoring_service", None)
-    src_path = str(Path(__file__).resolve().parents[2] / "src" / "aml_riskiq")
+    src_path = str(Path(__file__).resolve().parents[3] / "src" / "aml_riskiq")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
     module = importlib.import_module("serving.bp2_scoring_service")

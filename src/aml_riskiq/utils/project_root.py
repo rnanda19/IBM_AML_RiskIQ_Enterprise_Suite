@@ -1,7 +1,7 @@
 """
 IBM AML RiskIQ Enterprise Suite - robust project-root resolution.
 
-Mirrors the proven pattern from the AMEX RiskIQ / Home Credit RiskIQ
+Mirrors the proven pattern from the the prior credit-risk platform / the prior lending-risk platform
 platforms: env override -> walk upward from cwd looking for a marker ->
 bounded well-known locations under the user's home directory.
 

@@ -12,7 +12,7 @@ jobs:
       - run: pip install bandit
       # Blocking: scans src/ only (the real deployable code -- services, feature pipelines, reporting
       # module). tests/ and notebooks/ are excluded to avoid bandit false-positives on test fixtures and
-      # notebook-style flattened scripts, same scoping as the AMEX platform's own code-quality.yml.
+      # notebook-style flattened scripts, same scoping as the that prior platform platform's own code-quality.yml.
       - run: bandit -r src/ -x src/docker/ -ll
 
   format-check:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install black isort
-      # Advisory only (|| true) -- a repo-wide reformat is deliberately deferred, same policy as AMEX's
+      # Advisory only (|| true) -- a repo-wide reformat is deliberately deferred, same policy as that prior platform's
       # Phase 2 hardening pass, so this never blocks a PR on pure style.
       - run: black --check src/ tests/ || true
       - run: isort --check-only --profile black src/ tests/ || true

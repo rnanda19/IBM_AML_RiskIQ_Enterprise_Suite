@@ -3,12 +3,13 @@
 Platform-level index over the full git history of this repository. Per-BP changelogs for the real
 notebook/model work on each business problem live in `reports/<bp>/CHANGELOG.md` -- this file tracks the
 repository's own structure, hardening, and governance history, in the same plain-date style used on the
-Customer360 Navigator Enterprise Suite.
+a prior customer-intelligence-focused enterprise platform in this same methodology lineage.
 
 ## 2026-10-03
 - Corrected dataset-source attribution: the IBM Transactions for Anti-Money Laundering (AML) dataset is
-  sourced directly from IBM's own GitHub repository (`github.com/IBM/AML-Data`), not a Kaggle mirror --
-  removed all Kaggle references from `README.md` and `DATA_PRIVACY.md`.
+  published by IBM at `github.com/IBM/AML-Data` (index/documentation page), with the real data files
+  hosted on IBM's own Box storage (`ibm.box.com/v/AML-Anti-Money-Laundering-Data`) -- removed the
+  third-party-mirror framing from `README.md` and `DATA_PRIVACY.md`.
 - Added a `Dataset` section to `README.md`'s front page describing the real, verified source.
 - Created the public GitHub repository (`github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite`) and pushed
   the full real commit history.
@@ -19,7 +20,7 @@ Customer360 Navigator Enterprise Suite.
   `CODE_OF_CONDUCT.md` (custom short form -> full Contributor Covenant v2.1), and added
   `.github/CODEOWNERS`, `.github/dependabot.yml`, `.github/workflows/codeql.yml`, and
   `.github/workflows/docker-verify.yml` -- bringing this repository's governance scaffolding in line with
-  the AMEX RiskIQ / Home Credit RiskIQ / Customer360 Navigator portfolio repos.
+  the the prior credit-risk platform / the prior lending-risk platform / the prior customer-intelligence platform portfolio repos.
 - Added a System Architecture diagram to the front of `README.md`.
 
 ## 2026-10-02
@@ -36,7 +37,7 @@ Customer360 Navigator Enterprise Suite.
 - Removed `github_repo/` (a staging-mirror workaround for a git-in-mounted-folder restriction confirmed
   not to apply in this environment) and added a governance/documentation set
   (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `DATA_PRIVACY.md`, `MODEL_REGISTRY.md`, `SECURITY.md`,
-  `SECRETS_MANAGEMENT.md`, `.env.example`, `ROADMAP.md`, `MONITORING.md`) matching the Customer360
+  `SECRETS_MANAGEMENT.md`, `.env.example`, `ROADMAP.md`, `MONITORING.md`) matching the the prior customer-intelligence platform
   Navigator Enterprise Suite's real, verified structure.
 - Initial commit: the full BP1-BP6 platform (notebooks, `src/` services, tests, Docker packaging,
   reports, configs).

@@ -1,11 +1,11 @@
-# Lessons Learned - Applied From AMEX RiskIQ, Home Credit RiskIQ & Customer360 Navigator
+# Lessons Learned - Applied From the prior credit-risk platform, the prior lending-risk platform & the prior customer-intelligence platform
 
 Real bugs and real fixes from the three prior platform builds, consolidated into standing rules for every
 notebook and src/ module in this project. Read this before writing BP1's first notebook.
 
 ## 1. Never infer a column's dtype or granularity from its name alone
-AMEX Notebook 27 assumed a `_last`-suffixed column was numeric because of its name; it was a real categorical
-status code (dtype 'CR'). Home Credit Notebook 34 assumed a file named "features" was per-statement raw data;
+that prior platform's Notebook 27 assumed a `_last`-suffixed column was numeric because of its name; it was a real categorical
+status code (dtype 'CR'). that prior lending-risk platform Notebook 34 assumed a file named "features" was per-statement raw data;
 it was already aggregated to one row per customer. STANDING RULE: always verify dtype (`pd.api.types.is_numeric_dtype`)
 and granularity (row count vs. expected entity count) against the actually-loaded data, every time, never from
 a filename or column-name pattern. On this platform this applies directly to the AML transaction schema
@@ -13,7 +13,7 @@ a filename or column-name pattern. On this platform this applies directly to the
 BP1 assumes anything about them).
 
 ## 2. Never let a display-rounded or independently-recomputed value feed downstream scoring
-AMEX Notebook 28's deployed scorer read a CSV column that had been rounded to 5 decimal places for human
+that prior platform's Notebook 28's deployed scorer read a CSV column that had been rounded to 5 decimal places for human
 readability, then used that rounded value as a real scoring weight - across ~243 features the rounding error
 compounded into real decision-boundary flips (7 of 91,783 real holdout customers). STANDING RULE: any value
 consumed by downstream scoring/deployment code is saved at full float precision, never rounded, even in a
@@ -28,14 +28,14 @@ values, it must replicate the original notebook's real iteration order explicitl
 not the display order of the saved file.
 
 ## 4. A self-test must check every reachable real row, not one sample
-A single-customer self-test can pass "by luck" if that customer isn't near a decision boundary - AMEX's Bug 2
+A single-customer self-test can pass "by luck" if that customer isn't near a decision boundary - that prior platform's Bug 2
 only surfaced on the full ~92k-row real holdout, never on a 500-row fixture. STANDING RULE: every standalone-
 scorer or API self-test checks ALL real rows it can reach and reports a magnitude (a diff column), not just a
 pass/fail count - a boundary-tie vs. hard-mismatch classification is only trustworthy once backed by a printed
 number. On this platform, this applies to any alert-scoring or SAR-priority self-test in BP3/BP7.
 
 ## 5. Configure the hardware/thread ceiling before any heavy import, and call it
-Home Credit's Notebook 02 computed a WARP thread ceiling but never actually called `os.environ[...] = ` before
+that prior lending-risk platform's Notebook 02 computed a WARP thread ceiling but never actually called `os.environ[...] = ` before
 polars/pandas/sklearn/xgboost/lightgbm/catboost were imported - no library ever saw the ceiling, and the real
 run used ~20% CPU / ~50% RAM on an 8-core/16-thread/32GB machine. STANDING RULE: call
 `performance_setup.configure_performance()` as the literal first executable step, before any heavy import.
@@ -61,7 +61,7 @@ synthetic-fixture execution, and your own real run reported back. Neither alone 
 
 ## 9. git cannot run inside this mounted Documents folder
 git's object-store bookkeeping needs real unlink, which a device-mounted (fuseblk) folder blocks - confirmed
-on AMEX's GitHub push. STANDING RULE: the actual `git init`/`commit` never happens inside this folder. Content
+on that prior platform's GitHub push. STANDING RULE: the actual `git init`/`commit` never happens inside this folder. Content
 meant for GitHub is staged in `github_repo/` here, then committed and pushed following the workflow documented
 in `github_repo/README.md`.
 
@@ -77,7 +77,7 @@ FULL dataset before a train/test split can leak future/test-set structure into t
 RULE: compute or re-validate every graph feature within the same train/test (and CV fold) boundaries used for
 the rest of BP4/BP7, and document the computation window explicitly in that BP's config.
 
-## 12. HYPER delivery-acceleration techniques (from AMEX's Hypersonic pass) - 10 adopted, 2 excepted
+## 12. HYPER delivery-acceleration techniques (from that prior platform's Hypersonic pass) - 10 adopted, 2 excepted
 Adopted for this project's build process (build/delivery speed, kept separate from WARP's runtime speed): one
 master notebook template cloned per BP; the same Dockerfile/CI workflow/Makefile/pyproject.toml reused across
 all 6 BPs; notebook-writing, infra, and API/testing run as parallel work streams; batched commits across
@@ -85,18 +85,18 @@ several notebooks rather than one per notebook; one parametric notebook driven b
 than hand-edited copies; a shared `src/` component library built once and imported everywhere; auto-generated
 per-BP docs from docstrings; pre-commit hooks rejecting bad commits before push; parallel CI jobs; a
 per-BP incremental-validation gate before starting the next BP. EXCEPTED (never applied on this project, same
-as AMEX): smoke-test-only as a substitute for full test coverage, and any CLI scaffolding tool not independently
+as that prior platform): smoke-test-only as a substitute for full test coverage, and any CLI scaffolding tool not independently
 verified as a real installable package - those get hand-written instead.
 
 ## 13. An HTML dashboard must be explicitly linked from a README, or nobody can see it rendered
-GitHub's own file browser shows raw source for a `.html` file - only GitHub Pages actually renders it. On AMEX,
+GitHub's own file browser shows raw source for a `.html` file - only GitHub Pages actually renders it. On that prior platform,
 Phase 2's three dashboards were built and even Pages-deployed, but never linked from any README, so the user
 saw "code only" when clicking them. STANDING RULE: every BP's five-format package gets a "Live Dashboard"
 section added to that BP's own README AND the root README the moment its HTML dashboard is committed to
 `github_repo/`, not deferred to a later cleanup pass.
 
 ## 14. A BP's report package is never gated on its own statistical verdict
-Home Credit's MP3 Notebook 03 (Repayment Behavior Segmentation) genuinely failed its statistical-robustness gate
+that prior lending-risk platform's MP3 Notebook 03 (Repayment Behavior Segmentation) genuinely failed its statistical-robustness gate
 on real data (Cramer's V ~0.0179, below threshold) after two honest methodology attempts - and all three report
 formats (docx/xlsx/html) plus the governance JSON and model artifact were still generated and delivered exactly
 as if it had passed, with the honest "NOT YET STATISTICALLY ROBUST" verdict stated plainly inside them. STANDING
@@ -105,7 +105,7 @@ never on the separate statistical-robustness verdict - a failed robustness gate 
 package, not hidden by skipping the package.
 
 ## 15. Never loosen a statistical threshold to force a PASS - change methodology and disclose it, or accept the honest result
-On Home Credit MP3, a user-sourced suggestion to set `CRAMERS_V_ROBUST_THRESHOLD=0.0` was identified as
+On that prior lending-risk platform's MP3, a user-sourced suggestion to set `CRAMERS_V_ROBUST_THRESHOLD=0.0` was identified as
 check-gaming (proven arithmetically: 0.0149>0.05 is False but 0.0149>0.0 is True - only the threshold moved, not
 the underlying number) and rejected; the honest "NOT YET STATISTICALLY ROBUST" verdict was kept instead. By
 contrast, MP3 NB02's real fix (loosening `bureau_segment_min_cluster_fraction` from 3% to 1%, matching an
@@ -169,21 +169,21 @@ time; Claude never states an expected speedup number without the user's own real
 zero-fabrication discipline that governs every other reported number on this platform.
 
 ## 19. Real, log-sourced performance techniques from prior platforms - mandated together, per-operation nanosecond-scale is real, total-runtime nanosecond claims are not
-Compiled 2026-09-29 directly from AMEX's and Home Credit's own real, dated bugfix/build-history logs (no
-equivalent performance log exists for Fraud Shield or Customer360 Navigator - disclosed, not assumed). Eight
+Compiled 2026-09-29 directly from those two prior platforms' own real, dated bugfix/build-history logs (no
+equivalent performance log exists for the prior fraud-risk platform or the prior customer-intelligence platform - disclosed, not assumed). Eight
 concrete techniques, each a real fix to a real slow-runtime or low-CPU-utilization bug on a prior platform, now
 MANDATORY here: (1) `configure_performance()` called literally before any heavy import, never after (Home
 Credit NB02's real regression: ~20% CPU/~50% RAM used despite a configured 90-95% ceiling); (2) models with no
 real multi-core benefit (GradientBoostingClassifier, LogisticRegression) dropped from CPU-parallel candidate
 screens; (3) `load_csv_cached()` Parquet-over-CSV caching for any file read more than once in a BP; (4) lazy,
-column-projected Polars scans over eager full loads, proven on AMEX's real 16GB+ raw CSV; (5) closed-form/
+column-projected Polars scans over eager full loads, proven on that prior platform's real 16GB+ raw CSV; (5) closed-form/
 multinomial resampling (`rng.multinomial(n,p)` against an already-computed contingency table) replacing
-brute-force bootstrap that rebuilds a crosstab from scratch on every resample - the real fix to Home Credit
+brute-force bootstrap that rebuilds a crosstab from scratch on every resample - the real fix to that prior lending-risk platform
 Notebook 05's real slow-runtime bug (500 resamples x ~1.67M rows); (6) vectorized/batched simulation
-(`rng.<dist>(size=(N_SIMS,...))`) over any per-iteration Python loop, proven on Home Credit MP2 NB03's real
+(`rng.<dist>(size=(N_SIMS,...))`) over any per-iteration Python loop, proven on that prior lending-risk platform's MP2 NB03's real
 Vasicek Monte Carlo; (7) eliminating redundant recomputation across notebook stages - a downstream notebook
 reads an earlier notebook's own saved full-precision value rather than reloading and recomputing it, the real
-architectural fix from AMEX Notebook 27->28 (also closes a drift-bug class, see Lesson #2); (8) `timer`/`timed`
+architectural fix from that prior platform's Notebook 27->28 (also closes a drift-bug class, see Lesson #2); (8) `timer`/`timed`
 instrumentation on every heavy step, the only legitimate basis for any speed claim. STANDING RULE on the
 "milliseconds to nanoseconds" target: a single vectorized Polars/NumPy expression genuinely runs at
 microsecond-to-nanosecond-per-row scale (compiled, SIMD-vectorized execution, never interpreted per-row
@@ -1067,11 +1067,11 @@ every BP to roll up. Logged here so it is not lost.
 ---
 
 ## Lesson #38 (2026-10-02) -- Overnight production-hardening pass, BP1-BP4 ("Global Standard" /
-AMEX Phase-2-hardening pattern, run while the user slept)
+that prior platform Phase-2-hardening pattern, run while the user slept)
 
 **Scope:** closed the governance/deployment gap between "notebooks complete and validated" and
-"actually production-packaged", for BP1-BP4, mirroring the AMEX RiskIQ platform's own Phase 2
-hardening pass (the closest real precedent on record -- no dedicated Customer360 Navigator
+"actually production-packaged", for BP1-BP4, mirroring the the prior credit-risk platform platform's own Phase 2
+hardening pass (the closest real precedent on record -- no dedicated the prior customer-intelligence platform
 hardening log exists in memory to check against, honestly noted rather than assumed).
 
 **Root-level governance added (shared across all BPs, HYPER "build once" pattern):**
@@ -1140,15 +1140,15 @@ Medium-severity `B301` findings, all `pickle.load()` calls on this project's own
 artifacts (bp1/bp2 x2/bp4 services) -- a standard, low-risk pattern for ML-serving code (loading a
 path resolved via this project's own PROJECT_ROOT/env-var convention, never external untrusted
 input), silenced with a one-line `# nosec B301` justification comment at each site, matching the
-AMEX platform's own precedent of reaching "0 blocking findings" this same way rather than by
+that prior platform platform's own precedent of reaching "0 blocking findings" this same way rather than by
 avoiding pickle (not a realistic option for a scikit-learn/XGBoost-style model artifact). 6
 pre-existing Low-severity findings (subprocess/pickle import notices in `report_builder.py` /
 `performance_setup.py`) are below this gate's blocking threshold and were left as advisory,
-consistent with AMEX's own non-blocking-style-only scoping decision.
+consistent with that prior platform's own non-blocking-style-only scoping decision.
 
 **Honest limitation of this whole pass:** real `docker build`/`docker-compose build` could not be
-executed in this session (no Docker daemon/registry access in this sandbox, same constraint AMEX's
-own hardening pass hit) -- verified instead via the same static method AMEX used (COPY-path /
+executed in this session (no Docker daemon/registry access in this sandbox, same constraint that prior platform's
+own hardening pass hit) -- verified instead via the same static method that prior platform used (COPY-path /
 build-context resolution check against the real on-device file tree), not a real build. The two
 notebook patches (BP2, BP3) are real code, verified via `py_compile`, but their new persisted
 artifacts do not exist on disk yet -- both need exactly one real Notebook 3 re-run (LI-Medium)
@@ -1629,7 +1629,7 @@ changeable with one `git config` command if they want a different one, e.g. a
 GitHub-noreply address). Staged 254 files, 4.9MB total -- confirmed via
 `git status --short | grep -E "models/.*\.pkl|data/raw/|score_baseline"` that
 nothing large slipped through. Initial commit made locally. No remote push yet
--- no repo URL or PAT has been provided for this project (unlike the AMEX
+-- no repo URL or PAT has been provided for this project (unlike the that prior platform
 platform's own repo, which the user already has). This sandbox's device_bash
 VM has no `gh` CLI, no global git config, and no SSH keys -- confirmed before
 assuming any credential path was already available.

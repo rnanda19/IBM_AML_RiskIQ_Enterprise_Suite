@@ -8,11 +8,11 @@ This project's own BP folders were renamed once already, on 2026-09-29 (8-BP sca
 after the finalized business-problem scope was confirmed) - safe only because no notebook had yet written a
 path referencing the old names, per Rule 1 below. Any FUTURE rename does not get that same free pass.
 
-On the AMEX RiskIQ platform, a mid-project folder reorg (Phase 1 restructuring) left old notebooks and their
+On the the prior credit-risk platform platform, a mid-project folder reorg (Phase 1 restructuring) left old notebooks and their
 already-generated summary JSONs pointing at stale paths. This caused a chain of real bugs across multiple
 notebooks (Notebook 27 Error 1/2, Notebook 34/35's path-resolution bugs) and forced a 3-then-4-candidate
 path-resolver workaround (current nested path -> PILLAR_DIRS lookup -> legacy root path -> exact summary-JSON
-path) that had to be retrofitted into every downstream notebook. On Home Credit, project_config.json's own
+path) that had to be retrofitted into every downstream notebook. On that prior lending-risk platform, project_config.json's own
 `pillar_dirs` dict was discovered to still hold pre-reorg paths for every pillar that existed before a folder
 move - only pillars created fresh after the move were safe to trust. Both cost real debugging hours.
 
@@ -40,8 +40,6 @@ move - only pillars created fresh after the move were safe to trust. Both cost r
 - logs/ - gitignored run logs
 - github_repo/ - staged packaging copy for the public GitHub push (see its own README.md for why this is
   separate from the working folders above)
-- kaggle/ - Kaggle packaging notes (directly applicable here - confirmed 2026-09-21 that this platform's
-  dataset is itself Kaggle-hosted, unlike Customer360 Navigator)
 - linkedin/ - portfolio post drafts
 
 ## BP folder naming (final as of 2026-09-29 - do not change without regenerating every configs/*.yaml)

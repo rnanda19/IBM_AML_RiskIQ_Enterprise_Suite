@@ -1,7 +1,7 @@
 """
 IBM AML RiskIQ Enterprise Suite - src/reporting/report_builder.py
 
-Shared five-format executive reporting module (HYPER pattern - Home Credit's proven
+Shared five-format executive reporting module (HYPER pattern - this platform's own proven
 approach: built ONCE here, in BP1's Notebook 4, imported UNCHANGED by every later BP's
 Notebook 4 and by the phase-level / platform-level rollups). Never hand-coded per notebook.
 
@@ -5207,7 +5207,7 @@ def build_bp_business_narratives_platform(platform_source_data: dict) -> dict:
                 "BP4/BP5 cannot: is an account's real position in the transaction network itself "
                 "informative, independent of its own transaction history? Unlike the other four BPs' "
                 "real-world grounding, this specific graph-analytics framing was not independently "
-                "confirmed as AMEX/JPMorgan-specific terminology in the primary documents checked "
+                "confirmed as specific to either enforcement action's own internal terminology in the primary documents checked "
                 "during this platform's own feasibility review -- honestly flagged rather than "
                 "overclaimed -- though network/graph analytics is standard industry AML practice, and "
                 "this BP's real output carries GDPR cross-border-data-handling relevance alongside "

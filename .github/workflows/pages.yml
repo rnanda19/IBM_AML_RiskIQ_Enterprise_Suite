@@ -1,0 +1,52 @@
+name: Deploy Live Reports (GitHub Pages)
+
+# Publishes this platform's real, already-committed executive-reporting deliverables as a live
+# GitHub Pages site -- the 6 BPs' HTML dashboards become directly clickable/viewable, and every
+# other real format (Word report, Excel workbook, PowerPoint deck, BP6's PDF) is linked as a
+# direct download from the same page. Nothing here is regenerated or recomputed -- this workflow
+# only copies the real files already committed under reports/<bp>/executive_package/ into a
+# static site and deploys it; see each BP's own MODEL_CARD.md / PLATFORM_CARD.md for how those
+# real numbers were produced.
+#
+# One-time setup this workflow cannot do for itself: a repo admin must set Settings -> Pages ->
+# Build and deployment -> Source to "GitHub Actions" once before the first run can publish.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "reports/**/executive_package/**"
+      - ".github/workflows/pages.yml"
+      - "scripts/build_pages_site.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build static site from real executive_package deliverables
+        run: python3 scripts/build_pages_site.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

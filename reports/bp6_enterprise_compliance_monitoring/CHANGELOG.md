@@ -15,7 +15,7 @@ Notebook 4 (Compliance-Impact Reporting & Packaging -- '00 EXECUTIVE ROLLUP SUMM
 ## 2026-10-02T14:54:50.340394+00:00
 Notebook 4 (Compliance-Impact Reporting & Packaging -- '00 EXECUTIVE ROLLUP SUMMARY REPORT') real run. Platform status: RECOMMENDED FOR PRODUCTION -- PLATFORM-WIDE. Real BENEFIT category 1 total $13,877,192 ($13.88M), category 2 total $97,950,000 ($97.95M). Notebook 3 overall verdict: PASS. Five-format executive package regenerated in /sessions/rcw-01xc9gzawpdueqk8syy5rzmv/mnt/Documents/IBM_AML_RiskIQ_Enterprise_Suite/reports/bp6_enterprise_compliance_monitoring/executive_package.
 
-## 2026-10-02T14:55:43.070257+00:00 (hardening pass, "Global Standard" / AMEX Phase-2-hardening pattern)
+## 2026-10-02T14:55:43.070257+00:00 (hardening pass, "Global Standard" / that prior platform Phase-2-hardening pattern)
 Production-hardening pass on BP6, the platform's one brand-new BP this session (never
 hardened before). Three real items closed:
 1. JS SyntaxError bug in the HTML dashboard (`write_platform_html_dashboard` in

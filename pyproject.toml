@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ibm-aml-riskiq"
 version = "1.0.0"
-description = "IBM AML RiskIQ Enterprise Suite -- AI-driven anti-money-laundering & financial crime intelligence platform (6 Business Problems over the IBM Transactions for AML Kaggle dataset)"
+description = "IBM AML RiskIQ Enterprise Suite -- AI-driven anti-money-laundering & financial crime intelligence platform (6 Business Problems over IBM's own Transactions-for-AML dataset)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

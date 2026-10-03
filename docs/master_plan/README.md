@@ -5,5 +5,5 @@ It supersedes any earlier draft on every conflicting point.
 
 Covers: the finalized 6-Business-Problem scope with real-world-verified naming, the full notebook
 lifecycle, model benchmark spec, regulatory framework, five-format deliverable package, executive
-rollup architecture, WARP (incl. thermal protection) and HYPER, governance/CI, GitHub/Kaggle
+rollup architecture, WARP (incl. thermal protection) and HYPER, governance/CI, GitHub
 packaging, and open decisions still requiring confirmation.
