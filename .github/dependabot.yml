@@ -1,0 +1,71 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp1_transaction_monitoring_detection"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp2_typology_redflag_detection"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp3_network_graph_intelligence"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp4_structuring_smurfing_detection"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp5_correspondent_banking_crossborder_risk"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
+
+  - package-ecosystem: "docker"
+    directory: "/src/docker/bp6_enterprise_compliance_monitoring"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "docker"]
+    commit-message: { prefix: "docker" }
