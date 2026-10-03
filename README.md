@@ -41,7 +41,8 @@ flowchart TD
     SEC["_security.py<br/>API-key auth &middot; rate-limit &middot; audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
     REG["_model_registry.py<br/>live SHA-256 + mtime under /health"]:::infra -.-> S1 & S2 & S4 & S5
 
-    S1 & S2 & S4 & S5 --> DOK["Docker: BP1/BP2/BP4/BP5<br/>build + run verified in CI"]:::docker
+    S1 & S4 & S5 --> DOK["Docker: BP1/BP4/BP5<br/>build + run verified in CI"]:::docker
+    S2 --> DOKB2["Docker: BP2<br/>stale report, crashes on start"]:::dockerwarn
     S3 --> DOKW["Docker: BP3<br/>pending lookup-parquet artifact"]:::dockerwarn
 
     DOK --> CI1["ci.yml<br/>lint + mypy + pytest (52 tests)"]:::ci
@@ -67,11 +68,13 @@ flowchart TD
 Every box above is a real
 
 Every box above is a real, committed component of this repository -- there is no hosted/live deployment layer
-yet (see `ROADMAP.md`). BP3's Docker image and BP6's batch-job image are both real and buildable, but
-disclosed as not yet end-to-end verified: BP3 depends on an artifact (`*_near_train_flagged_lookup_*.parquet`)
-this platform has not yet generated, and BP6 has no port/`/health` endpoint to poll (it is a one-shot report
-job, not a scoring API) -- see `scripts/check_docker_copy_paths.py` and `.github/workflows/docker-verify.yml`
-for exactly how each is scoped.
+yet (see `ROADMAP.md`). Three of the six BPs' Docker images are disclosed as not yet end-to-end verified:
+**BP2** crashes on startup (its committed validation report predates a hardening edit that added two keys
+the service now requires -- fix is a real notebook re-run, not a patch); **BP3** depends on an artifact
+(`*_near_train_flagged_lookup_*.parquet`) this platform has not yet generated; **BP6** has no port/`/health`
+endpoint to poll (it is a one-shot report job, not a scoring API). See `ROADMAP.md`,
+`scripts/check_docker_copy_paths.py`, and `.github/workflows/docker-verify.yml` for exactly how each is
+scoped.
 
 ## Table of Contents
 - [Dataset](#dataset)

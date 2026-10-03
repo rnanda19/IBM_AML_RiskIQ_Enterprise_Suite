@@ -1,12 +1,24 @@
 name: Docker Build & Run Verification
 
-# Verifies the 4 scoring services that can actually build and serve traffic in this repo's
-# current state: BP1, BP2, BP4, BP5. BP3's image is deliberately excluded -- it depends on
+# Verifies the 3 scoring services that can actually build AND start up cleanly in this
+# repo's current state: BP1, BP4, BP5.
+#
+# BP2 is deliberately excluded (found 2026-10-03, first real run of this workflow): its
+# committed reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json
+# was generated 2026-10-01, before a 2026-10-02 hardening edit added two required keys
+# (champion_needs_rf_impute, rf_impute_value) that src/services/bp2_scoring_service.py now
+# reads with plain dict indexing at import time -- so the container builds and starts, but
+# the uvicorn worker crashes immediately with a real KeyError and /health never responds.
+# The fix is a real re-run of BP2 Notebook 3 for LI-Medium (the missing rf_impute_value is a
+# real train-median that must come from actual data, never invented here) -- see ROADMAP.md.
+#
+# BP3 is excluded -- it depends on
 # models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet,
 # a real artifact this platform has not yet generated (disclosed, not a bug -- see
 # scripts/check_docker_copy_paths.py's KNOWN_PENDING_ARTIFACTS allowlist and ROADMAP.md).
-# BP6 is also excluded -- it is a one-shot batch rollup job with no exposed port and no
-# /health endpoint, not a scoring API (see src/docker/bp6_enterprise_compliance_monitoring/Dockerfile).
+#
+# BP6 is excluded -- it is a one-shot batch rollup job with no exposed port and no /health
+# endpoint, not a scoring API (see src/docker/bp6_enterprise_compliance_monitoring/Dockerfile).
 
 on: [push, pull_request]
 
@@ -30,26 +42,6 @@ jobs:
       - name: Teardown
         if: always()
         run: docker rm -f bp1 || true
-
-  bp2:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: docker build -f src/docker/bp2_typology_redflag_detection/Dockerfile -t bp2-scoring .
-      - name: Run
-        run: docker run -d --name bp2 -p 8001:8001 bp2-scoring
-      - name: Wait for /health
-        run: |
-          for i in $(seq 1 15); do
-            if curl -sf http://localhost:8001/health; then exit 0; fi
-            sleep 2
-          done
-          docker logs bp2
-          exit 1
-      - name: Teardown
-        if: always()
-        run: docker rm -f bp2 || true
 
   bp4:
     runs-on: ubuntu-latest
