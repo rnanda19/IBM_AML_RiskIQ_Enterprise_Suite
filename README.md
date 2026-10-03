@@ -153,6 +153,7 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 |---|---|
 | `notebooks/` | `00_hardware_benchmark/` + one folder per BP; each BP is 4 real single-cell scripts (BP6 is 1 consolidated `.ipynb`) |
 | `src/aml_riskiq/{serving,features,reporting,monitoring,utils,models,typology}/` | Shared component library -- FastAPI scoring services, feature engineering, report building, drift monitoring |
+| `src/aml_riskiq/{ingestion,graph,explainability}/` | Honest placeholders -- real logic (data loading, BP3's graph-structural rule, BP1/BP2/BP4/BP5's already-computed SHAP/LIME) currently lives inline per-notebook, not yet extracted into these modules (see each one's own README.md) |
 | `src/docker/` | One `Dockerfile` + `docker-compose.yml` + `.dockerignore` per BP |
 | `tests/` | `shared/` plus one folder per BP, pytest (52 tests, all passing) |
 | `models/` | Trained artifacts per BP -- gitignored by default; the 6 small champion files `MODEL_REGISTRY.md` documents by SHA-256 are committed as an exception |
