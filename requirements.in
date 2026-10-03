@@ -38,6 +38,14 @@ uvicorn>=0.30
 # API hardening (2026-10-02): shared rate-limiting for the scoring services' /score endpoints
 # (see src/services/_security.py) -- API-key auth and audit logging are stdlib-only, no new dep.
 slowapi>=0.1.9
+# FOUND + FIXED (2026-10-03): starlette.testclient (used by every scoring-service test) requires
+# either httpx2 or classic httpx to be installed -- neither was pinned here, so a clean
+# `pip install -r requirements.txt` (exactly what CI's "test" job does) resolved a starlette
+# version that raised RuntimeError on every TestClient(app) call, failing 27 of 52 tests. This
+# was invisible locally because httpx happened to already be present in dev environments as a
+# transitive dependency of something else. Pinned below (deprecation warning only, not an error --
+# see the real passing CI run after this fix).
+httpx>=0.27,<0.28
 
 # Notebook execution (BP6 platform-rollup Docker batch job -- hardening pass, 2026-10-02:
 # closes this image's own previously disclosed gap -- jupyter nbconvert --execute needs these)

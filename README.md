@@ -14,77 +14,57 @@ Independent professional portfolio project. Not affiliated with IBM or any finan
 ## System Architecture
 
 ```mermaid
-flowchart LR
-    A["IBM AML-Data\ngithub.com/IBM/AML-Data\n(synthetic transactions)"] --> NB
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#1e293b",
+  "primaryTextColor": "#f8fafc",
+  "primaryBorderColor": "#64748b",
+  "lineColor": "#94a3b8",
+  "fontSize": "15px"
+}}}%%
+flowchart TD
+    SRC(["IBM AML-Data &nbsp;&middot;&nbsp; github.com/IBM/AML-Data &nbsp;&middot;&nbsp; synthetic transactions"]):::source
 
-    subgraph NB["Per-BP Notebooks (BP1, BP2, BP4, BP5)"]
-        direction TB
-        N1["01 Business Understanding"] --> N2["02 Feature Engineering + Modeling"]
-        N2 --> N3["03 Statistical Validation (2-gate SOP)"]
-        N3 --> N4["04 Compliance Reporting"]
-    end
+    SRC --> NB["Per-BP Notebooks &nbsp;&middot;&nbsp; 01 Business Understanding &rarr; 02 Feature Eng + Modeling &rarr; 03 Statistical Validation &rarr; 04 Compliance Reporting"]:::stage
 
-    NB3B["BP3 Notebooks\n(graph/rule signal, no trained model)"] --> MDL
-    NB --> MDL
+    NB --> M1["BP1 model<br/>XGBoost"]:::model
+    NB --> M2["BP2 model<br/>RandomForest"]:::model
+    NB --> M3["BP3 signal<br/>Rule JSON"]:::model
+    NB --> M4["BP4 model<br/>XGBoost"]:::model
+    NB --> M5["BP5 model<br/>XGBoost"]:::model
 
-    subgraph MDL["models/ -- gitignored, SHA-256 verified"]
-        direction TB
-        M1["BP1 XGBoost"]
-        M2["BP2 RandomForest + LabelEncoder"]
-        M3["BP3 Rule JSON (2-hop proximity)"]
-        M4["BP4 XGBoost"]
-        M5["BP5 XGBoost"]
-    end
+    M1 --> S1["bp1_scoring_service<br/>:8000"]:::service
+    M2 --> S2["bp2_scoring_service<br/>:8001"]:::service
+    M3 --> S3["bp3_rule_scoring_service<br/>:8003"]:::service
+    M4 --> S4["bp4_scoring_service<br/>:8001"]:::service
+    M5 --> S5["bp5_scoring_service<br/>:8002"]:::service
 
-    MDL --> SVC
+    SEC["_security.py<br/>API-key auth &middot; rate-limit &middot; audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
+    REG["_model_registry.py<br/>live SHA-256 + mtime under /health"]:::infra -.-> S1 & S2 & S4 & S5
 
-    subgraph SVC["src/services/ -- FastAPI scoring layer"]
-        direction TB
-        S1["bp1_scoring_service  :8000"]
-        S2["bp2_scoring_service  :8001"]
-        S3["bp3_rule_scoring_service  :8003"]
-        S4["bp4_scoring_service  :8001"]
-        S5["bp5_scoring_service  :8002"]
-        SEC["_security.py\nAPI-key auth + rate limit + audit log"]
-        REG["_model_registry.py\nlive SHA-256 + mtime under /health"]
-        SEC -.-> S1
-        SEC -.-> S2
-        SEC -.-> S3
-        SEC -.-> S4
-        SEC -.-> S5
-        REG -.-> S1
-        REG -.-> S2
-        REG -.-> S4
-        REG -.-> S5
-    end
+    S1 & S2 & S4 & S5 --> DOK["Docker: BP1/BP2/BP4/BP5<br/>build + run verified in CI"]:::docker
+    S3 --> DOKW["Docker: BP3<br/>pending lookup-parquet artifact"]:::dockerwarn
 
-    SVC --> DOC
+    DOK --> CI1["ci.yml<br/>lint + mypy + pytest (52 tests)"]:::ci
+    DOK --> CI2["code-quality.yml<br/>bandit + format"]:::ci
+    DOK --> CI3["codeql.yml<br/>weekly security scan"]:::ci
+    DOK --> CI4["docker-verify.yml<br/>build + poll /health"]:::ci
 
-    subgraph DOC["src/docker/ -- one Dockerfile + docker-compose.yml per BP"]
-        direction TB
-        D1["BP1 / BP2 / BP4 / BP5 containers\n(build + run verified in CI)"]
-        D2["BP3 container\n(pending lookup-parquet artifact, disclosed)"]
-        D3["BP6 container\n(one-shot batch rollup job, no port)"]
-    end
+    NB --> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1-BP5"]:::report
+    R1 --> R2["BP6 PLATFORM_CARD.md<br/>pure rollup, no model of its own"]:::report
+    R2 --> DOKB["Docker: BP6<br/>one-shot batch job, no port"]:::dockerwarn
 
-    DOC --> CI
-
-    subgraph CI["CI/CD -- .github/workflows"]
-        direction TB
-        C1["ci.yml: black/isort/flake8/mypy + pytest (52 tests)"]
-        C2["code-quality.yml: bandit + format"]
-        C3["codeql.yml: CodeQL security scan"]
-        C4["docker-verify.yml: build + poll /health (BP1/2/4/5)"]
-    end
-
-    N4 --> REP
-    subgraph REP["reports/ + BENCHMARKS.md"]
-        direction TB
-        R1["MODEL_CARD.md / RULE_CARD.md\n(per BP1-BP5)"]
-        R2["BP6 PLATFORM_CARD.md\n(pure rollup, no model of its own)"]
-        R1 --> R2
-    end
+    classDef source fill:#0ea5e9,stroke:#0284c7,color:#ffffff,stroke-width:2px,font-weight:bold
+    classDef stage fill:#1d4ed8,stroke:#1e40af,color:#ffffff,stroke-width:2px
+    classDef model fill:#8b5cf6,stroke:#7c3aed,color:#ffffff,stroke-width:2px
+    classDef service fill:#f59e0b,stroke:#d97706,color:#1e293b,stroke-width:2px,font-weight:bold
+    classDef infra fill:#334155,stroke:#94a3b8,color:#f8fafc,stroke-width:1px,stroke-dasharray: 3 3
+    classDef docker fill:#0d9488,stroke:#0f766e,color:#ffffff,stroke-width:2px
+    classDef dockerwarn fill:#475569,stroke:#64748b,color:#f8fafc,stroke-width:2px,stroke-dasharray: 5 5
+    classDef ci fill:#16a34a,stroke:#15803d,color:#ffffff,stroke-width:2px
+    classDef report fill:#dc2626,stroke:#b91c1c,color:#ffffff,stroke-width:2px
 ```
+
+Every box above is a real
 
 Every box above is a real, committed component of this repository -- there is no hosted/live deployment layer
 yet (see `ROADMAP.md`). BP3's Docker image and BP6's batch-job image are both real and buildable, but
