@@ -13,8 +13,7 @@ documents this financial-transaction dataset for anti-money-laundering research.
 multi-agent virtual-world simulation -- per IBM's own README: "the model and data are NOT based on
 obfuscating or anonymizing real individuals. Everything is synthetic." No real account holder, real
 transaction, or real financial institution is represented anywhere in this dataset or in this repository's
-outputs. (The same dataset is also mirrored on Kaggle as `ealtman2019/ibm-transactions-for-anti-money-laundering-aml`,
-and described in IBM Research's own paper: Altman et al., NeurIPS 2023 / arXiv:2306.16424.) See
+outputs. Also described in IBM Research's own paper: Altman et al., NeurIPS 2023 / arXiv:2306.16424. See
 `DATA_PRIVACY.md` for the full data-handling policy, including exactly what raw data is deliberately
 excluded from this repo and why.
 
