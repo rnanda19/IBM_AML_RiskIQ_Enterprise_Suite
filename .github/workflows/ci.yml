@@ -33,14 +33,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff mypy bandit pydantic
 
-      - name: Run Ruff Linter & Formatter Check
+      - name: Run Ruff Linter
         run: |
-          ruff check src/ tests/ --exit-zero
-          ruff format --check src/ tests/ --exit-zero
+          ruff check src/ tests/ || true
+
+      - name: Run Ruff Formatter Check
+        run: |
+          ruff format --check src/ tests/ || true
 
       - name: Static Security Analysis (Bandit)
         run: |
-          bandit -r src/ -ll -ii --exit-zero
+          bandit -r src/ -ll -ii || true
 
       - name: Static Type Consistency (Mypy)
         run: |
