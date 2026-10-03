@@ -94,6 +94,9 @@ jobs:
     needs: test-matrix
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -105,89 +108,67 @@ jobs:
           name: live-coverage-report
           path: public/coverage/
 
-      - name: Aggregate Blueprint Reports & Construct Live Portal
+      - name: Assemble Reports & Build Dynamic Hub
         run: |
-          mkdir -p public/reports
-          mkdir -p public/docs
+          mkdir -p public
 
-          # 1. Copy all existing reports and docs into web root
-          if [ -d "reports" ]; then cp -r reports/* public/reports/ || true; fi
-          if [ -d "docs" ]; then cp -r docs/* public/docs/ || true; fi
+          # 1. Mirror reports and docs directories directly into the web root
+          if [ -d "reports" ]; then cp -r reports public/; fi
+          if [ -d "docs" ]; then cp -r docs public/; fi
 
-          # 2. Dynamically scan all generated HTML files and build live navigation hub
+          # 2. Build index.html linking every report in reports/
           python3 -c '
           import os, html
 
-          reports_found = []
-          for root, dirs, files in os.walk("public"):
-              for file in sorted(files):
-                  if file.endswith(".html") and file != "index.html":
-                      full_path = os.path.join(root, file)
-                      rel_path = os.path.relpath(full_path, "public").replace("\\", "/")
-                      if not rel_path.startswith("coverage/"):
-                          reports_found.append((file, rel_path))
+          reports = []
+          for root, _, files in os.walk("public/reports"):
+              for f in sorted(files):
+                  if f.endswith(".html"):
+                      full = os.path.join(root, f)
+                      rel = os.path.relpath(full, "public").replace("\\", "/")
+                      reports.append((f, rel))
 
-          list_items = ""
-          for fname, rpath in reports_found:
-              clean_name = fname.replace(".html", "").replace("_", " ")
-              list_items += f"""
-              <div class="report-row">
-                <span class="report-name">{html.escape(clean_name)}</span>
-                <a class="launch-btn" href="{rpath}" target="_blank">Launch Live Dashboard &rarr;</a>
+          rows = ""
+          for f, r in reports:
+              name = f.replace(".html", "").replace("_", " ")
+              rows += f"""
+              <div style="display:flex; justify-content:space-between; align-items:center; background:#0d1117; border:1px solid #30363d; padding:12px 18px; border-radius:6px; margin-bottom:8px;">
+                <span style="font-weight:600; color:#c9d1d9;">{html.escape(name)}</span>
+                <a href="{r}" target="_blank" style="background:#238636; color:#fff; text-decoration:none; padding:6px 12px; border-radius:4px; font-size:12px; font-weight:bold;">Open Dashboard &rarr;</a>
               </div>
               """
 
-          if not list_items:
-              list_items = "<p style=\"color:#8b949e;\">No standalone HTML reports detected. Ensure reports/ contains generated files.</p>"
+          if not rows:
+              rows = "<p style=\"color:#8b949e;\">No HTML reports found in public/reports/</p>"
 
-          index_html = f"""<!DOCTYPE html>
+          html_doc = f"""<!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>IBM AML RiskIQ Enterprise Suite | Institutional Portal</title>
+            <title>IBM AML RiskIQ | Live Reports Portal</title>
             <style>
-              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 40px; background: #0d1117; color: #c9d1d9; }}
-              .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 36px; max-width: 960px; margin: 0 auto; box-shadow: 0 4px 16px rgba(0,0,0,0.6); }}
-              h1 {{ color: #58a6ff; margin-top: 0; font-size: 26px; }}
-              .badge {{ display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #238636; color: white; margin-bottom: 18px; }}
-              .subtext {{ color: #8b949e; line-height: 1.6; margin-bottom: 24px; }}
-              .section-title {{ color: #f0f6fc; font-size: 18px; margin-top: 30px; margin-bottom: 12px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }}
-              .report-row {{ display: flex; justify-content: space-between; align-items: center; background: #0d1117; border: 1px solid #30363d; padding: 14px 18px; border-radius: 6px; margin-bottom: 10px; transition: border-color 0.2s; }}
-              .report-row:hover {{ border-color: #58a6ff; }}
-              .report-name {{ font-weight: 600; color: #c9d1d9; }}
-              a.launch-btn {{ background: #238636; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 5px; font-size: 13px; font-weight: bold; }}
-              a.launch-btn:hover {{ background: #2ea043; }}
-              a.cov-btn {{ display: inline-block; background: #1f6feb; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; margin-bottom: 16px; }}
-              a.cov-btn:hover {{ background: #388bfd; }}
-              ul.spec-list {{ color: #8b949e; line-height: 1.8; }}
+              body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin:0; padding:40px; background:#0d1117; color:#c9d1d9; }}
+              .card {{ background:#161b22; border:1px solid #30363d; border-radius:8px; padding:32px; max-width:960px; margin:0 auto; box-shadow:0 4px 16px rgba(0,0,0,0.5); }}
+              h1 {{ color:#58a6ff; margin-top:0; }}
+              .badge {{ display:inline-block; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold; background:#238636; color:white; margin-bottom:16px; }}
+              a.btn {{ display:inline-block; padding:8px 16px; background:#1f6feb; color:white; text-decoration:none; border-radius:6px; font-weight:bold; margin-bottom:20px; font-size:13px; }}
             </style>
           </head>
           <body>
             <div class="card">
-              <span class="badge">Federal Reserve SR 11-7 / OCC 2011-12 Validated</span>
+              <span class="badge">SR 11-7 / OCC 2011-12 Validated</span>
               <h1>IBM AML RiskIQ Enterprise Suite</h1>
-              <p class="subtext">Live regulatory monitoring, executive rollup governance matrices, and interactive compliance dashboards.</p>
-              
-              <a class="cov-btn" href="coverage/index.html">View Pytest Live Coverage Audit &rarr;</a>
-
-              <div class="section-title">Institutional Executive Dashboards & Blueprint Reports</div>
-              {list_items}
-
-              <div class="section-title">Model Governance Verification</div>
-              <ul class="spec-list">
-                <li><strong>BP-1:</strong> Transaction Ingestion, ISO 20022 parsing, floating-point guards.</li>
-                <li><strong>BP-2:</strong> Currency Transaction Reporting ($10k CTR) and temporal smurfing logic.</li>
-                <li><strong>BP-3:</strong> Directed graph cyclic topology and circular path detection.</li>
-                <li><strong>BP-4:</strong> Extreme class imbalance calibration (PR-AUC, ROC-AUC target: 0.85).</li>
-                <li><strong>BP-5:</strong> TreeSHAP explainability and automated FinCEN SAR narrative generation.</li>
-              </ul>
+              <p style="color:#8b949e;">Live compliance reports, interactive executive rollups, and model governance matrices.</p>
+              <a class="btn" href="coverage/index.html">View Pytest Live Coverage Audit &rarr;</a>
+              <h3 style="color:#f0f6fc; border-bottom:1px solid #30363d; padding-bottom:8px; margin-top:20px;">Executive Dashboards & Blueprint Reports</h3>
+              {rows}
             </div>
           </body>
           </html>"""
 
-          with open("public/index.html", "w", encoding="utf-8") as f:
-              f.write(index_html)
+          with open("public/index.html", "w", encoding="utf-8") as out:
+              out.write(html_doc)
           '
 
       - name: Setup Pages
