@@ -3,11 +3,11 @@
 Real, current state (2026-10-03).
 
 ## What exists today
-All 5 scoring services (`src/services/*.py`) read their shared secret (`AML_RISKIQ_API_KEYS`, used by the
+All 5 scoring services (`src/aml_riskiq/serving/*.py`) read their shared secret (`AML_RISKIQ_API_KEYS`, used by the
 `X-API-Key` auth described in `SECURITY.md`) from a plain process environment variable, documented in
 `.env.example`, which ships a clearly-fake placeholder value, never a real secret. There is no central
 secrets store, no rotation, and no audit trail of who or what read a given secret beyond the per-request
-audit log line (which records a key's SHA-256 fingerprint, never the raw key -- see `src/services/
+audit log line (which records a key's SHA-256 fingerprint, never the raw key -- see `src/aml_riskiq/serving/
 _security.py`'s `_key_fingerprint`).
 
 ## What is NOT a secret in this project

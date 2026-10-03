@@ -3,7 +3,7 @@
 What's actually persisted on disk per business problem, and why BP3 and BP6 have no trained-model entry.
 Model binaries themselves are gitignored (see `.gitignore` / `DATA_PRIVACY.md`) -- this table, plus the
 live SHA-256 + mtime check every BP1/BP2/BP4/BP5 service exposes under its own `/health` endpoint (added
-2026-10-02, `src/services/_model_registry.py`), is how a champion artifact's identity is verified without
+2026-10-02, `src/aml_riskiq/serving/_model_registry.py`), is how a champion artifact's identity is verified without
 committing multi-megabyte binaries to git.
 
 | BP | Persisted artifact (mandatory LI-Medium tier) | Champion | Real size | SHA-256 |

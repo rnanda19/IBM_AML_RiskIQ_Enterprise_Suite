@@ -2,9 +2,9 @@
 BP2 -- Typology & Red-Flag Pattern Detection: real, standalone FastAPI scoring service.
 
 REAL BUG THIS FILE FIXES: BP2's own Dockerfile (src/docker/bp2_typology_redflag_detection/
-Dockerfile) already points its CMD at `src.services.bp2_scoring_service:app` and already
+Dockerfile) already points its CMD at `src.aml_riskiq.serving.bp2_scoring_service:app` and already
 COPYs the real champion pickle + real label-encoder pickle into the image, but until this
-file was added, `src/services/bp2_scoring_service.py` did not exist anywhere in `src/` --
+file was added, `src/aml_riskiq/serving/bp2_scoring_service.py` did not exist anywhere in `src/` --
 the image would build but the container would crash immediately on start with
 `ModuleNotFoundError`, the exact same disclosed gap BP1's and BP4's own service files closed
 for those BPs (the Dockerfile's own top-of-file comment flags this gap explicitly for BP2).
@@ -85,9 +85,9 @@ import pandas as pd
 from fastapi import Depends, FastAPI, Request
 
 try:
-    from services._security import harden_app, require_api_key, score_rate_limit
+    from serving._security import harden_app, require_api_key, score_rate_limit
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._security import harden_app, require_api_key, score_rate_limit
+    from src.aml_riskiq.serving._security import harden_app, require_api_key, score_rate_limit
 from pydantic import create_model
 
 
@@ -206,9 +206,9 @@ print(
 # model file (never cached across different files, never guessed); exposed via /health so a
 # caller can verify exactly which model artifact this running process loaded.
 try:
-    from services._model_registry import build_registry_entry
+    from serving._model_registry import build_registry_entry
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._model_registry import build_registry_entry
+    from src.aml_riskiq.serving._model_registry import build_registry_entry
 
 MODEL_REGISTRY_ENTRY = build_registry_entry(
     model_path=CHAMPION_MODEL_PATH,

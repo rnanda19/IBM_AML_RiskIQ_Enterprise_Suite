@@ -152,7 +152,7 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 | Path | Contents |
 |---|---|
 | `notebooks/` | `00_hardware_benchmark/` + one folder per BP; each BP is 4 real single-cell scripts (BP6 is 1 consolidated `.ipynb`) |
-| `src/{services,features,reporting,monitoring}/` | Shared component library -- FastAPI scoring services, feature engineering, report building, drift monitoring |
+| `src/aml_riskiq/{serving,features,reporting,monitoring,utils,models,typology}/` | Shared component library -- FastAPI scoring services, feature engineering, report building, drift monitoring |
 | `src/docker/` | One `Dockerfile` + `docker-compose.yml` + `.dockerignore` per BP |
 | `tests/` | `shared/` plus one folder per BP, pytest (52 tests, all passing) |
 | `models/` | Trained artifacts per BP -- gitignored by default; the 6 small champion files `MODEL_REGISTRY.md` documents by SHA-256 are committed as an exception |

@@ -7,7 +7,7 @@ calls each BP's scoring service uses to load its own trusted, self-produced mode
 `# nosec B301`-annotated inline with the trust-boundary justification, never a blanket suppression).
 
 ## API authentication
-All 5 scoring services (BP1/BP2/BP3-rule/BP4/BP5) share one auth module (`src/services/_security.py`).
+All 5 scoring services (BP1/BP2/BP3-rule/BP4/BP5) share one auth module (`src/aml_riskiq/serving/_security.py`).
 Set the `AML_RISKIQ_API_KEYS` environment variable (comma-separated keys) to require a matching
 `X-API-Key` header on every `/score` request; keys are compared with `secrets.compare_digest`
 (constant-time) and never logged in raw form (only an 8-character SHA-256 fingerprint is). Left unset, the

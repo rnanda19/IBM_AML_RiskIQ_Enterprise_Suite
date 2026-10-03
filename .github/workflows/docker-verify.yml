@@ -6,7 +6,7 @@ name: Docker Build & Run Verification
 # BP2 is deliberately excluded (found 2026-10-03, first real run of this workflow): its
 # committed reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json
 # was generated 2026-10-01, before a 2026-10-02 hardening edit added two required keys
-# (champion_needs_rf_impute, rf_impute_value) that src/services/bp2_scoring_service.py now
+# (champion_needs_rf_impute, rf_impute_value) that src/aml_riskiq/serving/bp2_scoring_service.py now
 # reads with plain dict indexing at import time -- so the container builds and starts, but
 # the uvicorn worker crashes immediately with a real KeyError and /health never responds.
 # The fix is a real re-run of BP2 Notebook 3 for LI-Medium (the missing rf_impute_value is a

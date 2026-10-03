@@ -20,4 +20,4 @@ exclude = notebooks/, .ipynb_checkpoints, __pycache__, github_repo/
 # Every other real code path in src/ and tests/ -- including this same file's actual control
 # flow/logic lines -- is still held to the 110-char limit above.
 per-file-ignores =
-    src/reporting/report_builder.py: E501
+    src/aml_riskiq/reporting/report_builder.py: E501

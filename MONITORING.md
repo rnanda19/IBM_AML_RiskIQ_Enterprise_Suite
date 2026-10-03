@@ -1,12 +1,12 @@
 # Monitoring
 
-## What's real today (`src/monitoring/`)
+## What's real today (`src/aml_riskiq/monitoring/`)
 `drift_monitor.py` -- a real Population Stability Index (PSI) implementation, the standard industry
 convention for score-distribution drift detection (PSI < 0.10 no shift, 0.10-0.25 moderate,
 > 0.25 significant -- see the module's own docstring for why PSI rather than label-dependent recall
 tracking: a real confirmed `Is-Laundering` label can lag live scoring by months). Built once, imported by
 every model-bearing BP, following this platform's "build once, reuse everywhere" (HYPER) pattern already
-established by `src/reporting/report_builder.py`. First real consumer: BP1 Notebook 3, which saves a real
+established by `src/aml_riskiq/reporting/report_builder.py`. First real consumer: BP1 Notebook 3, which saves a real
 train-vs-test score-distribution PSI check against its own LI-Medium test baseline.
 
 ## What this is NOT (yet)

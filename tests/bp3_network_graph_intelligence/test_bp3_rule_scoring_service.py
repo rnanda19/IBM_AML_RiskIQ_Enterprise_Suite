@@ -1,5 +1,5 @@
 """
-Structural / wiring tests for src/services/bp3_rule_scoring_service.py.
+Structural / wiring tests for src/aml_riskiq/serving/bp3_rule_scoring_service.py.
 
 Scope discipline (important -- read before extending this file): these tests verify the
 SERVICE'S OWN CODE -- file-resolution logic, Pydantic schema construction, FastAPI request/
@@ -83,14 +83,14 @@ def stub_service(tmp_path, monkeypatch):
     monkeypatch.setenv("BP3_DATASET_VARIANT", "LI-Medium")
     monkeypatch.chdir(tmp_path)
 
-    sys.modules.pop("services.bp3_rule_scoring_service", None)
-    sys.modules.pop("src.services.bp3_rule_scoring_service", None)
-    src_path = str(Path(__file__).resolve().parents[2] / "src")
+    sys.modules.pop("serving.bp3_rule_scoring_service", None)
+    sys.modules.pop("src.aml_riskiq.serving.bp3_rule_scoring_service", None)
+    src_path = str(Path(__file__).resolve().parents[2] / "src" / "aml_riskiq")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
-    module = importlib.import_module("services.bp3_rule_scoring_service")
+    module = importlib.import_module("serving.bp3_rule_scoring_service")
     yield module
-    sys.modules.pop("services.bp3_rule_scoring_service", None)
+    sys.modules.pop("serving.bp3_rule_scoring_service", None)
 
 
 def test_champion_signal_loaded_from_real_saved_rule(stub_service):

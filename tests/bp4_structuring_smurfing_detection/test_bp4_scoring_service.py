@@ -1,5 +1,5 @@
 """
-Structural / wiring tests for src/services/bp4_scoring_service.py.
+Structural / wiring tests for src/aml_riskiq/serving/bp4_scoring_service.py.
 
 Scope discipline (important -- read before extending this file): these tests verify the
 SERVICE'S OWN CODE -- file-resolution logic, Pydantic schema construction, FastAPI request/
@@ -85,12 +85,12 @@ def _import_fresh(tmp_path, monkeypatch, model_path):
     monkeypatch.setenv("BP4_DATASET_VARIANT", "LI-Medium")
     monkeypatch.chdir(tmp_path)
 
-    sys.modules.pop("services.bp4_scoring_service", None)
-    sys.modules.pop("src.services.bp4_scoring_service", None)
-    src_path = str(Path(__file__).resolve().parents[2] / "src")
+    sys.modules.pop("serving.bp4_scoring_service", None)
+    sys.modules.pop("src.aml_riskiq.serving.bp4_scoring_service", None)
+    src_path = str(Path(__file__).resolve().parents[2] / "src" / "aml_riskiq")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
-    module = importlib.import_module("services.bp4_scoring_service")
+    module = importlib.import_module("serving.bp4_scoring_service")
     return module
 
 
@@ -101,7 +101,7 @@ def stub_service(tmp_path, monkeypatch):
     model_path, _ = _write_fixture(tmp_path, champion_needs_rf_impute=False, rf_impute_value=None)
     module = _import_fresh(tmp_path, monkeypatch, model_path)
     yield module
-    sys.modules.pop("services.bp4_scoring_service", None)
+    sys.modules.pop("serving.bp4_scoring_service", None)
 
 
 @pytest.fixture()
@@ -111,7 +111,7 @@ def stub_service_rf_impute(tmp_path, monkeypatch):
     model_path, _ = _write_fixture(tmp_path, champion_needs_rf_impute=True, rf_impute_value=0.42)
     module = _import_fresh(tmp_path, monkeypatch, model_path)
     yield module
-    sys.modules.pop("services.bp4_scoring_service", None)
+    sys.modules.pop("serving.bp4_scoring_service", None)
 
 
 def test_feature_cols_loaded_from_real_saved_report(stub_service):

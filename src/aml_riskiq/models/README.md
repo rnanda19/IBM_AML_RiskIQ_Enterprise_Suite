@@ -1,4 +1,4 @@
-# src/models/
+# src/aml_riskiq/models/
 Model wrappers for this platform's real trained classifiers (BP1, BP2, BP4, BP5 -- each
 its own champion selected via Stage A/B benchmarking, see each BP's own MODEL_CARD.md),
 plus the shared CV harness (StratifiedKFold, seed=42, identical folds across models).

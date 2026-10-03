@@ -29,4 +29,4 @@ ENV BP1_CHAMPION_MODEL_PATH=/app/models/bp1_transaction_monitoring_detection/bp1
 ENV BP1_DATASET_VARIANT=LI-Medium
 
 EXPOSE 8000
-CMD ["uvicorn", "src.services.bp1_scoring_service:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.aml_riskiq.serving.bp1_scoring_service:app", "--host", "0.0.0.0", "--port", "8000"]

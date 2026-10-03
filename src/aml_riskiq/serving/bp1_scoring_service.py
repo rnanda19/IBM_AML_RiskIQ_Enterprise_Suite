@@ -4,7 +4,7 @@ scoring service.
 
 REAL BUG THIS FILE FIXES (found 2026-09-30, during a corrections review): BP1 Notebook 4's
 Docker packaging step writes a Dockerfile whose CMD points at
-`src.services.bp1_scoring_service:app` -- but until this file was added, that module did not
+`src.aml_riskiq.serving.bp1_scoring_service:app` -- but until this file was added, that module did not
 exist anywhere in `src/`. The Dockerfile built successfully but the container would crash
 immediately on start with `ModuleNotFoundError`. This file is that missing module.
 
@@ -39,9 +39,9 @@ import pandas as pd
 from fastapi import Depends, FastAPI, Request
 
 try:
-    from services._security import harden_app, require_api_key, score_rate_limit
+    from serving._security import harden_app, require_api_key, score_rate_limit
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._security import harden_app, require_api_key, score_rate_limit
+    from src.aml_riskiq.serving._security import harden_app, require_api_key, score_rate_limit
 from pydantic import create_model
 
 
@@ -123,9 +123,9 @@ print(
 # model file (never cached across different files, never guessed); exposed via /health so a
 # caller can verify exactly which model artifact this running process loaded.
 try:
-    from services._model_registry import build_registry_entry
+    from serving._model_registry import build_registry_entry
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._model_registry import build_registry_entry
+    from src.aml_riskiq.serving._model_registry import build_registry_entry
 
 MODEL_REGISTRY_ENTRY = build_registry_entry(
     model_path=CHAMPION_MODEL_PATH,

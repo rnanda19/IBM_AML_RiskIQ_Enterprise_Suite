@@ -40,4 +40,4 @@ ENV BP5_CHAMPION_MODEL_PATH=/app/models/bp5_correspondent_banking_crossborder_ri
 ENV BP5_DATASET_VARIANT=LI-Medium
 
 EXPOSE 8002
-CMD ["uvicorn", "src.services.bp5_scoring_service:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "src.aml_riskiq.serving.bp5_scoring_service:app", "--host", "0.0.0.0", "--port", "8002"]

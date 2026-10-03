@@ -1,5 +1,5 @@
 """
-Tests for src/services/_security.py -- the shared API-key auth / rate-limiting / audit-
+Tests for src/aml_riskiq/serving/_security.py -- the shared API-key auth / rate-limiting / audit-
 logging module every BP1-BP5 FastAPI scoring service imports (HYPER pattern: written once,
 verified once here, rather than five separate ad hoc partial tests).
 
@@ -26,13 +26,13 @@ def security_module(monkeypatch):
     for every other test in this suite, so each test here sets only what it needs)."""
     monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
     monkeypatch.delenv("AML_RISKIQ_SCORE_RATE_LIMIT", raising=False)
-    sys.modules.pop("services._security", None)
-    src_path = str(Path(__file__).resolve().parents[2] / "src")
+    sys.modules.pop("serving._security", None)
+    src_path = str(Path(__file__).resolve().parents[2] / "src" / "aml_riskiq")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
-    module = importlib.import_module("services._security")
+    module = importlib.import_module("serving._security")
     yield module
-    sys.modules.pop("services._security", None)
+    sys.modules.pop("serving._security", None)
 
 
 def test_open_mode_when_env_var_unset(security_module, monkeypatch):

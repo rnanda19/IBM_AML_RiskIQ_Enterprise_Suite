@@ -11,9 +11,9 @@ classifier. There is no SHAP/LIME, no `predict_proba`, no probability threshold 
 genuinely not applicable, not merely omitted (RULE_CARD.md, Explainability section).
 
 REAL GAP THIS FILE CLOSES: BP3's own Dockerfile (src/docker/bp3_network_graph_intelligence/
-Dockerfile) already points its CMD at `src.services.bp3_scoring_service:app` and already
+Dockerfile) already points its CMD at `src.aml_riskiq.serving.bp3_scoring_service:app` and already
 COPYs the real champion rule JSON into the image, but until this file was added,
-`src/services/bp3_rule_scoring_service.py` did not exist anywhere in `src/` -- the same
+`src/aml_riskiq/serving/bp3_rule_scoring_service.py` did not exist anywhere in `src/` -- the same
 disclosed "ACTION NEEDED" gap BP1's and BP4's own service files closed for their BPs. The
 Dockerfile's CMD target is updated alongside this file (see that Dockerfile's own
 "RESOLVED" note).
@@ -65,9 +65,9 @@ import pandas as pd
 from fastapi import Depends, FastAPI, Request
 
 try:
-    from services._security import harden_app, require_api_key, score_rate_limit
+    from serving._security import harden_app, require_api_key, score_rate_limit
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._security import harden_app, require_api_key, score_rate_limit
+    from src.aml_riskiq.serving._security import harden_app, require_api_key, score_rate_limit
 from pydantic import BaseModel
 
 

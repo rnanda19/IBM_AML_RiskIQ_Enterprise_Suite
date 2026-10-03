@@ -3,8 +3,8 @@ BP5 -- Correspondent Banking & Cross-Border Wire Risk: real, standalone FastAPI 
 
 REAL GAP THIS FILE CLOSES: BP5's Dockerfile (src/docker/bp5_correspondent_banking_crossborder_risk/
 Dockerfile) and docker-compose.yml already existed and already pointed their CMD at
-`src.services.bp5_scoring_service:app`, but until this file was added,
-`src/services/bp5_scoring_service.py` did not exist anywhere in `src/` -- the image would
+`src.aml_riskiq.serving.bp5_scoring_service:app`, but until this file was added,
+`src/aml_riskiq/serving/bp5_scoring_service.py` did not exist anywhere in `src/` -- the image would
 build but the container would crash immediately on start with `ModuleNotFoundError`. Notebook
 4's own packaging cell flagged this explicitly as a "DISCLOSED GAP ... ACTION NEEDED" and
 printed "No hardening pass has touched BP5 yet" -- this is that hardening pass, mirroring the
@@ -53,9 +53,9 @@ import pandas as pd
 from fastapi import Depends, FastAPI, Request
 
 try:
-    from services._security import harden_app, require_api_key, score_rate_limit
+    from serving._security import harden_app, require_api_key, score_rate_limit
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._security import harden_app, require_api_key, score_rate_limit
+    from src.aml_riskiq.serving._security import harden_app, require_api_key, score_rate_limit
 from pydantic import create_model
 
 
@@ -140,9 +140,9 @@ print(
 # model file (never cached across different files, never guessed); exposed via /health so a
 # caller can verify exactly which model artifact this running process loaded.
 try:
-    from services._model_registry import build_registry_entry
+    from serving._model_registry import build_registry_entry
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.services._model_registry import build_registry_entry
+    from src.aml_riskiq.serving._model_registry import build_registry_entry
 
 MODEL_REGISTRY_ENTRY = build_registry_entry(
     model_path=CHAMPION_MODEL_PATH,

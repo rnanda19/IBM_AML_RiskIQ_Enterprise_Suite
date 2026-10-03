@@ -8,7 +8,7 @@ services:
     environment:
       - BP4_DATASET_VARIANT=LI-Medium
       # Hardening addition (2026-10-02): unset by default (open mode, documented in
-      # src/services/_security.py) -- set this to a comma-separated key list to require
+      # src/aml_riskiq/serving/_security.py) -- set this to a comma-separated key list to require
       # the X-API-Key header on /score. Uncomment to enable auth for this container:
       # - AML_RISKIQ_API_KEYS=change-me-to-a-real-key
     restart: unless-stopped

@@ -39,4 +39,4 @@ ENV BP2_LABEL_ENCODER_PATH=/app/models/bp2_typology_redflag_detection/bp2_notebo
 ENV BP2_DATASET_VARIANT=LI-Medium
 
 EXPOSE 8001
-CMD ["uvicorn", "src.services.bp2_scoring_service:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "src.aml_riskiq.serving.bp2_scoring_service:app", "--host", "0.0.0.0", "--port", "8001"]

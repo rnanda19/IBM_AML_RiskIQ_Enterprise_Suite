@@ -33,4 +33,4 @@ ENV BP4_CHAMPION_MODEL_PATH=/app/models/bp4_structuring_smurfing_detection/bp4_n
 ENV BP4_DATASET_VARIANT=LI-Medium
 
 EXPOSE 8001
-CMD ["uvicorn", "src.services.bp4_scoring_service:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "src.aml_riskiq.serving.bp4_scoring_service:app", "--host", "0.0.0.0", "--port", "8001"]

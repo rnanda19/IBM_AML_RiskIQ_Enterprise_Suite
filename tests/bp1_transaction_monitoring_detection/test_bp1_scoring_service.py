@@ -1,5 +1,5 @@
 """
-Structural / wiring tests for src/services/bp1_scoring_service.py.
+Structural / wiring tests for src/aml_riskiq/serving/bp1_scoring_service.py.
 
 Scope discipline (important -- read before extending this file): these tests verify the
 SERVICE'S OWN CODE -- file-resolution logic, Pydantic schema construction, FastAPI request/
@@ -76,14 +76,14 @@ def stub_service(tmp_path, monkeypatch):
     monkeypatch.setenv("BP1_DATASET_VARIANT", "LI-Medium")
     monkeypatch.chdir(tmp_path)
 
-    sys.modules.pop("services.bp1_scoring_service", None)
-    sys.modules.pop("src.services.bp1_scoring_service", None)
-    src_path = str(Path(__file__).resolve().parents[2] / "src")
+    sys.modules.pop("serving.bp1_scoring_service", None)
+    sys.modules.pop("src.aml_riskiq.serving.bp1_scoring_service", None)
+    src_path = str(Path(__file__).resolve().parents[2] / "src" / "aml_riskiq")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
-    module = importlib.import_module("services.bp1_scoring_service")
+    module = importlib.import_module("serving.bp1_scoring_service")
     yield module
-    sys.modules.pop("services.bp1_scoring_service", None)
+    sys.modules.pop("serving.bp1_scoring_service", None)
 
 
 def test_feature_cols_loaded_from_real_saved_report(stub_service):
@@ -132,7 +132,7 @@ def test_score_endpoint_open_mode_by_default(stub_service):
     """This project's own test suite never sets AML_RISKIQ_API_KEYS, so every real
     service -- including this one -- runs in the documented open-auth mode and /score
     stays reachable with no X-API-Key header. This is the integration-level proof that
-    bp1's real route wiring (src/services/_security.py's require_api_key dependency,
+    bp1's real route wiring (src/aml_riskiq/serving/_security.py's require_api_key dependency,
     attached via Depends in the real score_endpoint) behaves exactly like the isolated
     unit coverage in tests/shared/test_security.py says it should."""
     from fastapi.testclient import TestClient

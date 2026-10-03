@@ -45,4 +45,4 @@ ENV BP3_LOOKUP_PATH=/app/models/bp3_network_graph_intelligence/bp3_notebook3_nea
 ENV BP3_DATASET_VARIANT=LI-Medium
 
 EXPOSE 8003
-CMD ["uvicorn", "src.services.bp3_rule_scoring_service:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "src.aml_riskiq.serving.bp3_rule_scoring_service:app", "--host", "0.0.0.0", "--port", "8003"]

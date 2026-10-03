@@ -1,6 +1,6 @@
 """
 Structural / wiring tests for BP6's own code path in the shared
-src/reporting/report_builder.py -- the write_platform_html_dashboard /
+src/aml_riskiq/reporting/report_builder.py -- the write_platform_html_dashboard /
 compute_platform_status / build_platform_benefit_table /
 generate_platform_smart_recommendations / build_bp_business_narratives_platform
 functions BP6's Notebook 4 calls.
@@ -51,7 +51,7 @@ def _locate_project_root() -> Path:
 
 PROJECT_ROOT = _locate_project_root()
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "reporting"))
+sys.path.insert(0, str(PROJECT_ROOT / "src" / "aml_riskiq" / "reporting"))
 
 import report_builder as rb  # noqa: E402
 
@@ -322,7 +322,7 @@ def test_dashboard_dedup_code_present_and_fixture_has_real_duplicates(
     }
 
     out_path = tmp_path / "test_dashboard.html"
-    chartjs_path = PROJECT_ROOT / "src" / "reporting" / "vendor" / "chart.umd.js"
+    chartjs_path = PROJECT_ROOT / "src" / "aml_riskiq" / "reporting" / "vendor" / "chart.umd.js"
     rb.write_platform_html_dashboard(out_path, context, chartjs_path)
 
     html = out_path.read_text(encoding="utf-8")

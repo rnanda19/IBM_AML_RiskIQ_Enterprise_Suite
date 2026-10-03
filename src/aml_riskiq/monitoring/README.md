@@ -1,7 +1,7 @@
-# src/monitoring
+# src/aml_riskiq/monitoring
 
 Shared production-monitoring module, built once and imported by every model-bearing BP (same
-"built once, imported everywhere" pattern as `src/reporting/report_builder.py`).
+"built once, imported everywhere" pattern as `src/aml_riskiq/reporting/report_builder.py`).
 
 - `drift_monitor.py` -- Population Stability Index (PSI) score-distribution drift detection.
   Standard industry verdict bands (PSI < 0.10 no shift, 0.10-0.25 moderate, > 0.25
