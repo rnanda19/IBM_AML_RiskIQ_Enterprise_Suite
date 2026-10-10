@@ -7,8 +7,8 @@ services:
       - "8001:8001"
     environment:
       - BP2_DATASET_VARIANT=LI-Medium
-      # Hardening addition (2026-10-02): unset by default (open mode, documented in
-      # src/aml_riskiq/serving/_security.py) -- set this to a comma-separated key list to require
-      # the X-API-Key header on /score. Uncomment to enable auth for this container:
-      # - AML_RISKIQ_API_KEYS=change-me-to-a-real-key
+      # Required for scoring containers: image defaults AML_RISKIQ_REQUIRE_AUTH=true.
+      # Supply keys through the deployment environment or a secrets manager.
+      - AML_RISKIQ_REQUIRE_AUTH=${AML_RISKIQ_REQUIRE_AUTH:-true}
+      - AML_RISKIQ_API_KEYS=${AML_RISKIQ_API_KEYS:-}
     restart: unless-stopped
