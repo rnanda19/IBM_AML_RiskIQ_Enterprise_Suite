@@ -8,21 +8,17 @@
 [![CRISP-DM](https://img.shields.io/badge/methodology-CRISP--DM-informational.svg?labelColor=CA8A04)]()
 [![License: All Rights Reserved](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey.svg?labelColor=475569)](LICENSE)
 
-**IBM AML RiskIQ Enterprise Suite** is a full-stack, production-grade anti-money-laundering and
-financial-crime intelligence platform covering six independently validated Business Problems: transaction
-monitoring, typology and red-flag classification, transaction-network and graph intelligence, structuring
-and smurfing detection, correspondent-banking and cross-border wire risk, and enterprise-wide compliance
-rollup reporting. Every BP is built end-to-end -- a real trained model or directly-interpretable rule, a
-deployable FastAPI scoring service with API-key auth and audit logging, and a five-format executive
-reporting package (HTML dashboard, Word report, Excel workbook, PowerPoint deck, PDF export) -- and is
-grounded against real regulatory language from the Bank Secrecy Act, the USA PATRIOT Act, FinCEN SAR-filing
-and red-flag-typology guidance, and real Federal Reserve / FinCEN enforcement actions. On this platform's
-locked validation tier (LI-Medium), all six Business Problems pass their statistical validation gates; the
-platform's real, assumption-labeled financial rollup totals **$13.88M** in false-positive-reduction
-investigator-hours saved, **$97.95M** in illustrative regulatory-exposure-avoidance, and **$1.10M+** in
-typology auto-confirmation value (see Business Problems below for the full real, per-BP breakdown).
-Built on IBM's own published, open synthetic AML dataset -- see the Dataset section below for the full
-citation.
+**IBM AML RiskIQ Enterprise Suite** is a research and portfolio demonstration for AML analytics, covering six
+business-problem workstreams: transaction monitoring, typology classification, graph intelligence, structuring and
+smurfing, cross-border risk, and enterprise compliance rollup. It includes model/rule artifacts, scoring-service code,
+reports, and governance documentation. It is **not a validated live-bank deployment or a production-ready compliance
+system**. Current release status is mixed: BP1, BP4 and BP5 have Docker build/run checks in CI; BP2 still requires a
+real validation-report refresh, BP3 still requires its generated lookup Parquet, and BP6 is a batch rollup rather than
+a scoring API. Statistical benchmark results and assumed financial-impact scenarios must be interpreted within the
+synthetic dataset and documented evaluation protocol. See `ROADMAP.md`, `BENCHMARKS.md`, and the evidence ledger for
+current status and provenance.
+
+Built on IBM's published synthetic AML dataset -- see the Dataset section below for licensing and source details.
 
 ## System Architecture
 
@@ -142,15 +138,11 @@ repository -- zero-fabrication is the standing rule throughout (see `DATA_PRIVAC
 boundary section below). See `LESSONS_LEARNED_APPLIED.md` for the specific real engineering bugs this
 structure and its conventions were built to catch.
 
-## Business Problems (6) - finalized, real-ground-truth-verified
-Six independently validated Business Problems, each with real ground truth in the dataset (never a proxy
-label) and a full five-format executive reporting package. **00 -- Executive Rollup Summary** (BP6) is the
-platform-wide reconciliation and leads the list; BP1-BP5 follow in numbered order. Every row is PASS on
-this platform's locked mandatory realism-validation tier (LI-Medium) -- see `BENCHMARKS.md` for the full
-real baseline-vs-model comparison and `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of
-truth every figure below is drawn from. Naming cross-checked against real primary-source terminology from
-a Federal Reserve consent order (American Express Bank International) and a FinCEN civil money penalty
-assessment (JPMorgan Chase).
+## Business Problems (6) — current evidence and limitations
+The six workstreams and their reported evaluation results are documented below. A statistical validation result is
+not the same as a deployable service: BP2's committed validation report requires regeneration, BP3's runtime lookup
+artifact is pending, and BP6 is a batch rollup. Treat each metric as a dataset-specific benchmark, not proof of
+performance at a real financial institution. The evidence ledger and roadmap identify completed checks and blockers.
 
 ### [00 -- Executive Rollup Summary](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html)
 Pure rollup of BP1-BP5's own already-computed real figures -- no model of its own, verdict **PASS** on its
@@ -280,8 +272,7 @@ no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service
 ## Status
 BP1, BP2, BP3, BP4, and BP5 have each completed real validation and passed both the structural and
 statistical-robustness gates on their mandatory LI-Medium tier; BP6's platform-wide rollup passes its own
-reconciliation gate as a pure pass-through of those five verdicts. All 5 FastAPI scoring services are
-hardened (auth/rate-limit/audit-log/metrics) and covered by a passing 100-test suite. See
+reconciliation gate as a pure pass-through of those five verdicts. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, with CI passing a disposable test key. See
 `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
 BP2's Docker image currently fails to start (stale validation-report fields) and BP3's required lookup
 Parquet has not yet been generated -- both require a real notebook re-run against the real dataset to fix
