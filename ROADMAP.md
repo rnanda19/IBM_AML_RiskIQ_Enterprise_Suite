@@ -12,7 +12,7 @@
   other platforms (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `DATA_PRIVACY.md`, `MODEL_REGISTRY.md`,
   `SECURITY.md`, `SECRETS_MANAGEMENT.md`, `CHANGELOG.md`, this file), plus a `.github/` CI suite (CI,
   Code Quality, CodeQL, Docker Build & Run Verification) -- all 4 workflows passing on `main`.
-- Real `docker build` + `docker run` + `/health` verification runs in CI for BP1, BP4, and BP5 only. The workflow supplies a disposable CI API key because scoring containers now fail closed by default. BP2/BP3 remain blocked on real data artifacts; BP6 requires batch-job verification.
+- Real `docker build` + `docker run` + `/health` verification runs in CI for BP1, BP4, and BP5 only. The workflow supplies a disposable CI API key because scoring containers now fail closed by default. A separate BP6 batch-job smoke test has now been added to `docker-verify.yml`; its result is pending. BP2/BP3 remain blocked on genuine data-dependent artifacts.
 
 ## In progress / pending
 - **BP2's Docker image won't start** (found 2026-10-03, first real CI run of `docker-verify.yml`) --
