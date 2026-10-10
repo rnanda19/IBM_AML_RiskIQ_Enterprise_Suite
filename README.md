@@ -28,10 +28,11 @@ citation.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {
+  "background": "#e5e7eb",
   "primaryColor": "#1e293b",
   "primaryTextColor": "#ffffff",
   "primaryBorderColor": "#64748b",
-  "lineColor": "#1e293b",
+  "lineColor": "#0f172a",
   "fontSize": "17px",
   "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif"
 }}}%%
@@ -59,7 +60,7 @@ flowchart TD
     S2 ==> DOKB2["Docker: BP2<br/>awaiting report refresh"]:::dockerwarn
     S3 ==> DOKW["Docker: BP3<br/>awaiting lookup artifact"]:::dockerwarn
 
-    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (52 tests)"]:::ci
+    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (100 tests)"]:::ci
     DOK ==> CI2["code-quality.yml<br/>bandit + format"]:::ci
     DOK ==> CI3["codeql.yml<br/>weekly security scan"]:::ci
     DOK ==> CI4["docker-verify.yml<br/>build + poll /health"]:::ci
@@ -78,7 +79,7 @@ flowchart TD
     classDef ci fill:#16a34a,stroke:#14532d,color:#ffffff,stroke-width:3px,font-weight:bold
     classDef report fill:#dc2626,stroke:#7f1d1d,color:#ffffff,stroke-width:3px,font-weight:bold
 
-    linkStyle default stroke:#1e293b,stroke-width:2.5px
+    linkStyle default stroke:#0f172a,stroke-width:3px
 ```
 
 Every box above is a real, committed component of this repository -- there is no hosted/live deployment layer
@@ -253,11 +254,18 @@ docker compose -f src/docker/bp1_transaction_monitoring_detection/docker-compose
 ```
 Every `/score` endpoint is open-mode by default (no key required) and switches to enforced API-key auth the
 moment `AML_RISKIQ_API_KEYS` is set in the environment -- see `SECRETS_MANAGEMENT.md` and `.env.example`.
+Set `AML_RISKIQ_REQUIRE_AUTH=true` as well in any non-local deployment to make a missing
+`AML_RISKIQ_API_KEYS` a hard startup failure instead of only a warning (open-mode-by-default for local
+dev/CI is unchanged either way) -- see `SECURITY.md` and `docs/security/THREAT_MODEL.md`. API keys may
+optionally carry a role prefix (`role:key`) for the `require_role()` primitive in `_security.py`, though
+no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service also exposes
+`GET /metrics` (unauthenticated, Prometheus text format, real request/latency counters).
 
 ## Engineering & Testing
-- **Tests:** 52/52 passing (`pytest tests/`), covering all 5 FastAPI scoring services plus the shared
-  `_security.py`/`_model_registry.py` modules (real 429 rate-limit and 401/200 auth integration tests, not
-  mocked).
+- **Tests:** 100/100 passing (`pytest tests/`), covering all 5 FastAPI scoring services, the shared
+  `_security.py`/`_model_registry.py` modules (real 429 rate-limit and 401/200/403 auth integration tests,
+  not mocked), and the `casework` investigator-workflow foundation (see
+  `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
 - **Type checking:** `mypy src/` -- 0 errors across 15 source files.
 - **Security scanning:** `bandit -r src/` -- 0 blocking findings, 7 low-severity baseline (see `SECURITY.md`);
   CodeQL runs weekly + on every push/PR.
@@ -273,10 +281,12 @@ moment `AML_RISKIQ_API_KEYS` is set in the environment -- see `SECRETS_MANAGEMEN
 BP1, BP2, BP3, BP4, and BP5 have each completed real validation and passed both the structural and
 statistical-robustness gates on their mandatory LI-Medium tier; BP6's platform-wide rollup passes its own
 reconciliation gate as a pure pass-through of those five verdicts. All 5 FastAPI scoring services are
-hardened (auth/rate-limit/audit-log) and covered by a passing 52-test suite. See
-`docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains
-(BP3's pending lookup-parquet artifact, live Docker build verification in CI, and GitHub publication --
-now complete).
+hardened (auth/rate-limit/audit-log/metrics) and covered by a passing 100-test suite. See
+`docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
+BP2's Docker image currently fails to start (stale validation-report fields) and BP3's required lookup
+Parquet has not yet been generated -- both require a real notebook re-run against the real dataset to fix
+(see `docs/audit/DEFECT_REGISTER.md` DEF-001/DEF-002); both are excluded from `docker-verify.yml` until
+then, disclosed rather than worked around.
 
 ## Execution boundary (standing rule)
 Claude generates notebooks and src/ modules only, and never executes the real data-processing pipeline itself.

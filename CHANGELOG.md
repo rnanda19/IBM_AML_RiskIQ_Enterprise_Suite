@@ -36,6 +36,32 @@ a prior customer-intelligence-focused enterprise platform in this same methodolo
     (BP2/BP3 artifact regeneration, chronological re-split validation, model comparison/recalibration) is
     explicitly deferred pending direct user authorization, per this project's standing no-pipeline-
     execution rule.
+  - `src/aml_riskiq/casework/`: investigator case-management foundation -- a versioned `Alert` schema built
+    from each service's real `/score` response shape, a conservative case-lifecycle state machine, cross-BP
+    entity clustering vs. true exact-duplicate detection, a self-checking reconciliation report, and a JSON
+    evidence-export bundle. 18 new tests (95/95 total at the time), scoped honestly as not yet wired into
+    any live route; surfaced a real architecture gap in the process (no transaction/account identifier in
+    any `/score` request or response). `docs/architecture/INVESTIGATOR_WORKFLOW.md` records the rationale.
+  - Second external review pass (8.4/10, referencing commit `913f00b`) worked through:
+    - `wire_metrics_endpoint(app)` is now actually called in all 5 scoring services (`bp1`..`bp5`), not just
+      defined in `_security.py` -- `GET /metrics` is live on every running service, verified with a real
+      `TestClient` smoke test (not just a unit test of the helper function in isolation). 5 new integration
+      tests assert this per service (100/100 total passing).
+    - `docs/audit/DEFECT_REGISTER.md`: DEF-003 (RBAC) marked partially addressed -- `require_role()` exists
+      and is tested but still has no second protected route to apply to; DEF-004 (`/metrics`/monitoring)
+      marked partially addressed -- the endpoint is now live, but counters are in-process/per-worker only,
+      there is no committed Prometheus scrape config, and `drift_monitor.py` is still not scheduled or
+      exposed as a metric.
+    - `docs/audit/REQUIREMENT_TRACEABILITY_MATRIX.csv`: 7 Investigator Workflow rows added, including two
+      explicit `MISSING` rows for the case-management-not-wired-into-a-live-API and no-transaction-ID gaps.
+    - `README.md`: security/testing/status sections reconciled against actual current code (auth-gate env
+      var, role-aware keys, live `/metrics`, casework package, 100/100 tests, explicit BP2/BP3 Docker
+      disclosure with a `DEFECT_REGISTER.md` cross-reference); System Architecture diagram restyled to a
+      light-grey canvas (`#e5e7eb`) with darker, thicker flow lines (`#0f172a`, 3px) for contrast, and its
+      stale "52 tests" CI node label corrected.
+    - This review's P1 items that require real notebook execution against the real dataset (BP2/BP3
+      artifact fix, detection-effectiveness/model-retraining) remain deferred pending explicit user
+      authorization, same as the first review's equivalent items.
 
 ## 2026-10-03
 - Corrected dataset-source attribution: the IBM Transactions for Anti-Money Laundering (AML) dataset is

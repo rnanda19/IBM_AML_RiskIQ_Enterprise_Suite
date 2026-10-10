@@ -116,6 +116,21 @@ def test_health_endpoint(stub_service):
     assert body["is_threshold_signal"] is False
 
 
+def test_metrics_endpoint_wired(stub_service):
+    """wire_metrics_endpoint(app) is called in the real service module (not just defined in
+    _security.py) -- this asserts a real GET /metrics on the real app object returns the
+    real counter for the GET /health call just made, not a mocked or hand-written value."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    client.get("/health")
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "aml_riskiq_requests_total" in resp.text
+    assert 'service="bp3_rule_scoring_service"' in resp.text
+    assert 'path="/health"' in resp.text
+
+
 def test_score_endpoint_flags_known_flagged_account(stub_service):
     from fastapi.testclient import TestClient
 

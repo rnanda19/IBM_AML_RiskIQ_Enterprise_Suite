@@ -63,9 +63,19 @@ import pandas as pd
 from fastapi import Depends, FastAPI, Request
 
 try:
-    from serving._security import harden_app, require_api_key, score_rate_limit
+    from serving._security import (
+        harden_app,
+        require_api_key,
+        score_rate_limit,
+        wire_metrics_endpoint,
+    )
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
-    from src.aml_riskiq.serving._security import harden_app, require_api_key, score_rate_limit
+    from src.aml_riskiq.serving._security import (
+        harden_app,
+        require_api_key,
+        score_rate_limit,
+        wire_metrics_endpoint,
+    )
 from pydantic import create_model
 
 
@@ -224,6 +234,7 @@ def score_transaction(record: dict) -> dict:
 
 app = FastAPI(title=f"BP4 Structuring & Smurfing Scoring Service ({DATASET_VARIANT})")
 _limiter = harden_app(app, "bp4_scoring_service")
+wire_metrics_endpoint(app)
 
 
 @app.get("/health")

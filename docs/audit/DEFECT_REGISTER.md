@@ -31,27 +31,42 @@ claim or service), High (real functional gap), Medium (real but contained), Low 
 - **Verification method**: artifact exists on disk with a real file size + hash recorded in
   `MODEL_REGISTRY.md`; `docker-verify.yml`'s `bp3` job builds, starts, polls `/health`.
 
-## DEF-003 -- No RBAC at the API layer (High)
+## DEF-003 -- No RBAC at the API layer (High) -- PARTIALLY ADDRESSED
 - **File**: `src/aml_riskiq/serving/_security.py`
-- **Evidence**: direct read of the module -- auth is single-tier (valid key or not); no role claim,
-  no role-based route restriction anywhere in `src/`.
-- **Business impact**: cannot support differentiated investigator/analyst/model-administrator/auditor
-  workflows as the blueprint's Prompt 6 requests; every valid API key currently has identical access to
-  every protected route.
-- **Recommended fix**: extend `_security.py`'s key model from a flat set to key-\>role mapping (e.g.
-  `AML_RISKIQ_API_KEYS` entries become `role:key` pairs), add a `require_role(role)` dependency, apply
-  per-route. This is pure code -- no pipeline execution needed. Feasible without lifting the standing rule.
+- **Evidence (original)**: direct read of the module -- auth was single-tier (valid key or not); no role
+  claim, no role-based route restriction anywhere in `src/`.
+- **Update**: role-aware API keys and `require_role()` were added to `_security.py` in a later batch this
+  same session (tested, 8 new tests). **Still not applied to any route** -- today each of the 5 services
+  has only `/health` (unauthenticated) and `/score` (any valid key, any role), so there is not yet a
+  second route for a role distinction to protect. The `casework` package added afterward (see
+  `docs/architecture/INVESTIGATOR_WORKFLOW.md`) is exactly the kind of second surface `require_role()`
+  was built for, but it is not wired into any live route either.
+- **Business impact**: unchanged until a route actually uses `require_role()`.
+- **Recommended fix (remaining)**: wire a case-management API (built on the `casework` package) in as
+  actual routes, and protect them with `require_role()`. Pure code -- no pipeline execution needed.
 
-## DEF-004 -- No live monitoring, `/metrics`, or scheduled alerting (High)
-- **File**: n/a (absence confirmed by grep across `src/`)
-- **Evidence**: `MONITORING.md` already discloses this; grep confirms no `prometheus`, `/metrics` route,
-  `apscheduler`, or `celery` anywhere in `src/`.
-- **Business impact**: `drift_monitor.py`'s real PSI implementation is a library function only -- nothing
-  calls it on a schedule, nothing exposes its output as a scrapeable metric, nothing alerts on it.
-- **Recommended fix**: add a `/metrics` route per service (even a minimal one exposing request counts,
-  latency, and the model-registry fingerprint already computed for `/health`) and a documented way to run
-  `drift_monitor.py` on a schedule (a cron entry calling a small script, not a new service framework).
-  Pure code/infra-config -- no pipeline execution needed.
+## DEF-004 -- No live monitoring, `/metrics`, or scheduled alerting (High) -- PARTIALLY ADDRESSED
+- **File (original)**: n/a (absence confirmed by grep across `src/`)
+- **Evidence (original)**: `MONITORING.md` already disclosed this; grep confirmed no `prometheus`,
+  `/metrics` route, `apscheduler`, or `celery` anywhere in `src/`.
+- **Update**: `render_metrics()`/`wire_metrics_endpoint()` were added to `_security.py` (Prometheus text
+  format, real in-process request-count + latency counters, unauthenticated by design) and -- unlike
+  DEF-003's `require_role()` -- actually mounted: `wire_metrics_endpoint(app)` is now called in all 5
+  scoring services (`bp1`..`bp5`) right after `harden_app(app, ...)`. Verified live, not just unit-tested:
+  a `TestClient` smoke test against the real `bp1_scoring_service` module (synthetic stub model, same
+  fixture pattern as `tests/integration/.../test_bp1_scoring_service.py`) confirmed `GET /metrics` returns
+  200 with a real counter line reflecting the preceding `GET /health` call.
+- **Still open**: counters are in-process and per-worker (not shared across `uvicorn --workers N` or across
+  service restarts -- `MONITORING.md`'s multi-worker caveat applies), there is no scrape config
+  (`prometheus.yml`) or dashboard committed, and `drift_monitor.py`'s PSI implementation is still a
+  library function only -- nothing calls it on a schedule or exposes its output as a metric, and there is
+  no alerting.
+- **Business impact (remaining)**: request-level observability now exists per-worker; model-drift
+  observability and any alerting still do not.
+- **Recommended fix (remaining)**: add a committed `prometheus.yml` scrape target as deployment docs, and
+  a documented way to run `drift_monitor.py` on a schedule (a cron entry calling a small script, not a new
+  service framework) that exposes its PSI output as a metric. Pure code/infra-config -- no pipeline
+  execution needed.
 
 ## DEF-005 -- BRD/FRD/RTM are unfilled stubs (Medium)
 - **File**: `docs/BRD/README.md`, `docs/FRD/README.md`, `docs/RTM/README.md`
