@@ -145,10 +145,10 @@ artifact is pending, and BP6 is a batch rollup. Treat each metric as a dataset-s
 performance at a real financial institution. The evidence ledger and roadmap identify completed checks and blockers.
 
 ### [00 -- Executive Rollup Summary](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html)
-Pure rollup of BP1-BP5's own already-computed real figures -- no model of its own, verdict **PASS** on its
+Pure rollup of BP1-BP5's previously computed dataset-specific figures -- no model of its own, verdict **PASS** on its
 reconciliation gate. Illustrative platform-wide financial rollup (3 categories, never blended): false-positive-
-reduction savings across BP1+BP4+BP5 **$13.88M** (213,496 investigator hours); true-positive illustrative
-regulatory-exposure-avoidance across BP1+BP4+BP5 **$97.95M** (+1,959 cases); BP2's own typology auto-
+reduction savings across BP1+BP4+BP5 **$13.88M** (213,496 illustrative investigator-hours); true-positive illustrative
+regulatory-exposure-avoidance across BP1+BP4+BP5 **$97.95M** (+1,959 additional dataset-positive examples); BP2's own typology auto-
 typing/confirmation value **$1,313 + $1.10M**, kept separate (different unit basis). Every dollar figure is
 an explicitly labeled ASSUMPTION -- see `reports/bp6_enterprise_compliance_monitoring/PLATFORM_CARD.md`.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Deck.pptx) &middot; [PDF Export](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.pdf)
