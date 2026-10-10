@@ -1,7 +1,7 @@
 name: Docker Build & Run Verification
 
-# Verifies the 3 scoring services that can actually build AND start up cleanly in this
-# repo's current state: BP1, BP4, BP5.
+# Verifies the currently runnable scoring services (BP1, BP4, BP5) and separately smoke-tests
+# BP6's one-shot batch reporting job. BP2/BP3 remain blocked on genuine data-dependent artifacts.
 #
 # BP2 is deliberately excluded (found 2026-10-03, first real run of this workflow): its
 # committed reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json
@@ -17,8 +17,7 @@ name: Docker Build & Run Verification
 # a real artifact this platform has not yet generated (disclosed, not a bug -- see
 # scripts/check_docker_copy_paths.py's KNOWN_PENDING_ARTIFACTS allowlist and ROADMAP.md).
 #
-# BP6 is excluded -- it is a one-shot batch rollup job with no exposed port and no /health
-# endpoint, not a scoring API (see src/docker/bp6_enterprise_compliance_monitoring/Dockerfile).
+# BP6 has no port or /health endpoint by design; it is verified as a batch job below.
 
 on: [push, pull_request]
 
@@ -106,3 +105,29 @@ jobs:
       - name: Teardown
         if: always()
         run: docker rm -f bp5 || true
+
+  bp6-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build BP6 batch image
+        run: docker build -f src/docker/bp6_enterprise_compliance_monitoring/Dockerfile -t bp6-rollup .
+      - name: Execute BP6 rollup against committed report evidence
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/reports:/app/reports" \
+            -v "$GITHUB_WORKSPACE/models:/app/models" \
+            bp6-rollup
+      - name: Verify generated rollup package
+        run: |
+          set -euo pipefail
+          package="reports/bp6_enterprise_compliance_monitoring/executive_package"
+          for artifact in \
+            "BP6_Platform_Rollup_Report.docx" \
+            "BP6_Platform_Rollup_Workbook.xlsx" \
+            "BP6_Platform_Rollup_Dashboard.html" \
+            "BP6_Platform_Rollup_Deck.pptx"; do
+            test -s "$package/$artifact"
+          done
+          test -s "reports/bp6_enterprise_compliance_monitoring/PLATFORM_CARD.md"
+          echo "PASS: BP6 batch job exited successfully and required report outputs are non-empty."
