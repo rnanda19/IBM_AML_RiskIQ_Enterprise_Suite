@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: docker build -f src/docker/bp1_transaction_monitoring_detection/Dockerfile -t bp1-scoring .
       - name: Run
-        run: docker run -d --name bp1 -p 8000:8000 bp1-scoring
+        run: docker run -d --name bp1 -e AML_RISKIQ_API_KEYS=ci-test-key -p 8000:8000 bp1-scoring
       - name: Wait for /health
         run: |
           for i in $(seq 1 15); do
@@ -50,7 +50,7 @@ jobs:
       - name: Build
         run: docker build -f src/docker/bp4_structuring_smurfing_detection/Dockerfile -t bp4-scoring .
       - name: Run
-        run: docker run -d --name bp4 -p 8004:8004 bp4-scoring
+        run: docker run -d --name bp4 -e AML_RISKIQ_API_KEYS=ci-test-key -p 8004:8004 bp4-scoring
       - name: Wait for /health
         run: |
           for i in $(seq 1 15); do
@@ -70,7 +70,7 @@ jobs:
       - name: Build
         run: docker build -f src/docker/bp5_correspondent_banking_crossborder_risk/Dockerfile -t bp5-scoring .
       - name: Run
-        run: docker run -d --name bp5 -p 8002:8002 bp5-scoring
+        run: docker run -d --name bp5 -e AML_RISKIQ_API_KEYS=ci-test-key -p 8002:8002 bp5-scoring
       - name: Wait for /health
         run: |
           for i in $(seq 1 15); do
