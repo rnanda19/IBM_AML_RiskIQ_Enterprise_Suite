@@ -24,6 +24,24 @@ open-mode-by-default behavior exactly -- this is an opt-in deployment control, n
 default. Recommended: set both `AML_RISKIQ_API_KEYS` and `AML_RISKIQ_REQUIRE_AUTH=true` in every
 non-local deployment.
 
+## Role-aware API keys (primitive, not yet applied to any route)
+`AML_RISKIQ_API_KEYS` entries may optionally carry a role prefix: `role:key` (e.g.
+`investigator:abc123,admin:def456`). A bare key with no prefix keeps working exactly as before, with the
+default role `service`. `require_role(role)` (in `_security.py`) is a dependency factory that additionally
+checks the matched key's role (an `admin`-role key satisfies any role check), returning 403 for a valid
+key with the wrong role vs. 401 for no/invalid key. Honest scope: none of the 5 scoring services' routes
+use it yet -- today each service has only `/health` (unauthenticated) and `/score` (any valid key, any
+role), so there is not yet a second route for a role distinction to protect. This exists so `/score` or a
+future route can adopt it without another change to the shared auth module.
+
+## Metrics
+`GET /metrics` (via `wire_metrics_endpoint()` in `_security.py`) exposes real, in-process request counts
+and summed latency per service/method/path/status, in Prometheus text-exposition format -- derived from
+the same per-request data the audit-log middleware already records, not a new data source. Deliberately
+unauthenticated, same reasoning as `/health`. Honest scope: in-process counters only (reset on restart,
+not shared across multiple worker processes) -- adequate for this platform's one-process-per-container
+shape, not a drop-in for a multi-worker deployment without an external aggregator.
+
 ## Rate limiting
 Real token-bucket rate limiting via `slowapi`, default 60 requests/minute per caller on `/score`,
 overridable via `AML_RISKIQ_SCORE_RATE_LIMIT`. Exceeding it returns a real `429`, not a soft warning.

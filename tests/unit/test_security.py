@@ -195,3 +195,115 @@ def test_harden_app_raises_when_require_auth_true_and_no_keys(security_module, m
     app = FastAPI()
     with pytest.raises(RuntimeError, match="REFUSING TO START"):
         security_module.harden_app(app, "test_service")
+
+
+# -- Role-aware API keys / require_role --------------------------------------------------
+
+
+def test_configured_api_keys_with_roles_bare_key_gets_default_role(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "plain-key")
+    assert security_module._configured_api_keys_with_roles() == {"plain-key": "service"}
+
+
+def test_configured_api_keys_with_roles_parses_role_prefix(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a, admin:key-b, key-c")
+    assert security_module._configured_api_keys_with_roles() == {
+        "key-a": "investigator",
+        "key-b": "admin",
+        "key-c": "service",
+    }
+
+
+def test_configured_api_keys_still_returns_bare_key_set(security_module, monkeypatch):
+    """_configured_api_keys() (used by require_api_key, unaffected by roles) must still
+    return the same bare key set as before role support existed."""
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a,key-b")
+    assert security_module._configured_api_keys() == {"key-a", "key-b"}
+
+
+def test_require_role_open_mode_returns_anonymous(security_module, monkeypatch):
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    dep = security_module.require_role("investigator")
+    assert dep(x_api_key=None) == "anonymous"
+
+
+def test_require_role_missing_header_raises_401(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_role("investigator")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key=None)
+    assert exc_info.value.status_code == 401
+
+
+def test_require_role_correct_role_succeeds(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_role("investigator")
+    result = dep(x_api_key="key-a")
+    assert result == security_module._key_fingerprint("key-a")
+
+
+def test_require_role_wrong_role_raises_403(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_role("admin")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key="key-a")
+    assert exc_info.value.status_code == 403
+
+
+def test_require_role_admin_key_satisfies_any_role(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "admin:key-a")
+    dep = security_module.require_role("investigator")
+    result = dep(x_api_key="key-a")
+    assert result == security_module._key_fingerprint("key-a")
+
+
+def test_require_role_invalid_key_raises_401(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_role("investigator")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key="wrong-key")
+    assert exc_info.value.status_code == 401
+
+
+# -- Metrics -------------------------------------------------------------------------------
+
+
+def test_record_metric_and_render_metrics(security_module):
+    security_module._request_counts.clear()
+    security_module._latency_sums.clear()
+    security_module._record_metric("svc", "GET", "/health", 200, 12.5)
+    security_module._record_metric("svc", "GET", "/health", 200, 7.5)
+    rendered = security_module.render_metrics()
+    assert 'aml_riskiq_requests_total{service="svc",method="GET",path="/health",status="200"} 2' in rendered
+    assert "aml_riskiq_request_latency_seconds_sum" in rendered
+
+
+def test_wire_metrics_endpoint_serves_real_counts(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    security_module._request_counts.clear()
+    security_module._latency_sums.clear()
+
+    app = FastAPI()
+    security_module.harden_app(app, "metrics_test_service")
+    security_module.wire_metrics_endpoint(app)
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
+
+    client = TestClient(app)
+    client.get("/health")
+    client.get("/health")
+
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert 'service="metrics_test_service"' in resp.text
+    assert 'path="/health"' in resp.text

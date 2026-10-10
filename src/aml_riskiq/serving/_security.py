@@ -58,6 +58,35 @@ What this module provides, and the honest limits of each:
      etc.) is the deployer's responsibility, not this module's. Nothing here invents a
      logging backend that would need its own operational support.
 
+5. ROLE-AWARE API KEYS (`require_role` dependency factory)
+   - AML_RISKIQ_API_KEYS entries may optionally carry a role prefix, "role:key" (e.g.
+     "investigator:abc123,admin:def456"). A bare key with no "role:" prefix is assigned the
+     default role "service" for backward compatibility -- every key configured before this
+     capability existed keeps working identically, with role "service".
+   - `require_role(role)` returns a FastAPI dependency that, in closed mode, additionally
+     requires the matched key's role to equal the requested role (or "admin", which is
+     treated as satisfying every role check) -- 403 if the caller's key is valid but the
+     wrong role, 401 if no valid key at all. In open mode it is a no-op, same as
+     `require_api_key`.
+   - HONEST SCOPE NOTE: this is a primitive, not yet applied to any of the 5 scoring
+     services' routes (none have more than `/health` and `/score` today, so there is not yet
+     a second route for a role distinction to protect). It exists so `/score` or a future
+     route can adopt per-role requirements without changing this module again.
+
+6. METRICS (`metrics_endpoint` + the counters `AuditLogMiddleware` already updates)
+   - A minimal, dependency-free `/metrics` route in Prometheus text-exposition format:
+     request counts by service/method/path/status, and total latency (so avg latency is
+     `latency_seconds_sum / requests_total` per label set) -- both are real, computed from
+     the same per-request data `AuditLogMiddleware` already logs, not a new data source.
+   - Call `wire_metrics_endpoint(app)` once per service (after `harden_app`) to mount it.
+     Deliberately unauthenticated, same reasoning as `/health`: a scrape target must be
+     reachable without a credential, and it exposes no transaction data, only request
+     counts/latency already visible in the audit log.
+   - HONEST SCOPE NOTE: in-process counters only (reset on restart, not shared across
+     multiple worker processes) -- adequate for this platform's single-process-per-container
+     deployment shape, not a drop-in for a multi-worker production deployment without an
+     external aggregator (e.g. the Prometheus multiprocess mode a real deployment would add).
+
 HONEST SCOPE NOTE: this is application-layer hardening appropriate for a service sitting
 behind a real API gateway / reverse proxy in production (TLS termination, network-level
 DDoS protection, and centralized log shipping are all gateway/infra concerns this module
@@ -73,6 +102,7 @@ import logging
 import os
 import secrets
 import sys
+import threading
 import time
 from collections.abc import Awaitable, Callable
 
@@ -96,14 +126,41 @@ if not _audit_logger.handlers:
     _audit_logger.propagate = False
 
 
+DEFAULT_KEY_ROLE = "service"
+ADMIN_ROLE = "admin"
+
+
 def _configured_api_keys() -> set[str] | None:
     """Returns the configured key set, or None if AML_RISKIQ_API_KEYS is unset (open mode).
     Re-reads the env var on every call (not cached at import time) so a test's monkeypatch
     of the env var takes effect without needing to reimport the module."""
+    parsed = _configured_api_keys_with_roles()
+    if parsed is None:
+        return None
+    return set(parsed.keys())
+
+
+def _configured_api_keys_with_roles() -> dict[str, str] | None:
+    """Returns {key: role}, or None if AML_RISKIQ_API_KEYS is unset (open mode). An entry
+    without a "role:" prefix gets DEFAULT_KEY_ROLE, so every key configured before role
+    support existed keeps working identically. Re-read on every call, same
+    monkeypatch-friendliness as _configured_api_keys()."""
     raw = os.environ.get(API_KEYS_ENV_VAR)
     if raw is None or raw.strip() == "":
         return None
-    return {k.strip() for k in raw.split(",") if k.strip()}
+    result: dict[str, str] = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        if ":" in entry:
+            role, _, key = entry.partition(":")
+            role, key = role.strip(), key.strip()
+        else:
+            role, key = DEFAULT_KEY_ROLE, entry
+        if key:
+            result[key] = role or DEFAULT_KEY_ROLE
+    return result
 
 
 def _truthy(value: str | None) -> bool:
@@ -138,6 +195,37 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> str:
     if not matched:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
     return _key_fingerprint(x_api_key)
+
+
+def require_role(role: str) -> Callable[[str | None], str]:
+    """Returns a FastAPI dependency requiring a valid API key whose configured role equals
+    `role`, or ADMIN_ROLE (admin satisfies every role check). In open mode it is a no-op,
+    identical to require_api_key -- role checks only apply once AML_RISKIQ_API_KEYS is set.
+    403 for a valid key with the wrong role (distinct from require_api_key's 401 for a
+    missing/invalid key, so a caller can tell "not authenticated" from "authenticated, wrong
+    permission")."""
+
+    def _dependency(x_api_key: str | None = Header(default=None)) -> str:
+        configured = _configured_api_keys_with_roles()
+        if configured is None:
+            return "anonymous"
+        if x_api_key is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-API-Key header.")
+        matched_role: str | None = None
+        for candidate_key, candidate_role in configured.items():
+            if secrets.compare_digest(x_api_key, candidate_key):
+                matched_role = candidate_role
+                break
+        if matched_role is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
+        if matched_role != role and matched_role != ADMIN_ROLE:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Key has role '{matched_role}', this route requires '{role}'.",
+            )
+        return _key_fingerprint(x_api_key)
+
+    return _dependency
 
 
 def warn_if_open_mode(service_name: str) -> None:
@@ -213,7 +301,51 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 client_ip=get_remote_address(request),
                 caller_id=caller_id,
             )
+            _record_metric(self._service_name, request.method, request.url.path, status_code, elapsed_ms)
         return response
+
+
+_metrics_lock = threading.Lock()
+_request_counts: dict[tuple[str, str, str, int], int] = {}
+_latency_sums: dict[tuple[str, str, str, int], float] = {}
+
+
+def _record_metric(service_name: str, method: str, path: str, status_code: int, latency_ms: float) -> None:
+    """In-process counters only -- reset on restart, not shared across multiple worker
+    processes (see module docstring section 6's scope note)."""
+    key = (service_name, method, path, status_code)
+    with _metrics_lock:
+        _request_counts[key] = _request_counts.get(key, 0) + 1
+        _latency_sums[key] = _latency_sums.get(key, 0.0) + (latency_ms / 1000.0)
+
+
+def render_metrics() -> str:
+    """Renders the current in-process counters as Prometheus text-exposition format."""
+    lines = [
+        "# HELP aml_riskiq_requests_total Total requests by service, method, path, status.",
+        "# TYPE aml_riskiq_requests_total counter",
+    ]
+    with _metrics_lock:
+        counts = dict(_request_counts)
+        sums = dict(_latency_sums)
+    for (service_name, method, path, status_code), count in sorted(counts.items()):
+        labels = f'service="{service_name}",method="{method}",path="{path}",status="{status_code}"'
+        lines.append(f"aml_riskiq_requests_total{{{labels}}} {count}")
+    lines.append("# HELP aml_riskiq_request_latency_seconds_sum Summed request latency by label set.")
+    lines.append("# TYPE aml_riskiq_request_latency_seconds_sum counter")
+    for (service_name, method, path, status_code), total_seconds in sorted(sums.items()):
+        labels = f'service="{service_name}",method="{method}",path="{path}",status="{status_code}"'
+        lines.append(f"aml_riskiq_request_latency_seconds_sum{{{labels}}} {total_seconds:.6f}")
+    return "\n".join(lines) + "\n"
+
+
+def wire_metrics_endpoint(app: FastAPI) -> None:
+    """Mounts GET /metrics on the given app, deliberately unauthenticated (see module
+    docstring section 6). Call once, after harden_app()."""
+
+    @app.get("/metrics")
+    def _metrics() -> Response:
+        return Response(content=render_metrics(), media_type="text/plain; version=0.0.4")
 
 
 def audit_log(
@@ -283,11 +415,16 @@ __all__ = [
     "API_KEYS_ENV_VAR",
     "RATE_LIMIT_ENV_VAR",
     "REQUIRE_AUTH_ENV_VAR",
+    "DEFAULT_KEY_ROLE",
+    "ADMIN_ROLE",
     "require_api_key",
+    "require_role",
     "get_limiter",
     "score_rate_limit",
     "harden_app",
     "audit_log",
     "AuditLogMiddleware",
     "warn_if_open_mode",
+    "render_metrics",
+    "wire_metrics_endpoint",
 ]
