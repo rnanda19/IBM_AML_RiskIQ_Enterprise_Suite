@@ -146,7 +146,7 @@ performance at a real financial institution. The evidence ledger and roadmap ide
 
 ### [00 -- Executive Rollup Summary](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html)
 Pure rollup of BP1-BP5's own already-computed real figures -- no model of its own, verdict **PASS** on its
-reconciliation gate. Real platform-wide financial rollup (3 categories, never blended): false-positive-
+reconciliation gate. Illustrative platform-wide financial rollup (3 categories, never blended): false-positive-
 reduction savings across BP1+BP4+BP5 **$13.88M** (213,496 investigator hours); true-positive illustrative
 regulatory-exposure-avoidance across BP1+BP4+BP5 **$97.95M** (+1,959 cases); BP2's own typology auto-
 typing/confirmation value **$1,313 + $1.10M**, kept separate (different unit basis). Every dollar figure is
@@ -154,25 +154,25 @@ an explicitly labeled ASSUMPTION -- see `reports/bp6_enterprise_compliance_monit
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Deck.pptx) &middot; [PDF Export](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.pdf)
 
 ### [BP1 -- Transaction Monitoring & Suspicious Activity Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Dashboard.html)
-Real ground truth: `Is Laundering`. Champion **XGBoost**, Test PR-AUC **0.1242**, verdict **PASS**. The real
+Dataset label: `Is Laundering` (synthetic transactions). Champion **XGBoost**, Test PR-AUC **0.1242**, verdict **PASS**. The real
 function institutions themselves call a "transaction monitoring system" -- language drawn from a real
 Federal Reserve consent order and FinCEN's own civil-money-penalty language. Deployed, stops review of
 294,907 real false-positive alerts (**$4.79M** investigator-hours saved) while independently catching 319
-more real laundering cases (**$15.95M** illustrative regulatory-exposure-avoidance).
+additional positive-labelled examples in the synthetic dataset (**$15.95M** illustrative regulatory-exposure-avoidance).
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Deck.pptx)
 
 ### [BP2 -- Typology & Red-Flag Pattern Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Dashboard.html)
-Real ground truth: `Patterns.txt`'s block-structured typology labels (up to 8 typologies -- fan-out,
+Dataset label: `Patterns.txt`'s block-structured typology labels (up to 8 typologies -- fan-out,
 fan-in, gather-scatter, scatter-gather, cycle, random, bipartite, stack). Champion **RandomForest**, Test
 macro-F1 **0.4440**, verdict **PASS**. Matches FinCEN's own "red flags" typology-indicator language.
-Deployed, auto-classifies 101 more real cases by typology (**$1,313** saved) and independently confirms the
-correct typology on 138 real cases a single-typology heuristic would miss (**$1.10M** confirmation value).
+In the evaluation data, auto-classifies 101 additional cases by typology (**$1,313** saved) and independently confirms the
+correct typology on 138 dataset cases a single-typology heuristic would miss (**$1.10M** confirmation value).
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Deck.pptx)
 
 ### [BP3 -- Transaction Network & Graph Intelligence](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Dashboard.html)
 No trained model needed -- real account-to-account structure only, no proxy label required. Champion
-signal: 2-hop proximity to a TRAIN-flagged account, real network-lift ratio **3.19x** over a 1.157% base
-rate (bootstrap 95% CI [3.157x, 3.219x]), verdict **PASS**, on a real graph of 2,032,095 nodes / 4,363,197
+signal: 2-hop proximity to a TRAIN-flagged account, observed network-lift ratio **3.19x** over a 1.157% base
+rate (bootstrap 95% CI [3.157x, 3.219x]), verdict **PASS**, on the synthetic dataset graph of 2,032,095 nodes / 4,363,197
 edges. Hands investigators a real bounded 2-hop ego-network around every flagged account instead of
 reviewing it in isolation -- no dollar figure claimed; no sourced real per-account investigation-cost basis
 exists for this BP (disclosed honestly in `RULE_CARD.md`, never invented).
@@ -191,7 +191,7 @@ Targets the risk area behind real HSBC, Standard Chartered, and Danske Bank enfo
 **XGBoost**, Test PR-AUC **0.1399** (the platform's highest), verdict **PASS**, using 27 real features --
 the most of any binary BP. Deployed, delivers the platform's single largest real false-positive-reduction
 figure: **$4.85M** savings (74,649 investigator hours), plus **$17.00M** illustrative regulatory-exposure-
-avoidance from 340 additional real cross-border cases caught.
+avoidance from 340 additional positive-labelled dataset cases detected.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Deck.pptx)
 
 Four BPs from the original 8-BP scaffold were dropped on review: Account/Entity AML Risk Scoring and Alert
@@ -231,7 +231,7 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 pip install -r requirements.txt
 pip install -e .
 
-# run the real test suite (52 tests)
+# run the test suite
 make test              # or: pytest tests/ -v
 
 # full local quality gate (lint + mypy + bandit + test)
