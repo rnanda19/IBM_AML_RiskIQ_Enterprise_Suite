@@ -57,3 +57,10 @@ every service's request/response schema (a breaking API change for all 5) is sub
 area than one batch of this session's work should responsibly cover alongside everything already
 changed. This package is the real, tested foundation that wiring would build on -- shipped honestly as a
 foundation, not described as a finished investigator-workflow feature.
+
+## See it run
+
+[`CASEWORK_WORKED_EXAMPLE.md`](CASEWORK_WORKED_EXAMPLE.md) is a real, captured transcript of this
+package's own functions run end to end on one synthetic alert -- `/score`-shaped input through
+investigator transitions to a JSON audit-reconstruction bundle. It demonstrates the plumbing above
+working, not a live service.

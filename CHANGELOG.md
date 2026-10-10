@@ -59,6 +59,11 @@ a prior customer-intelligence-focused enterprise platform in this same methodolo
       disclosure with a `DEFECT_REGISTER.md` cross-reference); System Architecture diagram restyled to a
       light-grey canvas (`#e5e7eb`) with darker, thicker flow lines (`#0f172a`, 3px) for contrast, and its
       stale "52 tests" CI node label corrected.
+    - `docs/architecture/CASEWORK_WORKED_EXAMPLE.md` + `docs/architecture/examples/
+      casework_worked_example.py`: this review's P2 item ("demonstrate one alert from scoring through
+      investigation, disposition and audit reconstruction") -- a real, captured transcript of the
+      `casework` package's own functions run end to end on one clearly-labeled synthetic alert, not a
+      live service demo.
     - This review's P1 items that require real notebook execution against the real dataset (BP2/BP3
       artifact fix, detection-effectiveness/model-retraining) remain deferred pending explicit user
       authorization, same as the first review's equivalent items.
