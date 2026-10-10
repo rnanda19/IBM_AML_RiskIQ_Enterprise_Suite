@@ -244,8 +244,7 @@ curl http://localhost:8000/health
 # build + run a service's real Docker image
 docker compose -f src/docker/bp1_transaction_monitoring_detection/docker-compose.yml up --build
 ```
-Every `/score` endpoint is open-mode by default (no key required) and switches to enforced API-key auth the
-moment `AML_RISKIQ_API_KEYS` is set in the environment -- see `SECRETS_MANAGEMENT.md` and `.env.example`.
+When run directly from source, `/score` uses documented open mode only if `AML_RISKIQ_API_KEYS` is unset; configuring keys enforces API-key auth. **Scoring Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default and refuse startup without configured keys.** For Compose, export `AML_RISKIQ_API_KEYS` from a real secret source before starting the container; do not use the example placeholder. See `SECRETS_MANAGEMENT.md`, `SECURITY.md`, and `.env.example`.
 Set `AML_RISKIQ_REQUIRE_AUTH=true` as well in any non-local deployment to make a missing
 `AML_RISKIQ_API_KEYS` a hard startup failure instead of only a warning (open-mode-by-default for local
 dev/CI is unchanged either way) -- see `SECURITY.md` and `docs/security/THREAT_MODEL.md`. API keys may
