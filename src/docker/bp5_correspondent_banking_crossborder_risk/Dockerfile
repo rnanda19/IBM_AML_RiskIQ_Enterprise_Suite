@@ -39,5 +39,15 @@ COPY reports/bp5_correspondent_banking_crossborder_risk/bp5_notebook3_validation
 ENV BP5_CHAMPION_MODEL_PATH=/app/models/bp5_correspondent_banking_crossborder_risk/bp5_li_medium_model_v1.pkl
 ENV BP5_DATASET_VARIANT=LI-Medium
 
+# Hardening (this session): run as a non-root user, and give Docker's own HEALTHCHECK
+# visibility into the real /health endpoint this service already exposes -- previously only
+# docker-verify.yml's own curl polling loop checked it; now the image reports its own health
+# natively too (docker ps / a real orchestrator's liveness probe can both use it).
+RUN addgroup --system app && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8002
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=2)" || exit 1
 CMD ["uvicorn", "src.aml_riskiq.serving.bp5_scoring_service:app", "--host", "0.0.0.0", "--port", "8002"]

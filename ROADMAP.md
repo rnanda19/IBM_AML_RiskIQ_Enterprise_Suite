@@ -32,6 +32,14 @@
   zero-pipeline-execution rule (Claude writes and verifies code, never executes the real notebook itself).
   BP3 is excluded from `docker-verify.yml` for the same reason.
 
+## Added this session (2026-10-10), not requiring real pipeline execution
+- Fail-closed auth gate, role-aware API keys (primitive), `/metrics` endpoint on all 5 services.
+- Fixed the real BP2/BP4 port-8001 collision (noted-but-deferred since Lesson #40) -- BP4 now on 8004.
+- Non-root user + HEALTHCHECK on all 5 service Dockerfiles (not yet build-verified locally -- pending
+  next `docker-verify.yml` CI run).
+- `docs/audit/`, `docs/governance/`, `docs/business_value/`, `docs/data/LEAKAGE_AUDIT.md`,
+  `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
+
 ## Not planned
 - The 4 business problems dropped from the original 8-BP draft (Account/Entity AML Risk Scoring, Alert
   Escalation/SAR-Filing Prediction, GenAI SAR Narrative Assistant, Alert Prioritization & Case Decision

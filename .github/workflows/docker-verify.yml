@@ -50,11 +50,11 @@ jobs:
       - name: Build
         run: docker build -f src/docker/bp4_structuring_smurfing_detection/Dockerfile -t bp4-scoring .
       - name: Run
-        run: docker run -d --name bp4 -p 8001:8001 bp4-scoring
+        run: docker run -d --name bp4 -p 8004:8004 bp4-scoring
       - name: Wait for /health
         run: |
           for i in $(seq 1 15); do
-            if curl -sf http://localhost:8001/health; then exit 0; fi
+            if curl -sf http://localhost:8004/health; then exit 0; fi
             sleep 2
           done
           docker logs bp4

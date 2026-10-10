@@ -44,5 +44,15 @@ ENV BP3_CHAMPION_RULE_PATH=/app/models/bp3_network_graph_intelligence/bp3_notebo
 ENV BP3_LOOKUP_PATH=/app/models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet
 ENV BP3_DATASET_VARIANT=LI-Medium
 
+# Hardening (this session): run as a non-root user, and give Docker's own HEALTHCHECK
+# visibility into the real /health endpoint this service already exposes -- previously only
+# docker-verify.yml's own curl polling loop checked it; now the image reports its own health
+# natively too (docker ps / a real orchestrator's liveness probe can both use it).
+RUN addgroup --system app && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8003
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8003/health', timeout=2)" || exit 1
 CMD ["uvicorn", "src.aml_riskiq.serving.bp3_rule_scoring_service:app", "--host", "0.0.0.0", "--port", "8003"]

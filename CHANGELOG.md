@@ -5,6 +5,38 @@ notebook/model work on each business problem live in `reports/<bp>/CHANGELOG.md`
 repository's own structure, hardening, and governance history, in the same plain-date style used on the
 a prior customer-intelligence-focused enterprise platform in this same methodology lineage.
 
+## 2026-10-10
+- External benchmark-upgrade review (ChatGPT-produced blueprint) worked through in two scoped batches,
+  limited to what does not require executing the real notebook/data pipeline:
+  - `src/aml_riskiq/serving/_security.py`: added an opt-in fail-closed production gate
+    (`AML_RISKIQ_REQUIRE_AUTH`), role-aware API keys + `require_role()` (primitive, not yet applied to
+    any route), and a real `GET /metrics` endpoint (Prometheus text format, in-process counters fed by
+    the existing audit middleware). 25 new tests across both additions (77/77 total passing).
+  - Fixed a real, previously-disclosed-but-unfixed defect: BP2 and BP4 both EXPOSEd/mapped port 8001 --
+    BP4 moved to 8004 across its Dockerfile, `docker-compose.yml`, `docker-verify.yml`, and the README
+    architecture diagram.
+  - Hardened all 5 scoring-service Dockerfiles: non-root `app` user, a `HEALTHCHECK` hitting the real
+    `/health` endpoint. Not build-tested locally (no Docker daemon in this session) -- verification is
+    `docker-verify.yml`'s next CI run.
+  - New docs: `docs/audit/` (repository audit, requirement traceability matrix, defect register,
+    baseline test report), `docs/governance/MODEL_RISK_GOVERNANCE.md`, `docs/business_value/
+    BUSINESS_VALUE_METHODOLOGY.md` (reproduces the published $13.88M/$97.95M figures exactly from their
+    real disclosed constants, plus a sensitivity table), `docs/data/LEAKAGE_AUDIT.md` (static code-reading
+    audit -- found all 5 BPs use a random, non-chronological, non-entity-aware train/test split),
+    `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
+  - Fixed the CI badge showing red/failing: a separate Oct-3 tool/session had added `|| true` to every
+    lint/type/security/test step in `ci.yml` and embedded a second, fabrication-laden Pages-deploy job
+    that was hard-failing every push. Reverted to a clean, genuinely-enforcing two-job workflow.
+  - Restored `README.md`, which the same Oct-3 rewrite had silently truncated to 55 lines (unclosed
+    Mermaid fence) with fabricated capability claims ("Automated FinCEN SAR Drafting Platform", ISO 20022
+    ingestion, wrong Apache-2.0 license badge).
+  - Enabled GitHub Pages (Settings -> Pages -> Source -> GitHub Actions, a one-time manual step) --
+    the per-BP live dashboard links in the README now resolve instead of 404ing.
+  - Remaining work this review identified that requires real pipeline execution against real data
+    (BP2/BP3 artifact regeneration, chronological re-split validation, model comparison/recalibration) is
+    explicitly deferred pending direct user authorization, per this project's standing no-pipeline-
+    execution rule.
+
 ## 2026-10-03
 - Corrected dataset-source attribution: the IBM Transactions for Anti-Money Laundering (AML) dataset is
   published by IBM at `github.com/IBM/AML-Data` (index/documentation page), with the real data files

@@ -4,7 +4,7 @@ services:
       context: ../../..
       dockerfile: src/docker/bp4_structuring_smurfing_detection/Dockerfile
     ports:
-      - "8001:8001"
+      - "8004:8004"
     environment:
       - BP4_DATASET_VARIANT=LI-Medium
       # Hardening addition (2026-10-02): unset by default (open mode, documented in

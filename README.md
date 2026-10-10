@@ -49,7 +49,7 @@ flowchart TD
     M1 ==> S1["bp1_scoring_service<br/>:8000"]:::service
     M2 ==> S2["bp2_scoring_service<br/>:8001"]:::service
     M3 ==> S3["bp3_rule_scoring_service<br/>:8003"]:::service
-    M4 ==> S4["bp4_scoring_service<br/>:8001"]:::service
+    M4 ==> S4["bp4_scoring_service<br/>:8004"]:::service
     M5 ==> S5["bp5_scoring_service<br/>:8002"]:::service
 
     SEC["_security.py<br/>API-key auth · rate-limit · audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5

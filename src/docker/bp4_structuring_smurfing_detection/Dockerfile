@@ -6,9 +6,14 @@
 # variant LI-Medium) is copied in explicitly below -- never defaulted to a path that
 # isn't actually present in the image.
 #
-# DISCLOSED GAP: src/services/bp4_scoring_service.py does not yet exist on disk as of this
-# notebook's run (same gap already flagged for BP3) -- it must be extracted from Notebook 3's
-# in-kernel score_transaction()/FastAPI app before this image will actually build and run.
+# RESOLVED: src/aml_riskiq/serving/bp4_scoring_service.py exists and this image is build+run
+# verified in CI (.github/workflows/docker-verify.yml) -- the comment this replaces was stale
+# (described a gap that no longer exists as of this edit).
+#
+# PORT FIX (this session): this service previously shared port 8001 with BP2 -- a real
+# collision if both were ever run together (confirmed: both Dockerfiles EXPOSEd 8001, both
+# docker-compose.yml files mapped host port 8001:8001). Moved to 8004 -- the first port not
+# already claimed by BP1 (8000), BP2 (8001), BP3 (8003), or BP5 (8002).
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -32,5 +37,15 @@ COPY reports/bp4_structuring_smurfing_detection/bp4_notebook3_validation_report_
 ENV BP4_CHAMPION_MODEL_PATH=/app/models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl
 ENV BP4_DATASET_VARIANT=LI-Medium
 
-EXPOSE 8001
-CMD ["uvicorn", "src.aml_riskiq.serving.bp4_scoring_service:app", "--host", "0.0.0.0", "--port", "8001"]
+# Hardening (this session): run as a non-root user, and give Docker's own HEALTHCHECK
+# visibility into the real /health endpoint this service already exposes -- previously only
+# docker-verify.yml's own curl polling loop checked it; now the image reports its own health
+# natively too (docker ps / a real orchestrator's liveness probe can both use it).
+RUN addgroup --system app && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
+
+EXPOSE 8004
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=2)" || exit 1
+CMD ["uvicorn", "src.aml_riskiq.serving.bp4_scoring_service:app", "--host", "0.0.0.0", "--port", "8004"]
