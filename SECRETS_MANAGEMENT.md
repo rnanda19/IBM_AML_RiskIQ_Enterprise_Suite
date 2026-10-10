@@ -15,6 +15,9 @@ This platform's underlying dataset (IBM's synthetic AML transaction data -- see 
 no real credentials, government IDs, or payment-card numbers to protect in the first place. The secrets
 surface here is narrow: one shared API key pattern, nothing else.
 
+## Required authentication for scoring containers
+Scoring-service Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default. A container refuses to start if `AML_RISKIQ_API_KEYS` is unset or empty. Supply a real secret through the deployment environment or a secrets manager; do not use the CI test key or the example placeholder in any real deployment. Local source execution can retain the documented open-mode behavior only when the operator explicitly leaves the require-auth gate disabled. The health endpoint remains unauthenticated for liveness checks and must not expose transaction-level data.
+
 ## Rotating a key
 Set `AML_RISKIQ_API_KEYS` to the new comma-separated list and restart the service -- there is no
 in-process rotation or dual-key grace period implemented. For a Docker deployment, this means updating the
