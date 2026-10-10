@@ -254,7 +254,7 @@ no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service
   into the image.
 
 ## Status
-The committed reports record evaluation verdicts for BP1-BP5 on LI-Medium and BP6 has a rollup reconciliation report. These recorded results are not equivalent to current deployment verification: BP2 still has a stale validation report, BP3 still lacks a required runtime lookup artifact, and BP6 is a batch job. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, with CI passing a disposable test key. See
+The committed reports record evaluation verdicts for BP1-BP5 on LI-Medium and BP6 has a rollup reconciliation report. These recorded results are not equivalent to current deployment verification: BP2 still has a stale validation report, BP3 still lacks a required runtime lookup artifact, and BP6 is a batch job. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, and CI is configured to pass a disposable test key; this branch's checks are still pending. See
 `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
 BP2's Docker image currently fails to start (stale validation-report fields) and BP3's required lookup
 Parquet has not yet been generated -- both require a real notebook re-run against the real dataset to fix
