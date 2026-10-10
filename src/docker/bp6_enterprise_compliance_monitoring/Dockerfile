@@ -34,4 +34,4 @@ ENV AML_RISKIQ_SUITE_ROOT=/app
 # remaining gap is disclosed honestly, not silently assumed, same convention as every other
 # honestly-flagged limitation in this platform's cards.
 CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", \
-     "notebooks/bp6_enterprise_compliance_monitoring/00_Executive_Rollup_Report.ipynb"]
+     "notebooks/bp6_enterprise_compliance_monitoring/IBM AML RiskIQ Enterprise Suite 00_Executive_Rollup_Report.ipynb"]
