@@ -154,19 +154,14 @@ an explicitly labeled ASSUMPTION -- see `reports/bp6_enterprise_compliance_monit
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Deck.pptx) &middot; [PDF Export](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Report.pdf)
 
 ### [BP1 -- Transaction Monitoring & Suspicious Activity Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Dashboard.html)
-Dataset label: `Is Laundering` (synthetic transactions). Champion **XGBoost**, Test PR-AUC **0.1242**, verdict **PASS**. The real
-function institutions themselves call a "transaction monitoring system" -- language drawn from a real
-Federal Reserve consent order and FinCEN's own civil-money-penalty language. Deployed, stops review of
-294,907 real false-positive alerts (**$4.79M** investigator-hours saved) while independently catching 319
-additional positive-labelled examples in the synthetic dataset (**$15.95M** illustrative regulatory-exposure-avoidance).
+Dataset label: `Is Laundering` (synthetic transactions). Champion **XGBoost**, reported test PR-AUC **0.1242**. This is a dataset-specific benchmark, not evidence of live-bank performance. The financial-impact illustration estimates investigator time and potential exposure using documented assumptions; it is not realized savings, and the number of examples is synthetic.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp1/BP1_Compliance_Impact_Deck.pptx)
 
 ### [BP2 -- Typology & Red-Flag Pattern Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Dashboard.html)
 Dataset label: `Patterns.txt`'s block-structured typology labels (up to 8 typologies -- fan-out,
 fan-in, gather-scatter, scatter-gather, cycle, random, bipartite, stack). Champion **RandomForest**, Test
 macro-F1 **0.4440**, verdict **PASS**. Matches FinCEN's own "red flags" typology-indicator language.
-In the evaluation data, auto-classifies 101 additional cases by typology (**$1,313** saved) and independently confirms the
-correct typology on 138 dataset cases a single-typology heuristic would miss (**$1.10M** confirmation value).
+In the evaluation data, the report estimates 101 additional typology classifications and 138 cases where a typology is confirmed beyond a single-typology heuristic. The associated dollar values are assumption-based scenarios, not realized savings.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp2/BP2_Compliance_Impact_Deck.pptx)
 
 ### [BP3 -- Transaction Network & Graph Intelligence](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Dashboard.html)
@@ -180,18 +175,12 @@ exists for this BP (disclosed honestly in `RULE_CARD.md`, never invented).
 
 ### [BP4 -- Structuring & Smurfing Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Dashboard.html)
 Targets a named federal crime (31 U.S.C. SS5324). Champion **XGBoost**, Test PR-AUC **0.1253**, verdict
-**PASS** -- the platform's highest real recall among its three binary BPs. Deployed, contributes the
-platform's single largest real dollar figure: **$65.00M** illustrative regulatory-exposure-avoidance from
-1,300 additional real structuring cases caught, plus **$4.23M** false-positive-reduction savings (65,120
-investigator hours).
+**PASS** in the documented synthetic-data evaluation -- the platform's highest reported recall among its three binary BPs. The report includes an illustrative **$65.00M** regulatory-exposure scenario and **$4.23M** investigator-capacity scenario based on 1,300 additional positive-labelled examples and 65,120 estimated hours; these are assumptions, not actual cases or realized savings.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Deck.pptx)
 
 ### [BP5 -- Correspondent Banking & Cross-Border Wire Risk](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Dashboard.html)
 Targets the risk area behind real HSBC, Standard Chartered, and Danske Bank enforcement actions. Champion
-**XGBoost**, Test PR-AUC **0.1399** (the platform's highest), verdict **PASS**, using 27 real features --
-the most of any binary BP. Deployed, delivers the platform's single largest real false-positive-reduction
-figure: **$4.85M** savings (74,649 investigator hours), plus **$17.00M** illustrative regulatory-exposure-
-avoidance from 340 additional positive-labelled dataset cases detected.
+**XGBoost**, reported test PR-AUC **0.1399** (the platform's highest), verdict **PASS** in the documented synthetic-data evaluation, using 27 features. The report includes an illustrative **$4.85M** investigator-capacity scenario (74,649 estimated hours) and **$17.00M** regulatory-exposure scenario from 340 additional positive-labelled examples. These are assumptions, not realized savings or actual bank cases.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp5/BP5_Compliance_Impact_Deck.pptx)
 
 Four BPs from the original 8-BP scaffold were dropped on review: Account/Entity AML Risk Scoring and Alert
@@ -217,7 +206,7 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 | `src/aml_riskiq/{serving,features,reporting,monitoring,utils,models,typology}/` | Shared component library -- FastAPI scoring services, feature engineering, report building, drift monitoring |
 | `src/aml_riskiq/{ingestion,graph,explainability}/` | Honest placeholders -- real logic (data loading, BP3's graph-structural rule, BP1/BP2/BP4/BP5's already-computed SHAP/LIME) currently lives inline per-notebook, not yet extracted into these modules (see each one's own README.md) |
 | `src/docker/` | One `Dockerfile` + `docker-compose.yml` + `.dockerignore` per BP |
-| `tests/` | `unit/` (pure-logic tests) + `integration/` (one folder per BP), pytest (52 tests, all passing) |
+| `tests/` | `unit/` (pure-logic tests) + `integration/` (one folder per BP); test count is reported by the current CI run |
 | `models/` | Trained artifacts per BP -- gitignored by default; the 6 small champion files `MODEL_REGISTRY.md` documents by SHA-256 are committed as an exception |
 | `reports/` | `MODEL_CARD.md`/`RULE_CARD.md`/`PLATFORM_CARD.md` + `CHANGELOG.md` per BP |
 | `configs/` | Per-BP YAML + resource-limit (WARP) ceilings |
@@ -244,18 +233,14 @@ curl http://localhost:8000/health
 # build + run a service's real Docker image
 docker compose -f src/docker/bp1_transaction_monitoring_detection/docker-compose.yml up --build
 ```
-When run directly from source, `/score` uses documented open mode only if `AML_RISKIQ_API_KEYS` is unset; configuring keys enforces API-key auth. **Scoring Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default and refuse startup without configured keys.** For Compose, export `AML_RISKIQ_API_KEYS` from a real secret source before starting the container; do not use the example placeholder. See `SECRETS_MANAGEMENT.md`, `SECURITY.md`, and `.env.example`.
-Set `AML_RISKIQ_REQUIRE_AUTH=true` as well in any non-local deployment to make a missing
-`AML_RISKIQ_API_KEYS` a hard startup failure instead of only a warning (open-mode-by-default for local
-dev/CI is unchanged either way) -- see `SECURITY.md` and `docs/security/THREAT_MODEL.md`. API keys may
+When run directly from source, `/score` uses documented open mode only if `AML_RISKIQ_API_KEYS` is unset; configuring keys enforces API-key auth. **Scoring Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default and refuse startup without configured keys.** For Compose, export `AML_RISKIQ_API_KEYS` from a real secret source before starting the container; do not use the example placeholder. Local source execution remains open-mode-capable for development, so set `AML_RISKIQ_REQUIRE_AUTH=true` for any non-local source deployment. See `SECRETS_MANAGEMENT.md`, `SECURITY.md`, and `.env.example`. API keys may
 optionally carry a role prefix (`role:key`) for the `require_role()` primitive in `_security.py`, though
 no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service also exposes
 `GET /metrics` (unauthenticated, Prometheus text format, real request/latency counters).
 
 ## Engineering & Testing
-- **Tests:** 100/100 passing (`pytest tests/`), covering all 5 FastAPI scoring services, the shared
-  `_security.py`/`_model_registry.py` modules (real 429 rate-limit and 401/200/403 auth integration tests,
-  not mocked), and the `casework` investigator-workflow foundation (see
+- **Tests:** 100/100 passing (`pytest tests/`), covering the scoring-service code, shared
+  `_security.py`/`_model_registry.py` modules (429 rate-limit and 401/200/403 auth integration tests), and the `casework` investigator-workflow foundation (see
   `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
 - **Type checking:** `mypy src/` -- 0 errors across 15 source files.
 - **Security scanning:** `bandit -r src/` -- 0 blocking findings, 7 low-severity baseline (see `SECURITY.md`);
@@ -269,9 +254,7 @@ no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service
   into the image.
 
 ## Status
-BP1, BP2, BP3, BP4, and BP5 have each completed real validation and passed both the structural and
-statistical-robustness gates on their mandatory LI-Medium tier; BP6's platform-wide rollup passes its own
-reconciliation gate as a pure pass-through of those five verdicts. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, with CI passing a disposable test key. See
+The committed reports record evaluation verdicts for BP1-BP5 on LI-Medium and BP6 has a rollup reconciliation report. These recorded results are not equivalent to current deployment verification: BP2 still has a stale validation report, BP3 still lacks a required runtime lookup artifact, and BP6 is a batch job. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, with CI passing a disposable test key. See
 `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
 BP2's Docker image currently fails to start (stale validation-report fields) and BP3's required lookup
 Parquet has not yet been generated -- both require a real notebook re-run against the real dataset to fix
