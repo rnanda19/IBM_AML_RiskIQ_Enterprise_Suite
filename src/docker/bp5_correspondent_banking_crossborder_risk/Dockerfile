@@ -20,6 +20,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Secure container default: refuse startup unless API keys are configured.
+ENV AML_RISKIQ_REQUIRE_AUTH=true
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt fastapi uvicorn
 
