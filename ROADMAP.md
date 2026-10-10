@@ -1,9 +1,7 @@
 # Roadmap
 
 ## Done
-- All 6 business problems (BP1-BP6): every gate real-run confirmed end to end, both mandatory (LI-Medium)
-  and stretch (HI-Small, where applicable) tiers. See `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the
-  real metric + exact artifact path behind every PASS verdict.
+- BP1-BP6 workstreams and their current evaluation/reporting artifacts are documented. This does **not** mean all six are deployment-verified: BP2's validation report needs a real refresh, BP3's lookup Parquet is pending, and BP6 is a batch job. See the defect register and evidence ledger for exact artifacts and limitations.
 - Full hardening pass: dependency lockfile (`requirements.in`/`requirements.txt`), mypy wired into CI/
   pre-commit (0 errors across 15 files), API-key auth + rate limiting + audit logging on all 5 scoring
   services, a real model-registry fingerprint exposed via `/health`, a real Docker COPY-path verifier that
@@ -14,9 +12,7 @@
   other platforms (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `DATA_PRIVACY.md`, `MODEL_REGISTRY.md`,
   `SECURITY.md`, `SECRETS_MANAGEMENT.md`, `CHANGELOG.md`, this file), plus a `.github/` CI suite (CI,
   Code Quality, CodeQL, Docker Build & Run Verification) -- all 4 workflows passing on `main`.
-- Real `docker build` + `docker run` + `/health` verification now runs in CI for BP1, BP4, and BP5
-  (`.github/workflows/docker-verify.yml`) -- confirms more than static COPY-path checking: the containers
-  actually build, start, and serve a real request.
+- Real `docker build` + `docker run` + `/health` verification runs in CI for BP1, BP4, and BP5 only. The workflow supplies a disposable CI API key because scoring containers now fail closed by default. BP2/BP3 remain blocked on real data artifacts; BP6 requires batch-job verification.
 
 ## In progress / pending
 - **BP2's Docker image won't start** (found 2026-10-03, first real CI run of `docker-verify.yml`) --
