@@ -144,3 +144,54 @@ def test_harden_app_enforces_api_key_when_configured(security_module, monkeypatc
     assert client.get("/protected", headers={"X-API-Key": "wrong"}).status_code == 401
     resp = client.get("/protected", headers={"X-API-Key": "test-key-123"})
     assert resp.status_code == 200
+
+
+def test_warn_if_open_mode_prints_warning_when_require_auth_unset(security_module, monkeypatch, capsys):
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    monkeypatch.delenv("AML_RISKIQ_REQUIRE_AUTH", raising=False)
+    security_module.warn_if_open_mode("test_service")
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_warn_if_open_mode_raises_when_require_auth_true_and_no_keys(security_module, monkeypatch):
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    monkeypatch.setenv("AML_RISKIQ_REQUIRE_AUTH", "true")
+    with pytest.raises(RuntimeError, match="REFUSING TO START"):
+        security_module.warn_if_open_mode("test_service")
+
+
+def test_warn_if_open_mode_does_not_raise_when_require_auth_true_and_keys_set(
+    security_module, monkeypatch, capsys
+):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "real-key")
+    monkeypatch.setenv("AML_RISKIQ_REQUIRE_AUTH", "true")
+    security_module.warn_if_open_mode("test_service")  # should not raise
+    assert "WARNING" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "Yes"])
+def test_require_auth_enabled_truthy_values(security_module, monkeypatch, value):
+    monkeypatch.setenv("AML_RISKIQ_REQUIRE_AUTH", value)
+    assert security_module._require_auth_enabled() is True
+
+
+@pytest.mark.parametrize("value", ["0", "false", "no", "", None])
+def test_require_auth_enabled_falsy_values(security_module, monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("AML_RISKIQ_REQUIRE_AUTH", raising=False)
+    else:
+        monkeypatch.setenv("AML_RISKIQ_REQUIRE_AUTH", value)
+    assert security_module._require_auth_enabled() is False
+
+
+def test_harden_app_raises_when_require_auth_true_and_no_keys(security_module, monkeypatch):
+    """harden_app() must propagate the fail-closed RuntimeError rather than swallow it --
+    confirms the gate actually blocks real service startup, not just the helper in isolation."""
+    from fastapi import FastAPI
+
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    monkeypatch.setenv("AML_RISKIQ_REQUIRE_AUTH", "true")
+
+    app = FastAPI()
+    with pytest.raises(RuntimeError, match="REFUSING TO START"):
+        security_module.harden_app(app, "test_service")

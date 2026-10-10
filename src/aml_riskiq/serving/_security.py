@@ -26,7 +26,19 @@ What this module provides, and the honest limits of each:
      is standard practice -- `/health` here returns no transaction data, only service metadata
      that was already public in this repo's own saved validation reports.
 
-2. RATE LIMITING (`get_limiter()` + `@limiter.limit(...)`)
+2. FAIL-CLOSED PRODUCTION GATE (`AML_RISKIQ_REQUIRE_AUTH`)
+   - Open mode above is a deliberate default so local dev / CI / pytest stay green with zero
+     setup -- but that same default is wrong for a real deployment, where an operator who
+     forgot to set AML_RISKIQ_API_KEYS should get a hard failure at startup, not a service
+     that silently serves every request unauthenticated.
+   - Set AML_RISKIQ_REQUIRE_AUTH=true (or "1"/"yes", case-insensitive) to make that failure
+     explicit: if it is true AND AML_RISKIQ_API_KEYS is unset/empty, `warn_if_open_mode()`
+     (called once at service startup, before the app can serve traffic) raises RuntimeError
+     instead of only warning, so the service refuses to boot rather than boot open. Leaving
+     AML_RISKIQ_REQUIRE_AUTH unset preserves the exact open-mode-by-default behavior this
+     module has always had; this is strictly additive.
+
+3. RATE LIMITING (`get_limiter()` + `@limiter.limit(...)`)
    - Real, enforced via `slowapi` (a FastAPI/Starlette wrapper around the battle-tested
      `limits` library), keyed by the caller's remote address by default.
    - Default budget for `/score` is DEFAULT_SCORE_RATE_LIMIT ("60/minute") -- generous enough
@@ -35,7 +47,7 @@ What this module provides, and the honest limits of each:
      deployment via the AML_RISKIQ_SCORE_RATE_LIMIT env var (same string syntax `slowapi`/
      `limits` accepts, e.g. "600/minute").
 
-3. AUDIT LOGGING (`audit_log` + `AuditLogMiddleware`)
+4. AUDIT LOGGING (`audit_log` + `AuditLogMiddleware`)
    - Every request to every route gets ONE structured JSON line on the `aml_riskiq.audit`
      logger (stdout by default), with: UTC ISO timestamp, service name, HTTP method, path,
      status code, latency in milliseconds, caller IP, and the API-key fingerprint described
@@ -72,6 +84,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 API_KEYS_ENV_VAR = "AML_RISKIQ_API_KEYS"
 RATE_LIMIT_ENV_VAR = "AML_RISKIQ_SCORE_RATE_LIMIT"
+REQUIRE_AUTH_ENV_VAR = "AML_RISKIQ_REQUIRE_AUTH"
 DEFAULT_SCORE_RATE_LIMIT = "60/minute"
 
 _audit_logger = logging.getLogger("aml_riskiq.audit")
@@ -91,6 +104,18 @@ def _configured_api_keys() -> set[str] | None:
     if raw is None or raw.strip() == "":
         return None
     return {k.strip() for k in raw.split(",") if k.strip()}
+
+
+def _truthy(value: str | None) -> bool:
+    """Parses a boolean-ish env var string ("true"/"1"/"yes", case-insensitive -> True;
+    anything else, including unset/empty, -> False)."""
+    return (value or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _require_auth_enabled() -> bool:
+    """Whether AML_RISKIQ_REQUIRE_AUTH is set to a truthy value. Re-read on every call, same
+    monkeypatch-friendliness as _configured_api_keys()."""
+    return _truthy(os.environ.get(REQUIRE_AUTH_ENV_VAR))
 
 
 def _key_fingerprint(key: str) -> str:
@@ -116,16 +141,31 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> str:
 
 
 def warn_if_open_mode(service_name: str) -> None:
-    """Call once at service startup (module import time) -- prints an unmissable stderr
-    warning when AML_RISKIQ_API_KEYS is unset, so open mode is never silently in effect in an
-    environment where someone expected auth to be enforced."""
-    if _configured_api_keys() is None:
-        print(
-            f"[{service_name}] WARNING: {API_KEYS_ENV_VAR} is not set -- this service is "
-            "running WITHOUT API-key auth (open mode). Set AML_RISKIQ_API_KEYS to a "
-            "comma-separated list of keys to require authentication on protected endpoints.",
-            file=sys.stderr,
+    """Call once at service startup (module import time). When AML_RISKIQ_API_KEYS is unset:
+    - if AML_RISKIQ_REQUIRE_AUTH is also truthy, raises RuntimeError and refuses to let the
+      service start in open mode (the fail-closed production gate -- see module docstring
+      section 2);
+    - otherwise prints an unmissable stderr warning and lets the service start in open mode,
+      exactly as before this gate existed, so open mode is never silently in effect in an
+      environment where someone expected auth to be enforced, and local dev / CI are
+      unaffected by default."""
+    if _configured_api_keys() is not None:
+        return
+    if _require_auth_enabled():
+        raise RuntimeError(
+            f"[{service_name}] REFUSING TO START: {REQUIRE_AUTH_ENV_VAR} is set but "
+            f"{API_KEYS_ENV_VAR} is unset/empty. Set {API_KEYS_ENV_VAR} to a comma-separated "
+            "list of keys, or unset AML_RISKIQ_REQUIRE_AUTH to run in open mode (not "
+            "recommended outside local development)."
         )
+    print(
+        f"[{service_name}] WARNING: {API_KEYS_ENV_VAR} is not set -- this service is "
+        "running WITHOUT API-key auth (open mode). Set AML_RISKIQ_API_KEYS to a "
+        f"comma-separated list of keys to require authentication on protected endpoints, or "
+        f"set {REQUIRE_AUTH_ENV_VAR}=true to make a missing key set a hard startup failure "
+        "instead of a warning.",
+        file=sys.stderr,
+    )
 
 
 def get_limiter() -> Limiter:
@@ -213,7 +253,11 @@ def harden_app(app: FastAPI, service_name: str) -> Limiter:
     API-key auth is deliberately NOT wired here as a blanket dependency -- it is attached per
     route (via `Depends(require_api_key)`) so each service can choose which routes are
     protected (every service protects `/score`; none protect `/health`, for the liveness-probe
-    reason documented at the top of this module)."""
+    reason documented at the top of this module).
+
+    Also calls `warn_if_open_mode()`, which raises RuntimeError and prevents the service from
+    starting if AML_RISKIQ_REQUIRE_AUTH is set but AML_RISKIQ_API_KEYS is not (see module
+    docstring section 2) -- callers do not need to call it separately."""
     limiter = get_limiter()
     app.state.limiter = limiter
     # NOTE: the ignore markers on the next two lines follow slowapi's own documented
@@ -238,11 +282,12 @@ def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Re
 __all__ = [
     "API_KEYS_ENV_VAR",
     "RATE_LIMIT_ENV_VAR",
-    "DEFAULT_SCORE_RATE_LIMIT",
+    "REQUIRE_AUTH_ENV_VAR",
     "require_api_key",
     "get_limiter",
     "score_rate_limit",
     "harden_app",
     "audit_log",
     "AuditLogMiddleware",
+    "warn_if_open_mode",
 ]

@@ -16,6 +16,14 @@ development and this project's own CI/pytest suite green without injecting a cre
 `/health` is deliberately never auth-gated (liveness/readiness probes need to reach it without a key, and
 it leaks nothing beyond what a model-registry fingerprint already discloses -- see `MODEL_REGISTRY.md`).
 
+**Fail-closed production gate:** open mode is a deliberate default for local dev / CI, not a safe default
+for a real deployment. Set `AML_RISKIQ_REQUIRE_AUTH=true` to make that explicit: if it is true and
+`AML_RISKIQ_API_KEYS` is unset or empty, the service refuses to start (raises at startup) instead of
+quietly serving unauthenticated traffic. Leaving `AML_RISKIQ_REQUIRE_AUTH` unset preserves today's
+open-mode-by-default behavior exactly -- this is an opt-in deployment control, not a change to the
+default. Recommended: set both `AML_RISKIQ_API_KEYS` and `AML_RISKIQ_REQUIRE_AUTH=true` in every
+non-local deployment.
+
 ## Rate limiting
 Real token-bucket rate limiting via `slowapi`, default 60 requests/minute per caller on `/score`,
 overridable via `AML_RISKIQ_SCORE_RATE_LIMIT`. Exceeding it returns a real `429`, not a soft warning.
