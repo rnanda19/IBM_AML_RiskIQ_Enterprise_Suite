@@ -63,7 +63,7 @@ flowchart TD
 
     NB ==> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1 – BP5"]:::report
     R1 ==> R2["BP6 PLATFORM_CARD.md<br/>platform rollup, no model of its own"]:::report
-    R2 ==> DOKB["Docker: BP6<br/>one-shot batch job, no port"]:::dockerwarn
+    R2 ==> DOKB["Docker: BP6<br/>batch smoke check pending"]:::dockerwarn
 
     classDef source fill:#0ea5e9,stroke:#0369a1,color:#ffffff,stroke-width:3px,font-weight:bold
     classDef stage fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff,stroke-width:3px,font-weight:bold
@@ -78,19 +78,12 @@ flowchart TD
     linkStyle default stroke:#0f172a,stroke-width:3px
 ```
 
-Every box above is a real, committed component of this repository -- there is no hosted/live deployment layer
-yet (see `ROADMAP.md`). Three of the six BPs' Docker images are disclosed as not yet end-to-end verified:
-**BP2** crashes on startup (its committed validation report predates a hardening edit that added two keys
-the service now requires -- fix is a real notebook re-run, not a patch); **BP3** depends on an artifact
-(`*_near_train_flagged_lookup_*.parquet`) this platform has not yet generated; **BP6** has no port/`/health`
-endpoint to poll (it is a one-shot report job, not a scoring API). See `ROADMAP.md`,
-`scripts/check_docker_copy_paths.py`, and `.github/workflows/docker-verify.yml` for exactly how each is
-scoped.
+Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). BP1, BP4 and BP5 have scoring-service build/run checks. **BP2** remains blocked on a real validation-report refresh; **BP3** remains blocked on the missing lookup Parquet. **BP6** is a one-shot batch job rather than an API, so `.github/workflows/docker-verify.yml` now executes it and checks its report outputs instead of polling `/health`; that check is pending on the current branch. See the workflow and defect register for exact scope.
 
 ## Table of Contents
 - [Dataset](#dataset)
 - [Methodology](#methodology)
-- [Business Problems](#business-problems-6---finalized-real-ground-truth-verified)
+- [Business Problems](#business-problems-6--current-evidence-and-limitations)
 - [Repository Structure](#repository-structure)
 - [How to Run](#how-to-run)
 - [Engineering & Testing](#engineering--testing)
