@@ -1,7 +1,7 @@
 {
   "bp_id": "BP2",
   "bp_name": "Typology & Red-Flag Pattern Detection",
-  "generated_at_utc": "2026-10-01T08:00:27.273774+00:00",
+  "generated_at_utc": "2026-10-12T04:41:50.544659+00:00",
   "dataset_variant": "LI-Medium",
   "random_seed": 42,
   "primary_metric": "macro_f1",
@@ -122,6 +122,8 @@
     }
   },
   "champion_name": "RandomForest",
+  "champion_needs_rf_impute": true,
+  "rf_impute_value": 1.0,
   "test_metrics": {
     "macro_f1": 0.4439936784536049
   },
@@ -196,7 +198,7 @@
         ],
         [
           "receiver_distinct_counterparties_to_date <= 2.00",
-          0.07052984090773128
+          0.07052984090773126
         ],
         [
           "payment_format_code=0",
@@ -216,11 +218,11 @@
         ],
         [
           "hour <= 8.00",
-          0.017861590202603708
+          0.01786159020260371
         ],
         [
           "receiver_txn_count_to_date <= 3.00",
-          0.012736112246733197
+          0.012736112246733199
         ]
       ]
     },
@@ -238,27 +240,27 @@
         ],
         [
           "is_same_bank=0",
-          -0.02230453819376906
+          -0.022304538193769048
         ],
         [
           "log_amount_paid <= 8.72",
-          0.02132624618546606
+          0.02132624618546607
         ],
         [
           "payment_format_code=0",
-          0.016253561767934573
+          0.01625356176793457
         ],
         [
           "16.77 < receiver_hours_since_prev_txn <= 87.77",
-          0.01590611019878215
+          0.01590611019878216
         ],
         [
           "sender_hours_since_prev_txn <= 0.00",
-          0.0083461015194517
+          0.008346101519451704
         ],
         [
           "8.00 < hour <= 12.00",
-          0.008217886634852942
+          0.008217886634852936
         ]
       ]
     },
@@ -268,19 +270,19 @@
       "explanation": [
         [
           "receiver_distinct_counterparties_to_date > 5.00",
-          0.16901417141715913
+          0.16901417141715916
         ],
         [
           "sender_distinct_counterparties_to_date <= 2.00",
-          -0.05972279104196123
+          -0.059722791041961217
         ],
         [
           "is_same_bank=0",
-          -0.03884686080682894
+          -0.03884686080682893
         ],
         [
           "payment_format_code=0",
-          0.03840581370699672
+          0.03840581370699671
         ],
         [
           "sender_txn_count_to_date <= 3.00",
@@ -321,7 +323,7 @@
     "rows_checked": 480,
     "mismatches": 0,
     "max_abs_diff": 2.220446049250313e-16,
-    "mean_abs_diff": 4.6613465402393454e-17
+    "mean_abs_diff": 5.0353962897468445e-17
   },
   "note": "BP2 Notebook 3 real run against LI-Medium. If the thin-class WARNING above fired, re-run with DATASET_VARIANT='HI-Medium' for a real, more stable comparison -- this report and that one would be saved separately (variant-tagged filenames), never blended into one unlabeled figure."
 }
