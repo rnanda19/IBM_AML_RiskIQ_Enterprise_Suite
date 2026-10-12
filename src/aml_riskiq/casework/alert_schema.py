@@ -32,13 +32,48 @@ class CaseStatus(str, Enum):
 
 class CaseEvent(BaseModel):
     """One recorded transition in an alert's audit history. Immutable once created -- see
-    case_lifecycle.transition(), which is the only code path that should ever append one."""
+    case_lifecycle.transition(), which is the only code path that should ever append one.
+
+    event_hash/prev_event_hash form a hash chain over the full history (see
+    case_lifecycle._compute_event_hash() / verify_history_integrity()): each event's hash
+    covers its own fields AND the prior event's hash, so altering, reordering, or deleting a
+    past event breaks every hash computed after it -- tamper-EVIDENT, not tamper-proof (it
+    detects an edit made outside this chain's own append path, e.g. a direct row edit in the
+    store's case_events table; it is not a cryptographic non-repudiation signature scheme and
+    does not claim to be one). Both are REQUIRED (no default) because transition() is the
+    only code path that should ever construct a CaseEvent, and it always computes both."""
 
     timestamp: datetime
     actor: str
     from_status: CaseStatus | None
     to_status: CaseStatus
     note: str | None = None
+    prev_event_hash: str | None = None
+    event_hash: str
+
+
+class CaseNote(BaseModel):
+    """One free-text investigation note, appended by an investigator/compliance officer
+    working the case. Append-only by convention, same as CaseEvent -- see
+    case_lifecycle.add_note()."""
+
+    note_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime
+    actor: str
+    text: str
+
+
+class EvidenceReference(BaseModel):
+    """One evidence REFERENCE attached to a case -- a pointer to supporting material
+    (a document path/URL, a transaction ID, a prior report section), never the material
+    itself: this platform has no document store, so it never fabricates one. Append-only by
+    convention, same as CaseEvent -- see case_lifecycle.add_evidence()."""
+
+    evidence_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime
+    actor: str
+    description: str
+    external_ref: str | None = None
 
 
 class Alert(BaseModel):
@@ -70,7 +105,11 @@ class Alert(BaseModel):
 
     reason_codes: list[str] = Field(default_factory=list)  # caller-supplied; see explainability module
     status: CaseStatus = CaseStatus.NEW
+    assigned_to: str | None = None  # the investigator/compliance-officer actor currently
+    # responsible for this case -- set by case_lifecycle.assign(), never by transition()
     history: list[CaseEvent] = Field(default_factory=list)
+    notes: list[CaseNote] = Field(default_factory=list)
+    evidence: list[EvidenceReference] = Field(default_factory=list)
 
 
 def alert_from_score_response(

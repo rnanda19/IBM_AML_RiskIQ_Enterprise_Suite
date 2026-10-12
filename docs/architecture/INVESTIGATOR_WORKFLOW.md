@@ -1,7 +1,12 @@
 # Investigator Workflow -- Design and Honest Scope
 
 Addresses the external benchmark review's Prompt 5 ("connect detection to auditable case
-management"). Implemented as a new package, `src/aml_riskiq/casework/`, this session.
+management"). Implemented as a new package, `src/aml_riskiq/casework/`, in an earlier session, and
+**wired into a real, RBAC-protected, persisted REST API** --
+`src/aml_riskiq/serving/case_management_service.py` -- in the 2026-10-12 RBAC/case-management phase.
+This document now describes both: the package (design/foundation) and the service (what actually runs).
+See `docs/security/RBAC.md` for the service's permission matrix and
+`docs/security/THREAT_MODEL.md` for its threat-model entry.
 
 ## What exists now
 
@@ -27,40 +32,68 @@ management"). Implemented as a new package, `src/aml_riskiq/casework/`, this ses
   criterion ("an independent reviewer must be able to start with a sample alert and reconstruct why it
   was created... and how it was handled afterward") for any `Alert` object, real or test.
 
-18 new tests (`tests/unit/test_casework.py`), all synthetic fixtures built in the test file itself --
-95/95 total project tests passing; flake8/black/isort/mypy/bandit all clean on the new code.
+18 original tests (`tests/unit/test_casework.py`), all synthetic fixtures built in the test file itself.
+The 2026-10-12 phase added: `prev_event_hash`/`event_hash` on every `CaseEvent` (a SHA-256 hash chain) and
+`verify_history_integrity()`, plus `assign()`, `add_note()`, `add_evidence()` on `Alert` (12 more tests in
+`test_casework.py`); a full SQLite-backed `AlertStore` persistence layer, `src/aml_riskiq/casework/store.py`
+(20 tests, `tests/unit/test_casework_store.py`); and the REST API described below (43 tests,
+`tests/integration/case_management/test_case_management_service.py`). flake8/black/isort/mypy/bandit all
+clean on the new code; 0 regressions in the pre-existing suite.
+
+## What exists now -- the REST API (added 2026-10-12)
+
+`src/aml_riskiq/serving/case_management_service.py` is a real, standalone FastAPI service (not a
+notebook, not a script) exposing the `casework` package as 12 routes: create/list/get alerts, assign,
+add a note, add evidence, export evidence, transition status, verify integrity, and a reconciliation
+report, plus `/health` and `/metrics`. Every non-public route is RBAC-protected (`analyst`,
+`investigator`, `compliance_officer`, `admin` -- see `docs/security/RBAC.md` for the full matrix) using
+the same `_security.py` auth module every BP1-BP5 scoring service already shares, so there is exactly one
+auth module in the whole platform, not a second one invented for this service. It has its own Dockerfile
+(`src/docker/case_management/`), its own rate-limit budget (`AML_RISKIQ_CASE_RATE_LIMIT`), and its own CI
+job in `.github/workflows/docker-verify.yml` (build, fail-closed-auth check, a live create-then-reject
+unauthenticated-write check against the running container).
 
 ## What does NOT exist yet (disclosed, not hidden)
 
-- **Not wired into any live scoring service.** None of BP1/BP2/BP4/BP5's `/score` routes construct an
-  `Alert` today -- this package operates on `Alert` objects a caller builds or passes in. Wiring it in
-  is real future work (and would need `require_role()` from `_security.py` to actually matter, since a
-  case-management route is exactly the kind of second route role differentiation was built for).
-- **No persistent store.** `Alert`/`CaseEvent` are in-memory Pydantic objects. A real deployment needs
-  a database (or at minimum a file-backed store) to keep case state across process restarts -- not
-  built here.
-- **No real case data.** Every example in this session's tests is synthetic, built directly in the
-  test file. This package has never touched a real scored transaction.
-- **A real architecture gap this work surfaced**: none of the 5 scoring services' `/score` requests or
-  responses carry a transaction or account identifier today -- each takes only raw feature values and
-  returns only a probability (see `alert_schema.py`'s module docstring). `alert_from_score_response()`
+- **Not wired into any BP1-BP5 scoring service.** None of BP1/BP2/BP4/BP5's `/score` routes construct an
+  `Alert` automatically today -- the Case Management Service's `POST /alerts` still requires a caller
+  (human or script) to submit the alert; there is no automatic pipeline from a scoring decision straight
+  into a case. Building that pipeline is real future work.
+- **No real case data.** Every example in this project's tests (unit and integration) is synthetic,
+  built directly in the test files. The service has never been pointed at a real scored transaction.
+- **A real architecture gap this work surfaced, still open**: none of the 5 scoring services' `/score`
+  requests or responses carry a transaction or account identifier today -- each takes only raw feature
+  values and returns only a probability (see `alert_schema.py`'s module docstring). `alert_from_score_response()`
   requires the caller to supply `entity_ref` themselves because the service has no way to supply one.
   Fixing this at the service layer (adding an identifier field to each BP's request/response schema) is
-  a prerequisite for ever wiring this package into a live service, and has not been done.
-- **No RBAC applied.** `require_role()` exists in `_security.py` (added earlier this session) but
-  nothing in this package or the live services uses it yet.
+  a prerequisite for an automatic scoring-to-case pipeline, and has not been done.
+- **No identity directory.** The Case Management Service's `actor` fields are API-key fingerprints, not
+  named users -- see `docs/security/RBAC.md`'s "Identity model" section.
+- **RBAC still does not reach BP1-BP5's `/score` routes.** `require_role()`/`require_any_role()` now
+  genuinely protect the Case Management Service (this is what closed `docs/audit/DEFECT_REGISTER.md`'s
+  DEF-003 for this surface), but the 5 scoring services still have only `/health` and a single-tier
+  `/score` -- there is still no second route on any of them for a role distinction to protect.
+- **Tamper-evidence, not tamper-proofing.** The hash chain over `CaseEvent.history` detects an
+  out-of-band edit on reload; it cannot prove the very first event in a chain was the true original. See
+  `SECURITY.md`'s "Case management audit trail" section.
+- **SQLite is not cluster-aware.** The persistence layer is a single on-disk file, correct for this
+  platform's one-process-per-container shape; a multi-replica deployment of this service would need a
+  real client-server database instead.
 
-## Why this is a package, not a route, this session
+## Why the package came before the route (historical note)
 
-Wiring this into 5 live FastAPI services, adding a persistent store, and adding an identifier field to
-every service's request/response schema (a breaking API change for all 5) is substantially more surface
-area than one batch of this session's work should responsibly cover alongside everything already
-changed. This package is the real, tested foundation that wiring would build on -- shipped honestly as a
-foundation, not described as a finished investigator-workflow feature.
+The `casework` package was deliberately shipped as a tested foundation, not a route, in the batch that
+first built it: wiring it into a live FastAPI service, adding a persistent store, and protecting it with
+RBAC was substantially more surface area than that batch's work should have covered alongside everything
+else changed at the time. The 2026-10-12 RBAC/case-management phase is that deferred work, done as its
+own scoped batch once the foundation existed to build it on.
 
 ## See it run
 
-[`CASEWORK_WORKED_EXAMPLE.md`](CASEWORK_WORKED_EXAMPLE.md) is a real, captured transcript of this
-package's own functions run end to end on one synthetic alert -- `/score`-shaped input through
-investigator transitions to a JSON audit-reconstruction bundle. It demonstrates the plumbing above
-working, not a live service.
+[`CASEWORK_WORKED_EXAMPLE.md`](CASEWORK_WORKED_EXAMPLE.md) is a real, captured transcript of the
+`casework` package's own functions run end to end on one synthetic alert -- `/score`-shaped input through
+investigator transitions to a JSON audit-reconstruction bundle. It demonstrates the package's plumbing
+directly (useful for understanding the data model), not the live service. For the live service, exercise
+`src/aml_riskiq/serving/case_management_service.py` itself (see `docs/deployment/DEPLOYMENT_GUIDE.md`) or
+read `tests/integration/case_management/test_case_management_service.py`, which runs it end to end
+including real RBAC enforcement.

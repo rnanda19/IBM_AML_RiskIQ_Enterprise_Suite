@@ -50,15 +50,19 @@ flowchart TD
     M4 ==> S4["bp4_scoring_service<br/>:8004"]:::service
     M5 ==> S5["bp5_scoring_service<br/>:8002"]:::service
 
-    SEC["_security.py<br/>API-key auth · rate-limit · audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
+    SEC["_security.py<br/>API-key auth · RBAC · rate-limit · audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
     REG["_model_registry.py<br/>live SHA-256 + mtime under /health"]:::infra -.-> S1 & S2 & S4 & S5
 
     S1 & S2 & S3 & S4 & S5 ==> DOK["Docker: BP1-BP5<br/>build + run + fail-closed-auth verified in CI"]:::docker
 
-    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (100 tests)"]:::ci
+    CW["casework package<br/>Alert/CaseEvent/AlertStore (SQLite)"]:::model ==> CMS["case_management_service<br/>:8005 · RBAC-protected"]:::service
+    SEC -.-> CMS
+
+    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (189 tests)"]:::ci
     DOK ==> CI2["code-quality.yml<br/>bandit + format"]:::ci
     DOK ==> CI3["codeql.yml<br/>weekly security scan"]:::ci
-    DOK ==> CI4["docker-verify.yml<br/>build + poll /health"]:::ci
+    DOK ==> CI4["docker-verify.yml<br/>build + poll /health (incl. case-management)"]:::ci
+    CMS ==> CI4
 
     NB ==> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1 – BP5"]:::report
     R1 ==> R2["BP6 PLATFORM_CARD.md<br/>platform rollup, no model of its own"]:::report
@@ -78,7 +82,7 @@ flowchart TD
   style CANVAS fill:#e5e7eb,stroke:none
 ```
 
-Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
+Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). The Case Management Service (`:8005`) is a 6th, RBAC-protected live service added 2026-10-12, built on the `casework` package and its own SQLite-backed store -- see `docs/security/RBAC.md` for its permission matrix. See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
 
 ## Table of Contents
 - [Dataset](#dataset)
@@ -198,13 +202,14 @@ renamed or reorganized once notebooks start writing paths into it. At a glance:
 |---|---|
 | `notebooks/` | `00_hardware_benchmark/` + one folder per BP; each BP is 4 real single-cell scripts (BP6 is 1 consolidated `.ipynb`) |
 | `src/aml_riskiq/{serving,features,reporting,monitoring,utils,models,typology}/` | Shared component library -- FastAPI scoring services, feature engineering, report building, drift monitoring |
+| `src/aml_riskiq/casework/` | Alert/case-lifecycle package (schema, state machine, dedup, reconciliation, evidence export, SQLite `AlertStore`) backing the Case Management Service |
 | `src/aml_riskiq/{ingestion,graph,explainability}/` | Honest placeholders -- real logic (data loading, BP3's graph-structural rule, BP1/BP2/BP4/BP5's already-computed SHAP/LIME) currently lives inline per-notebook, not yet extracted into these modules (see each one's own README.md) |
 | `src/docker/` | One `Dockerfile` + `docker-compose.yml` + `.dockerignore` per BP |
 | `tests/` | `unit/` (pure-logic tests) + `integration/` (one folder per BP); test count is reported by the current CI run |
 | `models/` | Trained artifacts per BP -- gitignored by default; the 6 small champion files `MODEL_REGISTRY.md` documents by SHA-256 are committed as an exception |
 | `reports/` | `MODEL_CARD.md`/`RULE_CARD.md`/`PLATFORM_CARD.md` + `CHANGELOG.md` per BP |
 | `configs/` | Per-BP YAML + resource-limit (WARP) ceilings |
-| `docs/` | Evidence Ledger, compliance mapping, data dictionary |
+| `docs/` | Evidence Ledger, compliance mapping, data dictionary, `docs/security/` (RBAC matrix + threat model), `docs/architecture/` (investigator workflow) |
 | `.github/` | CI workflows, issue/PR templates, CODEOWNERS, Dependabot |
 | `linkedin/` | Portfolio-publishing packaging notes |
 
@@ -228,19 +233,41 @@ curl http://localhost:8000/health
 docker compose -f src/docker/bp1_transaction_monitoring_detection/docker-compose.yml up --build
 ```
 When run directly from source, `/score` uses documented open mode only if `AML_RISKIQ_API_KEYS` is unset; configuring keys enforces API-key auth. **Scoring Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default and refuse startup without configured keys.** For Compose, export `AML_RISKIQ_API_KEYS` from a real secret source before starting the container; do not use the example placeholder. Local source execution remains open-mode-capable for development, so set `AML_RISKIQ_REQUIRE_AUTH=true` for any non-local source deployment. See `SECRETS_MANAGEMENT.md`, `SECURITY.md`, and `.env.example`. API keys may
-optionally carry a role prefix (`role:key`) for the `require_role()` primitive in `_security.py`, though
-no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service also exposes
-`GET /metrics` (unauthenticated, Prometheus text format, real request/latency counters).
+optionally carry a role prefix (`role:key`); BP1-BP5's `/score` routes still accept any valid key
+regardless of role (see `docs/audit/DEFECT_REGISTER.md` DEF-003), but the new **Case Management Service**
+genuinely enforces 4 roles (`analyst`/`investigator`/`compliance_officer`/`admin`) via `require_any_role()`
+-- see `docs/security/RBAC.md`. Each service also exposes `GET /metrics` (unauthenticated, Prometheus text
+format, real request/latency counters).
+
+```bash
+# run the Case Management Service locally (RBAC-protected; see docs/security/RBAC.md)
+AML_RISKIQ_API_KEYS=analyst:k1,investigator:k2,compliance_officer:k3,admin:k4 \
+  uvicorn src.aml_riskiq.serving.case_management_service:app --reload --port 8005
+curl -H "X-API-Key: k2" http://localhost:8005/alerts
+
+# build + run its real Docker image
+docker compose -f src/docker/case_management/docker-compose.yml up --build
+```
 
 ## Engineering & Testing
-- **Tests:** 100/100 passing (`pytest tests/`), covering the scoring-service code, shared
-  `_security.py`/`_model_registry.py` modules (429 rate-limit and 401/200/403 auth integration tests), and the `casework` investigator-workflow foundation (see
+- **Tests:** 189/189 passing (`pytest tests/`), covering the scoring-service code, shared
+  `_security.py`/`_model_registry.py` modules (429 rate-limit and 401/200/403 auth integration tests), the
+  `casework` package and its SQLite-backed `AlertStore`, and the **Case Management Service's 43-test RBAC
+  security suite** (positive/negative access per role per route, input-validation 422s, audit-log and
+  hash-chain-tamper verification -- see `docs/security/RBAC.md` and
   `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
-- **Type checking:** `mypy src/` -- 0 errors across 15 source files.
+- **Type checking:** `mypy src/` -- 0 errors.
 - **Security scanning:** `bandit -r src/` -- 0 blocking findings, 7 low-severity baseline (see `SECURITY.md`);
   CodeQL runs weekly + on every push/PR.
 - **Hardening:** API-key authentication, per-route rate limiting (`slowapi`), and structured JSON audit
   logging on every scoring request -- added across BP1/BP2/BP4/BP5 in the 2026-10-02 hardening pass.
+- **RBAC:** 4 real roles (`analyst`, `investigator`, `compliance_officer`, `admin`) enforced on all 12
+  non-public Case Management Service routes via `require_any_role()`/`require_role()` -- the first routes
+  in the platform to actually use the role-aware API keys added earlier; BP1-BP5's `/score` routes are
+  still single-tier (see `docs/audit/DEFECT_REGISTER.md` DEF-003).
+- **Audit trail:** every case status transition, assignment, note, and evidence addition is recorded
+  with caller fingerprint, action, and timestamp, linked into a SHA-256 hash chain for tamper-evidence
+  (not tamper-proofing -- see `SECURITY.md`'s "Case management audit trail" section).
 - **Model registry:** every running service recomputes its own champion model's SHA-256 (streamed) and
   filesystem mtime at import time and exposes both under `/health` -- see `MODEL_REGISTRY.md`.
 - **Docker:** a real, permanent regression guard (`scripts/check_docker_copy_paths.py`, wired into CI)
@@ -250,14 +277,19 @@ no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service
 ## Status
 The committed reports record evaluation verdicts for all 6 BPs on LI-Medium. These recorded results are not
 equivalent to live deployment verification by themselves: `docker-verify.yml` builds, starts, and polls
-`/health` for all 5 scoring services (BP1-BP5), each proving the fail-closed-by-default auth works before
-running with a disposable CI key, plus a separate `bp6-batch` job verified by execution + report-output
-checks (BP6 has no port/`/health`, so it is never polled). BP2's and BP3's real artifacts (DEF-001/DEF-002)
-were regenerated 2026-10-12 via real notebook re-runs and both services were re-added to the workflow --
-the assistant has not directly observed a passing GitHub Actions run of this workflow (no Docker daemon is
-available in its own sandboxes), so confirm current status on the repository's Actions tab before relying
-on it. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented. See
-`docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
+`/health` for all 5 scoring services (BP1-BP5) plus the new Case Management Service, each proving the
+fail-closed-by-default auth works before running with a disposable CI key (the case-management job also
+checks a live, running container actually rejects an unauthenticated write with 401), plus a separate
+`bp6-batch` job verified by execution + report-output checks (BP6 has no port/`/health`, so it is never
+polled). BP2's and BP3's real artifacts (DEF-001/DEF-002) were regenerated 2026-10-12 via real notebook
+re-runs and both services were re-added to the workflow -- the assistant has not directly observed a
+passing GitHub Actions run of this workflow (no Docker daemon is available in its own sandboxes), so
+confirm current status on the repository's Actions tab before relying on it. Shared API-key
+auth/rate-limit/audit-log/metrics primitives, real RBAC on the Case Management Service, and a 189-test
+suite are documented. **No claim of regulatory compliance or production readiness is made anywhere in
+this repository** -- RBAC, audit trails, and case management are real and tested, but they are platform
+building blocks, not a certification. See `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source
+of truth and `ROADMAP.md` for what remains.
 
 ## Execution boundary (standing rule)
 Claude generates notebooks and src/ modules only, and never executes the real data-processing pipeline itself.

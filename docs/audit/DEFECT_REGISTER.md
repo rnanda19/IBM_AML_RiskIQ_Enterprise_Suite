@@ -44,19 +44,38 @@ claim or service), High (real functional gap), Medium (real but contained), Low 
   Regenerated report: Gate 1 PASS, Gate 2 PASS, overall PASS, real FastAPI self-test (2,000 rows, 0
   mismatches) -- `generated_at_utc: 2026-10-12T04:49:33Z`.
 
-## DEF-003 -- No RBAC at the API layer (High) -- PARTIALLY ADDRESSED
+## DEF-003 -- No RBAC at the API layer (High) -- RESOLVED 2026-10-12 (case-management surface)
 - **File**: `src/aml_riskiq/serving/_security.py`
 - **Evidence (original)**: direct read of the module -- auth was single-tier (valid key or not); no role
   claim, no role-based route restriction anywhere in `src/`.
-- **Update**: role-aware API keys and `require_role()` were added to `_security.py` in a later batch this
-  same session (tested, 8 new tests). **Still not applied to any route** -- today each of the 5 services
-  has only `/health` (unauthenticated) and `/score` (any valid key, any role), so there is not yet a
-  second route for a role distinction to protect. The `casework` package added afterward (see
-  `docs/architecture/INVESTIGATOR_WORKFLOW.md`) is exactly the kind of second surface `require_role()`
-  was built for, but it is not wired into any live route either.
-- **Business impact**: unchanged until a route actually uses `require_role()`.
-- **Recommended fix (remaining)**: wire a case-management API (built on the `casework` package) in as
-  actual routes, and protect them with `require_role()`. Pure code -- no pipeline execution needed.
+- **Update (earlier this project)**: role-aware API keys and `require_role()` were added to `_security.py`
+  in a later batch (tested, 8 new tests). **Still not applied to any route** -- each of the 5 scoring
+  services had only `/health` (unauthenticated) and `/score` (any valid key, any role), so there was not
+  yet a second route for a role distinction to protect. The `casework` package added afterward (see
+  `docs/architecture/INVESTIGATOR_WORKFLOW.md`) was exactly the kind of second surface `require_role()`
+  was built for, but it was not wired into any live route either.
+- **Resolution (2026-10-12)**: a new, real, live FastAPI service -- the Case Management Service
+  (`src/aml_riskiq/serving/case_management_service.py`) -- was built directly on the `casework` package
+  and its routes genuinely enforce RBAC. 4 distinct roles (`analyst`, `investigator`,
+  `compliance_officer`, `admin`) are enforced across 12 routes via a new `require_any_role()` primitive
+  (plus a new `resolve_caller_role()` primitive for the one route, `/alerts/{id}/transition`, whose
+  required role depends on the request body rather than the route alone). `docs/security/RBAC.md` is the
+  authoritative permission matrix; `tests/integration/case_management/test_case_management_service.py`
+  (43 tests, positive and negative, every ✅/❌ cell in that matrix covered) is the automated proof.
+  Unauthorized access and privilege-escalation attempts are explicitly tested (wrong role on an allowed
+  route → 403 naming the caller's actual role and the accepted set; missing/invalid key → 401; an
+  `investigator` who clears the route-level gate on `/transition` but targets `escalated`/`closed` is
+  still blocked at the body-level check).
+- **What this resolves and what it does not**: this closes DEF-003 for the case-management surface this
+  phase built. It does **not** retroactively add role differentiation to BP1-BP5's `/score` routes --
+  those still have only `/health` and a single-tier `/score`, so there is still no second route on any of
+  them for a role distinction to protect. That remainder is unchanged from the "Update" note above and is
+  tracked below as still open.
+- **Business impact**: resolved for case-management access control; unchanged for the 5 scoring services.
+- **Recommended fix (remaining, scoring services only)**: if/when a second, more sensitive route is added
+  to any of BP1-BP5 (e.g. a model-reload or config-change endpoint), protect it with the same
+  `require_any_role()` primitive used here -- the mechanism is proven, only the scoring services' route
+  surface is still too thin to need it.
 
 ## DEF-004 -- No live monitoring, `/metrics`, or scheduled alerting (High) -- PARTIALLY ADDRESSED
 - **File (original)**: n/a (absence confirmed by grep across `src/`)

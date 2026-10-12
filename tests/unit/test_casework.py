@@ -224,3 +224,115 @@ def test_export_evidence_is_json_serializable():
 
     a = _alert()
     json.dumps(export_evidence(a))  # raises if not serializable
+
+
+# -- case_lifecycle: hash chain / assign / add_note / add_evidence (RBAC phase, 2026-10-12) --
+
+from casework.case_lifecycle import add_evidence, add_note, assign, verify_history_integrity  # noqa: E402
+
+
+def test_transition_computes_hash_chain():
+    a = _alert()
+    a = transition(a, CaseStatus.ASSIGNED, actor="x", now=NOW)
+    a = transition(a, CaseStatus.UNDER_REVIEW, actor="y", now=NOW + timedelta(hours=1))
+    assert a.history[0].prev_event_hash is None
+    assert a.history[0].event_hash
+    assert a.history[1].prev_event_hash == a.history[0].event_hash
+    assert a.history[1].event_hash != a.history[0].event_hash
+
+
+def test_verify_history_integrity_passes_on_untouched_chain():
+    a = _alert()
+    a = transition(a, CaseStatus.ASSIGNED, actor="x", now=NOW)
+    a = transition(a, CaseStatus.UNDER_REVIEW, actor="y", now=NOW + timedelta(hours=1))
+    a = transition(a, CaseStatus.CLOSED, actor="z", now=NOW + timedelta(hours=2))
+    ok, reason = verify_history_integrity(a)
+    assert ok is True
+    assert reason is None
+
+
+def test_verify_history_integrity_empty_history_passes():
+    ok, reason = verify_history_integrity(_alert())
+    assert ok is True
+    assert reason is None
+
+
+def test_verify_history_integrity_detects_tampered_note():
+    """Simulates an out-of-band edit (e.g. a hand-edited database row) by mutating one
+    history event's note directly -- the hash chain must catch this."""
+    a = _alert()
+    a = transition(a, CaseStatus.ASSIGNED, actor="x", note="original note", now=NOW)
+    tampered_event = a.history[0].model_copy(update={"note": "TAMPERED"})
+    tampered_alert = a.model_copy(update={"history": [tampered_event]})
+    ok, reason = verify_history_integrity(tampered_alert)
+    assert ok is False
+    assert "event_hash" in reason
+
+
+def test_verify_history_integrity_detects_reordered_events():
+    a = _alert()
+    a = transition(a, CaseStatus.ASSIGNED, actor="x", now=NOW)
+    a = transition(a, CaseStatus.UNDER_REVIEW, actor="y", now=NOW + timedelta(hours=1))
+    reordered = a.model_copy(update={"history": [a.history[1], a.history[0]]})
+    ok, reason = verify_history_integrity(reordered)
+    assert ok is False
+    assert "prev_event_hash" in reason
+
+
+def test_verify_history_integrity_detects_deleted_middle_event():
+    a = _alert()
+    a = transition(a, CaseStatus.ASSIGNED, actor="x", now=NOW)
+    a = transition(a, CaseStatus.UNDER_REVIEW, actor="y", now=NOW + timedelta(hours=1))
+    a = transition(a, CaseStatus.CLOSED, actor="z", now=NOW + timedelta(hours=2))
+    truncated = a.model_copy(update={"history": [a.history[0], a.history[2]]})
+    ok, reason = verify_history_integrity(truncated)
+    assert ok is False
+    assert "prev_event_hash" in reason
+
+
+def test_assign_new_alert_transitions_to_assigned():
+    a = _alert()
+    a2 = assign(a, assignee="inv-1", actor="supervisor", now=NOW)
+    assert a2.status == CaseStatus.ASSIGNED
+    assert a2.assigned_to == "inv-1"
+    assert len(a2.history) == 1
+
+
+def test_assign_already_assigned_alert_only_reassigns():
+    a = _alert(status=CaseStatus.UNDER_REVIEW)
+    a2 = assign(a, assignee="inv-2", actor="supervisor", now=NOW)
+    assert a2.status == CaseStatus.UNDER_REVIEW  # unchanged
+    assert a2.assigned_to == "inv-2"
+    assert a2.history == []  # reassignment alone is not a status transition
+
+
+def test_add_note_appends_without_changing_status():
+    a = _alert()
+    a2 = add_note(a, actor="inv-1", text="reviewed counterparty history", now=NOW)
+    assert len(a2.notes) == 1
+    assert a2.notes[0].text == "reviewed counterparty history"
+    assert a2.notes[0].actor == "inv-1"
+    assert a2.status == CaseStatus.NEW
+    assert a.notes == []  # original unchanged
+
+
+def test_add_evidence_appends_without_changing_status():
+    a = _alert()
+    a2 = add_evidence(
+        a, actor="inv-1", description="SAR filing from 2024", external_ref="sar://12345", now=NOW
+    )
+    assert len(a2.evidence) == 1
+    assert a2.evidence[0].description == "SAR filing from 2024"
+    assert a2.evidence[0].external_ref == "sar://12345"
+    assert a2.status == CaseStatus.NEW
+
+
+def test_evidence_export_includes_notes_and_evidence_and_assignment():
+    a = _alert()
+    a = assign(a, assignee="inv-1", actor="supervisor", now=NOW)
+    a = add_note(a, actor="inv-1", text="triage complete", now=NOW)
+    a = add_evidence(a, actor="inv-1", description="wire confirmation", now=NOW)
+    bundle = export_evidence(a)
+    assert bundle["case"]["assigned_to"] == "inv-1"
+    assert bundle["case"]["notes"][0]["text"] == "triage complete"
+    assert bundle["case"]["evidence"][0]["description"] == "wire confirmation"

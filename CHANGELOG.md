@@ -5,6 +5,50 @@ notebook/model work on each business problem live in `reports/<bp>/CHANGELOG.md`
 repository's own structure, hardening, and governance history, in the same plain-date style used on the
 a prior customer-intelligence-focused enterprise platform in this same methodology lineage.
 
+## 2026-10-12 (RBAC, Case Management & Audit Trails)
+- **RBAC applied to a real route surface for the first time.** Added `require_any_role()` and
+  `resolve_caller_role()` to `src/aml_riskiq/serving/_security.py` (the pre-existing `require_role()` and
+  role-aware API keys were a primitive until now, per DEF-003 in `docs/audit/DEFECT_REGISTER.md`), plus 4
+  platform role constants (`analyst`, `investigator`, `compliance_officer`, `admin`). 17 new tests in
+  `tests/unit/test_security.py` (51/51 total in that file).
+- **New AML case-management workflow**, built on the existing `casework` package
+  (`docs/architecture/INVESTIGATOR_WORKFLOW.md`):
+  - `casework/alert_schema.py` / `case_lifecycle.py`: added `CaseNote`, `EvidenceReference`, a SHA-256
+    hash chain over `CaseEvent.history` (`prev_event_hash`/`event_hash`) with `verify_history_integrity()`,
+    and `assign()`/`add_note()`/`add_evidence()` lifecycle functions. 12 new tests in
+    `tests/unit/test_casework.py` (29/29 total).
+  - `casework/store.py` (new): a real SQLite-backed `AlertStore` -- CRUD, filtered listing, transition
+    persistence, assignment, notes, evidence, a reconciliation report, and `verify_integrity()`. The
+    `case_events`/`case_notes`/`case_evidence` tables are append-only by construction (no `UPDATE`/`DELETE`
+    anywhere in the module's own source, verified by a structural regex test). 20 new tests
+    (`tests/unit/test_casework_store.py`), including a raw-SQL tampering test that confirms the hash
+    chain catches an out-of-band edit on reload.
+  - `src/aml_riskiq/serving/case_management_service.py` (new): a real, standalone FastAPI service --
+    12 routes (create/list/get/assign alerts, notes, evidence, evidence export, status transition,
+    integrity check, reconciliation, plus `/health`/`/metrics`) -- enforcing the 4 roles above via
+    `require_any_role()`, with a body-dependent check on `/alerts/{id}/transition` (escalation/closure
+    needs `compliance_officer`) via `resolve_caller_role()`. Its own rate-limit budget
+    (`AML_RISKIQ_CASE_RATE_LIMIT`, default 120/minute) is independent of `/score`'s. 43 new integration
+    tests (`tests/integration/case_management/test_case_management_service.py`): positive/negative access
+    per role per route, input-validation 422s, structured audit-log verification via `caplog`, and the
+    raw-DB tamper-detection test surfaced through the live `/alerts/{id}/integrity` route.
+  - `src/docker/case_management/` (new Dockerfile/.dockerignore/docker-compose.yml, port 8005, same
+    hardening pattern as BP1-BP5); `.github/workflows/docker-verify.yml` gained a `case-management` job
+    (build, fail-closed-auth check, then a live create-alert-then-reject-unauthenticated-write 401 check
+    against the running container); `.gitignore` gained `data/case_management/*.db`.
+  - **189/189 total project tests passing** (up from 95); black/isort/flake8/mypy/bandit all clean on the
+    new and changed code (fixed 2 flake8 line-length issues and 1 new bandit Medium false-positive in
+    `store.py`'s `list_alerts`, annotated `# nosec B608` with an inline justification, same convention as
+    the existing `# nosec B301` pickle.load findings).
+  - **Docs**: new `docs/security/RBAC.md` (the authoritative permission matrix); updates to
+    `docs/security/THREAT_MODEL.md`, `SECURITY.md`, `docs/audit/DEFECT_REGISTER.md` (DEF-003 resolved for
+    this surface), `docs/architecture/INVESTIGATOR_WORKFLOW.md`, `README.md`, and
+    `docs/deployment/DEPLOYMENT_GUIDE.md`.
+  - **What this does not claim**: BP1-BP5's `/score` routes still have no role differentiation (no
+    second route on any of them to protect, unchanged from before this phase); the hash chain is
+    tamper-evidence, not tamper-proofing; SQLite is not cluster-aware; no regulatory-compliance or
+    production-readiness claim is made.
+
 ## 2026-10-12
 - Real re-runs of BP2 and BP3 Notebook 3 (LI-Medium) on the user's own machine, closing DEF-001 and
   DEF-002 from `docs/audit/DEFECT_REGISTER.md` (both Critical):

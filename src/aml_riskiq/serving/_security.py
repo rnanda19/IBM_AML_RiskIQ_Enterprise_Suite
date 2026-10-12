@@ -114,8 +114,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 API_KEYS_ENV_VAR = "AML_RISKIQ_API_KEYS"
 RATE_LIMIT_ENV_VAR = "AML_RISKIQ_SCORE_RATE_LIMIT"
+CASE_RATE_LIMIT_ENV_VAR = "AML_RISKIQ_CASE_RATE_LIMIT"
 REQUIRE_AUTH_ENV_VAR = "AML_RISKIQ_REQUIRE_AUTH"
 DEFAULT_SCORE_RATE_LIMIT = "60/minute"
+# Higher default than /score: case-management routes are typically called by a human
+# investigator working a queue, not a high-throughput scoring pipeline.
+DEFAULT_CASE_RATE_LIMIT = "120/minute"
 
 _audit_logger = logging.getLogger("aml_riskiq.audit")
 if not _audit_logger.handlers:
@@ -128,6 +132,15 @@ if not _audit_logger.handlers:
 
 DEFAULT_KEY_ROLE = "service"
 ADMIN_ROLE = "admin"
+
+# The 4 standing platform roles (RBAC phase, 2026-10-12) -- see docs/security/RBAC.md for
+# the full per-route permission matrix. "administrator" in the business language is this
+# module's existing ADMIN_ROLE ("admin") -- not a 5th string -- so every API key configured
+# before this phase keeps working identically.
+ANALYST_ROLE = "analyst"
+INVESTIGATOR_ROLE = "investigator"
+COMPLIANCE_OFFICER_ROLE = "compliance_officer"
+PLATFORM_ROLES = (ANALYST_ROLE, INVESTIGATOR_ROLE, COMPLIANCE_OFFICER_ROLE, ADMIN_ROLE)
 
 
 def _configured_api_keys() -> set[str] | None:
@@ -180,6 +193,30 @@ def _key_fingerprint(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:8]
 
 
+def resolve_caller_role(x_api_key: str | None) -> tuple[str, str]:
+    """Returns (role, caller_id) without raising -- the one role-aware primitive a route
+    handler can call directly when its required role depends on something other than a
+    static Depends() (e.g. the request body, as in case_management_service's /transition,
+    where CLOSED/ESCALATED require compliance_officer+ but UNDER_REVIEW/UNRESOLVED only
+    require investigator+). role is one of: "anonymous" (open mode -- AML_RISKIQ_API_KEYS
+    unset, matches every other primitive's open-mode behavior), "none" (closed mode, no
+    X-API-Key header at all), "invalid" (closed mode, header present but matches no
+    configured key), or the caller's real configured role string (ADMIN_ROLE included --
+    this function does NOT apply the admin-satisfies-every-role bypass itself; that is
+    require_any_role()'s job, so a caller of this function sees the literal matched role
+    and decides for itself). caller_id mirrors require_api_key's return value ("anonymous"
+    or the key fingerprint) for audit-log correlation."""
+    configured = _configured_api_keys_with_roles()
+    if configured is None:
+        return "anonymous", "anonymous"
+    if x_api_key is None:
+        return "none", "anonymous"
+    for candidate_key, candidate_role in configured.items():
+        if secrets.compare_digest(x_api_key, candidate_key):
+            return candidate_role, _key_fingerprint(x_api_key)
+    return "invalid", "anonymous"
+
+
 def require_api_key(x_api_key: str | None = Header(default=None)) -> str:
     """FastAPI dependency: enforces AML_RISKIQ_API_KEYS when it is set, else is a documented
     no-op. Returns a caller identifier ("anonymous" in open mode, else the key's fingerprint)
@@ -197,35 +234,39 @@ def require_api_key(x_api_key: str | None = Header(default=None)) -> str:
     return _key_fingerprint(x_api_key)
 
 
-def require_role(role: str) -> Callable[[str | None], str]:
-    """Returns a FastAPI dependency requiring a valid API key whose configured role equals
-    `role`, or ADMIN_ROLE (admin satisfies every role check). In open mode it is a no-op,
-    identical to require_api_key -- role checks only apply once AML_RISKIQ_API_KEYS is set.
-    403 for a valid key with the wrong role (distinct from require_api_key's 401 for a
-    missing/invalid key, so a caller can tell "not authenticated" from "authenticated, wrong
-    permission")."""
+def require_any_role(*roles: str) -> Callable[[str | None], str]:
+    """Returns a FastAPI dependency requiring a valid API key whose configured role is one of
+    `roles`, or ADMIN_ROLE (admin satisfies every role check) -- 403 if the caller's key is
+    valid but none of the accepted roles, 401 if no valid key at all. In open mode it is a
+    no-op, identical to `require_api_key`. This is the general form `require_role()` below
+    delegates to; use this one directly whenever a route accepts more than one role (e.g.
+    "investigator OR compliance_officer")."""
 
     def _dependency(x_api_key: str | None = Header(default=None)) -> str:
-        configured = _configured_api_keys_with_roles()
-        if configured is None:
+        matched_role, caller_id = resolve_caller_role(x_api_key)
+        if matched_role == "anonymous":
             return "anonymous"
-        if x_api_key is None:
+        if matched_role == "none":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-API-Key header.")
-        matched_role: str | None = None
-        for candidate_key, candidate_role in configured.items():
-            if secrets.compare_digest(x_api_key, candidate_key):
-                matched_role = candidate_role
-                break
-        if matched_role is None:
+        if matched_role == "invalid":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
-        if matched_role != role and matched_role != ADMIN_ROLE:
+        if matched_role != ADMIN_ROLE and matched_role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Key has role '{matched_role}', this route requires '{role}'.",
+                detail=f"Key has role '{matched_role}', this route requires one of {sorted(roles)}.",
             )
-        return _key_fingerprint(x_api_key)
+        return caller_id
 
     return _dependency
+
+
+def require_role(role: str) -> Callable[[str | None], str]:
+    """Returns a FastAPI dependency requiring a valid API key whose configured role equals
+    `role`, or ADMIN_ROLE (admin satisfies every role check) -- 403 if the caller's key is valid but the
+    wrong role, 401 if no valid key at all. In open mode it is a no-op, identical to
+    `require_api_key`. Sugar for require_any_role(role) -- kept as its own name since most
+    callers (every BP1-BP5 route today) need exactly one role, not a set."""
+    return require_any_role(role)
 
 
 def warn_if_open_mode(service_name: str) -> None:
@@ -267,6 +308,13 @@ def score_rate_limit() -> str:
     """The configured /score rate-limit string, re-read from the env var on every call for
     the same monkeypatch-friendliness as _configured_api_keys()."""
     return os.environ.get(RATE_LIMIT_ENV_VAR, DEFAULT_SCORE_RATE_LIMIT)
+
+
+def case_rate_limit() -> str:
+    """The configured case-management rate-limit string -- same env-var-override pattern as
+    score_rate_limit(), separate budget/env-var since case-management traffic (a human
+    investigator working a queue) has a different realistic shape than /score."""
+    return os.environ.get(CASE_RATE_LIMIT_ENV_VAR, DEFAULT_CASE_RATE_LIMIT)
 
 
 class AuditLogMiddleware(BaseHTTPMiddleware):
@@ -419,6 +467,14 @@ __all__ = [
     "ADMIN_ROLE",
     "require_api_key",
     "require_role",
+    "require_any_role",
+    "resolve_caller_role",
+    "ANALYST_ROLE",
+    "INVESTIGATOR_ROLE",
+    "COMPLIANCE_OFFICER_ROLE",
+    "PLATFORM_ROLES",
+    "case_rate_limit",
+    "CASE_RATE_LIMIT_ENV_VAR",
     "get_limiter",
     "score_rate_limit",
     "harden_app",

@@ -39,6 +39,7 @@ def export_evidence(alert: Alert) -> dict:
         },
         "case": {
             "current_status": alert.status.value,
+            "assigned_to": alert.assigned_to,
             "history": [
                 {
                     "timestamp": e.timestamp.isoformat(),
@@ -46,8 +47,24 @@ def export_evidence(alert: Alert) -> dict:
                     "from_status": e.from_status.value if e.from_status else None,
                     "to_status": e.to_status.value,
                     "note": e.note,
+                    "prev_event_hash": e.prev_event_hash,
+                    "event_hash": e.event_hash,
                 }
                 for e in alert.history
+            ],
+            "notes": [
+                {"note_id": n.note_id, "timestamp": n.timestamp.isoformat(), "actor": n.actor, "text": n.text}
+                for n in alert.notes
+            ],
+            "evidence": [
+                {
+                    "evidence_id": ev.evidence_id,
+                    "timestamp": ev.timestamp.isoformat(),
+                    "actor": ev.actor,
+                    "description": ev.description,
+                    "external_ref": ev.external_ref,
+                }
+                for ev in alert.evidence
             ],
         },
     }

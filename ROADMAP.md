@@ -17,17 +17,36 @@
   other platforms (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `DATA_PRIVACY.md`, `MODEL_REGISTRY.md`,
   `SECURITY.md`, `SECRETS_MANAGEMENT.md`, `CHANGELOG.md`, this file), plus a `.github/` CI suite (CI,
   Code Quality, CodeQL, Docker Build & Run Verification) -- all 4 workflows passing on `main`.
-- `docker-verify.yml` builds, starts, and polls `/health` for all 5 scoring services (BP1-BP5) -- `bp2`/`bp3`
-  jobs were re-added 2026-10-12 once their real artifacts existed (see "Resolved 2026-10-12" below). Every
-  job first proves the fail-closed-by-default auth works (container refuses to start with no API key) before
-  running with a disposable CI test key. A separate `bp6-batch` job runs the real rollup and checks its
-  report outputs are non-empty (BP6 has no port, so it is never polled for `/health`). The assistant has not
-  directly observed a passing GitHub Actions run of this workflow -- confirm current status on the
-  repository's Actions tab.
+- `docker-verify.yml` builds, starts, and polls `/health` for all 5 scoring services (BP1-BP5) plus the
+  new Case Management Service -- `bp2`/`bp3` jobs were re-added 2026-10-12 once their real artifacts
+  existed (see "Resolved 2026-10-12" below), and a `case-management` job was added the same day. Every
+  job first proves the fail-closed-by-default auth works (container refuses to start with no API key)
+  before running with a disposable CI test key; the `case-management` job additionally confirms a live
+  running container actually rejects an unauthenticated write with 401. A separate `bp6-batch` job runs
+  the real rollup and checks its report outputs are non-empty (BP6 has no port, so it is never polled for
+  `/health`). The assistant has not directly observed a passing GitHub Actions run of this workflow --
+  confirm current status on the repository's Actions tab.
+- **RBAC is now real on one surface.** `require_any_role()` genuinely protects all 12 non-public routes
+  of the new Case Management Service with 4 roles (`analyst`/`investigator`/`compliance_officer`/`admin`)
+  -- see `docs/security/RBAC.md` and the 43-test suite in
+  `tests/integration/case_management/test_case_management_service.py`. This closes
+  `docs/audit/DEFECT_REGISTER.md`'s DEF-003 for the case-management surface specifically; BP1-BP5's
+  `/score` routes remain single-tier (see "In progress / pending" below).
 
 ## In progress / pending
 - Nothing currently blocked on a missing real artifact for BP1-BP5. See "Resolved 2026-10-12" below for
   the two items that were here.
+- **DEF-003, remaining part**: BP1-BP5's `/score` routes still accept any valid key regardless of role --
+  there is still no second route on any of them for a role distinction to protect. Would only become
+  relevant if a second, more sensitive route (e.g. model reload/config change) is ever added to one of
+  them; the `require_any_role()` mechanism proven on the Case Management Service would protect it the
+  same way.
+- No automatic pipeline from a BP1-BP5 scoring decision into a Case Management Service alert -- `POST
+  /alerts` still requires a caller to submit the alert. Blocked in part on the scoring services not
+  carrying a transaction/account identifier in their request/response schema (see
+  `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
+- No root-level `docker-compose.yml` bringing up all 6 services (5 scoring + Case Management) at once
+  (Task #26, unchanged).
 
 ## Resolved 2026-10-12
 - **BP2's Docker image wouldn't start** (found 2026-10-03) -- fixed by a real re-run of BP2 Notebook 3
@@ -48,6 +67,28 @@
   next `docker-verify.yml` CI run).
 - `docs/audit/`, `docs/governance/`, `docs/business_value/`, `docs/data/LEAKAGE_AUDIT.md`,
   `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
+
+## Added 2026-10-12 -- RBAC, Case Management & Audit Trails (not requiring real pipeline execution)
+- `require_any_role()`/`resolve_caller_role()` in `_security.py` -- the role-aware API keys and
+  `require_role()` primitive from 2026-10-10 now genuinely protect a real route surface for the first
+  time (DEF-003, resolved for this surface).
+- A new, real, standalone FastAPI service, `case_management_service.py` (port 8005), built on the
+  pre-existing `casework` package: alert creation, assignment, investigation notes, evidence references,
+  status transitions (with a compliance-officer-only escalation/closure rule), evidence export, integrity
+  verification, and a reconciliation report -- 12 routes, every non-public one RBAC-protected.
+- A real SQLite-backed `AlertStore` (`casework/store.py`) -- the `casework` package's first persistent
+  store, append-only by construction, with a SHA-256 hash chain over case history for tamper-evidence.
+- Automated security tests integrated into CI: 17 new unit tests for the RBAC primitives, 12 new unit
+  tests for the hash chain/lifecycle additions, 20 new unit tests for the store, and 43 new integration
+  tests for the service (positive/negative auth, role enforcement, input validation, audit logging,
+  negative authorization) -- 189/189 total, auto-discovered by `ci.yml`'s existing `pytest tests/` call.
+  `docker-verify.yml` gained a `case-management` job with a live 401 check.
+- Docs: new `docs/security/RBAC.md`; updated `docs/security/THREAT_MODEL.md`, `SECURITY.md`,
+  `docs/audit/DEFECT_REGISTER.md`, `docs/architecture/INVESTIGATOR_WORKFLOW.md`, `README.md`,
+  `docs/deployment/DEPLOYMENT_GUIDE.md`.
+- **Explicitly not claimed**: regulatory compliance, production readiness, RBAC on BP1-BP5's `/score`
+  routes, an automatic scoring-to-case pipeline, or tamper-*proofing* (only tamper-*evidence*) on the
+  audit trail.
 
 ## Not planned
 - The 4 business problems dropped from the original 8-BP draft (Account/Entity AML Risk Scoring, Alert

@@ -24,15 +24,24 @@ open-mode-by-default behavior exactly -- this is an opt-in deployment control, n
 default. Recommended: set both `AML_RISKIQ_API_KEYS` and `AML_RISKIQ_REQUIRE_AUTH=true` in every
 non-local deployment.
 
-## Role-aware API keys (primitive, not yet applied to any route)
+## Role-aware API keys (now applied: Case Management Service)
 `AML_RISKIQ_API_KEYS` entries may optionally carry a role prefix: `role:key` (e.g.
 `investigator:abc123,admin:def456`). A bare key with no prefix keeps working exactly as before, with the
-default role `service`. `require_role(role)` (in `_security.py`) is a dependency factory that additionally
-checks the matched key's role (an `admin`-role key satisfies any role check), returning 403 for a valid
-key with the wrong role vs. 401 for no/invalid key. Honest scope: none of the 5 scoring services' routes
-use it yet -- today each service has only `/health` (unauthenticated) and `/score` (any valid key, any
-role), so there is not yet a second route for a role distinction to protect. This exists so `/score` or a
-future route can adopt it without another change to the shared auth module.
+default role `service`. `require_role(role)` / `require_any_role(*roles)` (in `_security.py`) are
+dependency factories that additionally check the matched key's role (an `admin`-role key satisfies any
+role check), returning 403 for a valid key with the wrong role vs. 401 for no/invalid key.
+
+**Updated 2026-10-12.** The 5 scoring services still do not use this -- each has only `/health`
+(unauthenticated) and `/score` (any valid key, any role), so there is still no second route on any of them
+for a role distinction to protect; that part of `docs/audit/DEFECT_REGISTER.md`'s DEF-003 remains open by
+design (see that entry for the exact remaining scope). What changed: the new **Case Management Service**
+(`src/aml_riskiq/serving/case_management_service.py`) is a real, live FastAPI service whose 12 routes
+genuinely enforce 4 distinct roles -- `analyst`, `investigator`, `compliance_officer`, and `admin` (the
+"administrator" business role, via the pre-existing admin bypass) -- through `require_any_role()`.
+`docs/security/RBAC.md` is the authoritative permission matrix (including the one route,
+`/alerts/{id}/transition`, whose required role depends on the request body rather than the route alone),
+and `tests/integration/case_management/test_case_management_service.py` is the 43-test automated suite
+(positive and negative per role per route) that verifies it.
 
 ## Metrics
 `GET /metrics` (via `wire_metrics_endpoint()` in `_security.py`) exposes real, in-process request counts
@@ -44,12 +53,42 @@ shape, not a drop-in for a multi-worker deployment without an external aggregato
 
 ## Rate limiting
 Real token-bucket rate limiting via `slowapi`, default 60 requests/minute per caller on `/score`,
-overridable via `AML_RISKIQ_SCORE_RATE_LIMIT`. Exceeding it returns a real `429`, not a soft warning.
+overridable via `AML_RISKIQ_SCORE_RATE_LIMIT`. The Case Management Service has its own independent budget
+(default 120 requests/minute, overridable via `AML_RISKIQ_CASE_RATE_LIMIT`) -- a separate env var and a
+separate limiter instance, so tuning one never silently changes the other. Exceeding either returns a real
+`429`, not a soft warning.
+
+## Input validation
+Every request body, path parameter, and query parameter on every service (including the Case Management
+Service) is a Pydantic v2 model or a typed FastAPI parameter -- malformed input (wrong type, missing
+required field, an enum value outside `CaseStatus`) is rejected with a real `422` before any handler code
+runs, never hand-rolled validation. No SQL is ever built from an untrusted value: the Case Management
+Service's SQLite layer (`src/aml_riskiq/casework/store.py`) exclusively binds real values through
+parameterized `?` placeholders; the one place a string is f-string-assembled is a fixed literal `WHERE`
+clause fragment (never a value), annotated `# nosec B608` with that justification and confirmed by a clean
+`bandit` run.
 
 ## Audit logging
 Every request to every route on every service emits one structured JSON line (timestamp, service, method,
 path, status code, latency, caller IP, caller fingerprint) to stdout -- see `SECRETS_MANAGEMENT.md` for
 what is and isn't in that line.
+
+## Case management audit trail
+Beyond the per-request log above, the Case Management Service records a structured, per-case audit trail
+(`CaseEvent` history, plus notes and evidence) for every status transition, assignment, note, and evidence
+addition -- authenticated caller fingerprint, action, timestamp, and (for transitions) the status moved
+from/to. Protected against *undetected* modification, not against modification itself: every event is
+linked into a SHA-256 hash chain (`prev_event_hash` / `event_hash`), and the underlying SQLite store
+(`src/aml_riskiq/casework/store.py`) never issues an `UPDATE` or `DELETE` against the `case_events`,
+`case_notes`, or `case_evidence` tables anywhere in its own source (verified by a dedicated regex-based
+structural test, not just by convention), nor does the REST API expose any route that could. An
+out-of-band edit -- raw SQL against the `.db` file, bypassing this module entirely -- is still physically
+possible and is exactly what `verify_integrity()` / `GET /alerts/{id}/integrity` (compliance-officer-only)
+is for: this is tamper-**evidence**, not tamper-**proofing**. It proves internal self-consistency of the
+chain and will detect any event edited after the fact, but it cannot prove the very first event in a
+chain was the true original. See `docs/security/RBAC.md` and `docs/security/THREAT_MODEL.md` for the full
+honest scope, including the hash chain's limitation and SQLite's single-process (non-cluster-aware)
+limitation.
 
 ## Reporting a vulnerability
 Open a GitHub issue, or contact the maintainer directly via the email on the GitHub profile for anything

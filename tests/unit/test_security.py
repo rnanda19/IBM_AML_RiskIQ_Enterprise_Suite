@@ -307,3 +307,120 @@ def test_wire_metrics_endpoint_serves_real_counts(security_module):
     assert resp.status_code == 200
     assert 'service="metrics_test_service"' in resp.text
     assert 'path="/health"' in resp.text
+
+
+# -- resolve_caller_role / require_any_role (RBAC phase, 2026-10-12) -----------------------
+
+
+def test_resolve_caller_role_open_mode(security_module, monkeypatch):
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    assert security_module.resolve_caller_role(None) == ("anonymous", "anonymous")
+    assert security_module.resolve_caller_role("anything") == ("anonymous", "anonymous")
+
+
+def test_resolve_caller_role_no_header_closed_mode(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    assert security_module.resolve_caller_role(None) == ("none", "anonymous")
+
+
+def test_resolve_caller_role_invalid_key(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    assert security_module.resolve_caller_role("wrong-key") == ("invalid", "anonymous")
+
+
+def test_resolve_caller_role_matches_configured_role(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "compliance_officer:key-c")
+    role, caller_id = security_module.resolve_caller_role("key-c")
+    assert role == "compliance_officer"
+    assert caller_id == security_module._key_fingerprint("key-c")
+
+
+def test_require_any_role_open_mode_returns_anonymous(security_module, monkeypatch):
+    monkeypatch.delenv("AML_RISKIQ_API_KEYS", raising=False)
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    assert dep(x_api_key=None) == "anonymous"
+
+
+def test_require_any_role_missing_header_raises_401(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key=None)
+    assert exc_info.value.status_code == 401
+
+
+def test_require_any_role_invalid_key_raises_401(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key="wrong-key")
+    assert exc_info.value.status_code == 401
+
+
+def test_require_any_role_accepts_first_listed_role(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "investigator:key-a")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    assert dep(x_api_key="key-a") == security_module._key_fingerprint("key-a")
+
+
+def test_require_any_role_accepts_second_listed_role(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "compliance_officer:key-b")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    assert dep(x_api_key="key-b") == security_module._key_fingerprint("key-b")
+
+
+def test_require_any_role_rejects_role_not_in_set(security_module, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "analyst:key-z")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    with pytest.raises(HTTPException) as exc_info:
+        dep(x_api_key="key-z")
+    assert exc_info.value.status_code == 403
+
+
+def test_require_any_role_admin_satisfies_any_set(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "admin:key-admin")
+    dep = security_module.require_any_role("investigator", "compliance_officer")
+    assert dep(x_api_key="key-admin") == security_module._key_fingerprint("key-admin")
+
+
+def test_require_role_still_works_after_refactor(security_module, monkeypatch):
+    """require_role() is now sugar for require_any_role(role) -- this re-confirms its
+    single-role behavior end to end after the refactor, on top of the pre-existing
+    require_role tests above (which also still pass unmodified)."""
+    from fastapi import HTTPException
+
+    monkeypatch.setenv("AML_RISKIQ_API_KEYS", "analyst:key-a")
+    dep = security_module.require_role("analyst")
+    assert dep(x_api_key="key-a") == security_module._key_fingerprint("key-a")
+    with pytest.raises(HTTPException) as exc_info:
+        security_module.require_role("investigator")(x_api_key="key-a")
+    assert exc_info.value.status_code == 403
+
+
+def test_case_rate_limit_default(security_module, monkeypatch):
+    monkeypatch.delenv("AML_RISKIQ_CASE_RATE_LIMIT", raising=False)
+    assert security_module.case_rate_limit() == security_module.DEFAULT_CASE_RATE_LIMIT
+    assert security_module.DEFAULT_CASE_RATE_LIMIT == "120/minute"
+
+
+def test_case_rate_limit_override(security_module, monkeypatch):
+    monkeypatch.setenv("AML_RISKIQ_CASE_RATE_LIMIT", "10/second")
+    assert security_module.case_rate_limit() == "10/second"
+
+
+def test_platform_roles_constant_contains_all_four(security_module):
+    assert security_module.PLATFORM_ROLES == (
+        security_module.ANALYST_ROLE,
+        security_module.INVESTIGATOR_ROLE,
+        security_module.COMPLIANCE_OFFICER_ROLE,
+        security_module.ADMIN_ROLE,
+    )
+    assert security_module.ANALYST_ROLE == "analyst"
+    assert security_module.INVESTIGATOR_ROLE == "investigator"
+    assert security_module.COMPLIANCE_OFFICER_ROLE == "compliance_officer"

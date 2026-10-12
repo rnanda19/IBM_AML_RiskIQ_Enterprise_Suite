@@ -6,6 +6,11 @@ data/external/**
 !data/processed/.gitkeep
 !data/external/.gitkeep
 
+# Case-management runtime database (RBAC phase, 2026-10-12) -- real per-deployment state
+# (alerts/case history/notes/evidence), never a committed artifact, same reasoning as
+# data/raw|processed|external above. The README documenting this directory IS committed.
+data/case_management/*.db
+
 # Models / large artifacts
 models/**/*.joblib
 models/**/*.pkl
