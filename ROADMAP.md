@@ -7,8 +7,10 @@
   **confirmed live-CI-passing**: commit `eb00ac9` has all 15 required checks green together (`ci.yml` on
   Python 3.10 and 3.11, `docker-verify.yml` incl. `integrated-workflow`, `codeql.yml`, `code-quality.yml`),
   verified via GitHub's check-runs REST API (see "Resolved 2026-10-12 -- CI fixes after first real push"
-  below for how the two real failures on the first push were found and fixed). See the defect register and
-  evidence ledger for exact artifacts and limitations.
+  below for how the two real failures on the first push were found and fixed). The latest commit on `main`,
+  `4c134f1` (adds the chronological/entity-aware validation module; no app or Docker code changed), was
+  independently reverified green the same way -- see "Resolved 2026-10-12 -- CI re-verified on commit
+  `4c134f1`" below. See the defect register and evidence ledger for exact artifacts and limitations.
 - Full hardening pass: dependency lockfile (`requirements.in`/`requirements.txt`), mypy wired into CI/
   pre-commit (0 errors across 15 files), API-key auth + rate limiting + audit logging on all 5 scoring
   services, a real model-registry fingerprint exposed via `/health`, a real Docker COPY-path verifier that
@@ -27,7 +29,8 @@
   running container actually rejects an unauthenticated write with 401. A separate `bp6-batch` job runs
   the real rollup and checks its report outputs are non-empty (BP6 has no port, so it is never polled for
   `/health`). This has been confirmed passing: commit `eb00ac9` has every `docker-verify.yml` job green,
-  including the `integrated-workflow` job described below.
+  including the `integrated-workflow` job described below; `4c134f1` (current `main` tip) re-confirmed the
+  same 4 `docker-verify.yml` jobs green on 2026-10-12.
 - **RBAC is now real on one surface.** `require_any_role()` genuinely protects all 12 non-public routes
   of the new Case Management Service with 4 roles (`analyst`/`investigator`/`compliance_officer`/`admin`)
   -- see `docs/security/RBAC.md` and the 43-test suite in
@@ -104,6 +107,39 @@ so step-by-step job status was the available signal; nothing here was guessed).
   `integrated-workflow` (including the real alert-creation, duplicate-suppression, and non-flagged-account
   checks) actually running rather than being skipped. This is the first commit in this project with every
   required check observed green together.
+
+## Resolved 2026-10-12 -- CI re-verified on commit `4c134f1`
+The validation-framework work above (`temporal_entity_validation.py` + its 41 unit tests + the BP1-BP5
+notebook wiring + `LEAKAGE_AUDIT.md`/`BENCHMARKS.md` updates) was committed as
+`4c134f16a3ba59aa99c9abd9032072f1942c7c9f` and pushed to `main` on top of `eb00ac9`. Its real GitHub
+Actions results were fetched directly from GitHub's check-runs REST API (unauthenticated, from the user's
+own machine -- the session container used for this work currently has no GitHub API access to this
+repository), not assumed from the prior commit's green run:
+- 4 workflow runs, all `conclusion: success`: `CI` (run 38259440422), `Code Quality` (38259440671),
+  `CodeQL Security Scan` (38259440844), `Docker Build & Run Verification` (38259440418).
+- 14 check runs, all `conclusion: success`: `Pytest (Py 3.10)`, `Pytest (Py 3.11)`, `Lint & Type Check`,
+  `format-check`, `bandit-security-scan`, `Analyze (python) (python)` (CodeQL), `bp1`-`bp5`, `bp6-batch`,
+  `case-management`, `integrated-workflow`. (One fewer than `eb00ac9`'s 15 -- `Dependabot` simply did not
+  run on this push, since no dependency file changed; every other required job ran for real.)
+- Confirmed by reading `.github/workflows/docker-verify.yml`'s source directly (not just the green badge)
+  that `integrated-workflow`'s steps assert exactly the four behaviours this platform's integration
+  guarantees require: a known-flagged account's real `/score` call creates a case-management alert with
+  scoring provenance intact ("Verify a real alert was created in case-management, with provenance intact"),
+  an identical resubmission does not create a duplicate ("Verify re-submitting the identical account does
+  not create a duplicate alert"), a non-flagged account produces no alert ("Verify an unflagged account
+  produces no alert"), and `case-management`'s own steps assert the RBAC/auth behaviour ("Verify missing
+  API key fails closed", "Exercise the real RBAC matrix against the running container" -- an unauthenticated
+  write is rejected with a real `401`). All of these run as real HTTP calls against live
+  `docker compose up` containers, not mocked.
+- Confirmed all 6 Docker images (`src/docker/*/Dockerfile`) run as a non-root `USER app`.
+- Not independently verifiable this pass: raw per-step job logs
+  (`.../actions/jobs/{id}/logs` returns `403 Must have admin rights to Repository` even on this public
+  repo) and the CodeQL code-scanning alerts list (`.../code-scanning/alerts` returns `401`) -- both need
+  the repository owner's own authenticated session, not just public read access. This does not weaken the
+  pass/fail evidence above: GitHub marks a check run `failure` if any step inside it -- including every
+  assertion step quoted above -- exits non-zero, so a `success` conclusion is real evidence those
+  assertions executed and passed, not merely that the job was attempted.
+- No code change was required this pass -- every required check was already green on the pushed commit.
 
 ## Added this session (2026-10-10), not requiring real pipeline execution
 - Fail-closed auth gate, role-aware API keys (primitive), `/metrics` endpoint on all 5 services.
