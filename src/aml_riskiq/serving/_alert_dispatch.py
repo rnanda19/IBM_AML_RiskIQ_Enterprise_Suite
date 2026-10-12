@@ -54,7 +54,6 @@ import httpx
 try:
     from casework.alert_schema import Alert
     from casework.scoring_event import (
-        ScoringEvent,
         ScoringEventValidationError,
         build_alert_from_scoring_event,
         classify_severity,
@@ -66,7 +65,6 @@ try:
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
     from src.aml_riskiq.casework.alert_schema import Alert
     from src.aml_riskiq.casework.scoring_event import (
-        ScoringEvent,
         ScoringEventValidationError,
         build_alert_from_scoring_event,
         classify_severity,
@@ -160,7 +158,9 @@ def _post_alert_once(
 ) -> httpx.Response:
     payload = alert.model_dump(mode="json")
     headers = {"X-API-Key": api_key} if api_key else {}
-    return http_client.post(f"{url.rstrip('/')}/alerts/ingest", json=payload, headers=headers, timeout=timeout)
+    return http_client.post(
+        f"{url.rstrip('/')}/alerts/ingest", json=payload, headers=headers, timeout=timeout
+    )
 
 
 def dispatch_alert(
@@ -188,14 +188,20 @@ def dispatch_alert(
     tests/unit/test_alert_dispatch.py and the end-to-end integration tests for how this is
     used to prove real RBAC/idempotency behavior without a live network call."""
     url = case_service_url or os.environ.get(CASE_SERVICE_URL_ENV)
-    resolved_timeout = timeout if timeout is not None else float(
-        os.environ.get(DISPATCH_TIMEOUT_ENV, DEFAULT_DISPATCH_TIMEOUT_SECONDS)
+    resolved_timeout = (
+        timeout
+        if timeout is not None
+        else float(os.environ.get(DISPATCH_TIMEOUT_ENV, DEFAULT_DISPATCH_TIMEOUT_SECONDS))
     )
-    resolved_max_attempts = max_attempts if max_attempts is not None else int(
-        os.environ.get(DISPATCH_MAX_ATTEMPTS_ENV, DEFAULT_DISPATCH_MAX_ATTEMPTS)
+    resolved_max_attempts = (
+        max_attempts
+        if max_attempts is not None
+        else int(os.environ.get(DISPATCH_MAX_ATTEMPTS_ENV, DEFAULT_DISPATCH_MAX_ATTEMPTS))
     )
-    resolved_backoff_base = backoff_base if backoff_base is not None else float(
-        os.environ.get(DISPATCH_BACKOFF_BASE_ENV, DEFAULT_DISPATCH_BACKOFF_BASE_SECONDS)
+    resolved_backoff_base = (
+        backoff_base
+        if backoff_base is not None
+        else float(os.environ.get(DISPATCH_BACKOFF_BASE_ENV, DEFAULT_DISPATCH_BACKOFF_BASE_SECONDS))
     )
     resolved_api_key = api_key if api_key is not None else os.environ.get(CASE_SERVICE_API_KEY_ENV, "")
 
@@ -230,7 +236,11 @@ def dispatch_alert(
         for attempt in range(1, resolved_max_attempts + 1):
             try:
                 resp = _post_alert_once(
-                    alert, url=url or "", api_key=resolved_api_key, timeout=resolved_timeout, http_client=client
+                    alert,
+                    url=url or "",
+                    api_key=resolved_api_key,
+                    timeout=resolved_timeout,
+                    http_client=client,
                 )
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
@@ -277,7 +287,9 @@ def dispatch_alert(
 
             if resp.status_code in _NON_RETRYABLE_STATUS_CODES:
                 last_error = f"HTTP {resp.status_code}: {resp.text[:300]}"
-                record_custom_metric(service_name, "alert_dispatch_failed_total", labels={"reason": "rejected"})
+                record_custom_metric(
+                    service_name, "alert_dispatch_failed_total", labels={"reason": "rejected"}
+                )
                 logger.error(
                     json.dumps(
                         {

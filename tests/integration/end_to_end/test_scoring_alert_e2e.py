@@ -36,7 +36,6 @@ if _SRC_PATH not in sys.path:
     sys.path.insert(0, _SRC_PATH)
 
 from serving._alert_dispatch import (  # noqa: E402
-    dispatch_alert,
     maybe_generate_and_dispatch_alert,
     outbox_path_for,
     replay_outbox,
@@ -196,7 +195,9 @@ def test_e2e_duplicate_submission_does_not_create_a_second_case(transport, direc
 # -- service failures / retries -----------------------------------------------------------------
 
 
-def test_e2e_transient_outage_then_recovery_delivers_on_retry(case_service, transport, direct_client, tmp_path):
+def test_e2e_transient_outage_then_recovery_delivers_on_retry(
+    case_service, transport, direct_client, tmp_path
+):
     flaky = _FlakyTransport(transport, fail_times=1)
     result = maybe_generate_and_dispatch_alert(
         **_score_kwargs(entity_ref="acct-e2e-flaky"),
@@ -276,7 +277,8 @@ def test_e2e_case_service_key_with_insufficient_role_is_rejected(
     assumed."""
     monkeypatch.setenv(
         "AML_RISKIQ_API_KEYS",
-        f"analyst:{ANALYST_KEY},investigator:{INVESTIGATOR_KEY},compliance_officer:{COMPLIANCE_KEY},bare-bp-key",
+        f"analyst:{ANALYST_KEY},investigator:{INVESTIGATOR_KEY},"
+        f"compliance_officer:{COMPLIANCE_KEY},bare-bp-key",
     )
     reloaded = importlib.reload(case_service)
     from fastapi.testclient import TestClient

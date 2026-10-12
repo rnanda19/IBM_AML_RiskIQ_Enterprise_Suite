@@ -324,7 +324,11 @@ def test_create_alert_idempotent_different_keys_both_created(store):
 
 def test_create_alert_idempotent_preserves_severity_and_generation_source(store):
     a = _alert(entity_ref="acct-idem-4").model_copy(
-        update={"idempotency_key": "key-sev", "severity": "critical", "generation_source": "automated_scoring"}
+        update={
+            "idempotency_key": "key-sev",
+            "severity": "critical",
+            "generation_source": "automated_scoring",
+        }
     )
     store.create_alert_idempotent(a)
     reloaded = store.get_alert(a.alert_id)
@@ -381,8 +385,7 @@ def test_migration_adds_idempotency_columns_to_pre_existing_db(tmp_path):
     migrate it in place, not crash or silently ignore the old rows."""
     db_path = tmp_path / "legacy.db"
     conn = sqlite3.connect(db_path)
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE alerts (
             alert_id TEXT PRIMARY KEY,
             schema_version TEXT NOT NULL,
@@ -403,14 +406,28 @@ def test_migration_adds_idempotency_columns_to_pre_existing_db(tmp_path):
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
-        """
-    )
+        """)
     conn.execute(
         "INSERT INTO alerts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
-            "legacy-alert-1", "1.0.0", "acct-legacy", None, "BP1", "xgboost_champion",
-            0.9, 0.5, "XGBoost", None, None, None, NOW.isoformat(), "[]", "new", None,
-            NOW.isoformat(), NOW.isoformat(),
+            "legacy-alert-1",
+            "1.0.0",
+            "acct-legacy",
+            None,
+            "BP1",
+            "xgboost_champion",
+            0.9,
+            0.5,
+            "XGBoost",
+            None,
+            None,
+            None,
+            NOW.isoformat(),
+            "[]",
+            "new",
+            None,
+            NOW.isoformat(),
+            NOW.isoformat(),
         ),
     )
     conn.commit()

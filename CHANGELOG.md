@@ -55,12 +55,33 @@ a prior customer-intelligence-focused enterprise platform in this same methodolo
 - **296/296 total project tests passing** (up from 189) -- 0 regressions at every checkpoint.
 - Docs: new `docs/architecture/SCORING_ALERT_INTEGRATION.md`; updated `ROADMAP.md`,
   `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`, `README.md`.
+- **CI fixes from the first real push's run** (found via the Actions tab, both real failures -- no
+  fabricated repro):
+  - `Lint & Type Check` failed on `flake8` (E501 line-length in `casework/store.py`,
+    `serving/_security.py`, and 3 test files; F401 unused imports in `serving/_alert_dispatch.py` and
+    `tests/integration/end_to_end/test_scoring_alert_e2e.py`) -- all fixed by rewrapping the offending
+    lines/removing the dead imports, re-verified clean against `black`/`isort`/`flake8` together. The
+    same run would next have failed `mypy` (not reached the first time, since `flake8` already stopped
+    the job): BP1/2/4/5's `_FIELD_TYPES` dict, built via a comprehension inferring
+    `dict[str, tuple[type[float], EllipsisType]]`, was then mutated with a differently-shaped
+    `(Optional[float], None)` entry for the new `entity_ref`/`transaction_ref`/`event_timestamp` fields --
+    fixed with an explicit `dict[str, tuple[Any, Any]]` annotation on each.
+  - `integrated-workflow` failed at `docker compose up` itself (before its own health-wait step ever
+    ran): `./data/case_management`'s bind-mount source didn't exist yet on the fresh checkout, so Docker
+    auto-created it as root, mode `0755` -- unwritable by the non-root `app` user every image in this
+    stack runs as. Case-management's SQLite `AlertStore` opens eagerly at import time
+    (`casework/store.py`), so the resulting `PermissionError` crashed the process before it could ever
+    serve `/health`, its `HEALTHCHECK` never went healthy, and bp3's
+    `depends_on: condition: service_healthy` made `docker compose up` fail outright. Fixed with a new
+    "Prepare writable bind-mount data directories" CI step (`mkdir -p` + `chmod -R 777 data` before
+    `docker compose up`) and the same note added to `docs/deployment/DEPLOYMENT_GUIDE.md` for anyone
+    running the stack locally for the first time.
 - **Explicitly not claimed**: a new or retrained ML model; any change to case-management's own
   lifecycle/RBAC/audit trail (reused unchanged, verified unchanged by a dedicated test); that a
   generated alert is proof of laundering (it is an automated starting point for a human investigation,
-  not a verdict); or that the `integrated-workflow` CI job has been observed passing in GitHub Actions
-  (Docker is unavailable in this development environment -- its first real run is the next push's CI
-  run; confirm on the repository's Actions tab).
+  not a verdict); or that the `integrated-workflow` job (or `Lint & Type Check`) has been observed
+  passing in GitHub Actions since the fixes above -- confirm on the repository's Actions tab after the
+  next push.
 
 ## 2026-10-12 (RBAC, Case Management & Audit Trails)
 - **RBAC applied to a real route surface for the first time.** Added `require_any_role()` and

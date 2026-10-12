@@ -80,10 +80,21 @@ Docker-native `HEALTHCHECK` reports healthy.
 
 ```bash
 # from the repository root
+mkdir -p data/case_management data/alert_outbox && chmod -R 777 data   # see note below
 docker compose up --build
 # or bring up a subset, e.g. just case-management + one BP:
 docker compose up --build case-management bp1-transaction-monitoring
 ```
+
+**The `mkdir`/`chmod` above matters on a fresh checkout.** `./data/case_management` and
+`./data/alert_outbox` do not exist yet, and Docker auto-creates a missing bind-mount source directory as
+root, mode `0755`. Every image in this stack drops to a non-root user (`USER app`/`USER appuser` in each
+Dockerfile), which cannot write into a root-owned, group/other-unwritable directory -- case-management's
+own SQLite `AlertStore` is opened eagerly at import time (`casework/store.py`), so a `PermissionError`
+there crashes the process before it can ever serve `/health`, its `HEALTHCHECK` never reports healthy, and
+`docker compose up` fails outright (bp1-5 all `depends_on: case-management: condition: service_healthy`).
+This is exactly what the `integrated-workflow` CI job hit the first time it ran for real -- see that job's
+own "Prepare writable bind-mount data directories" step for the same fix applied in CI.
 
 Every `*_KEY`/`*_KEYS` environment variable in this file defaults to a committed, non-secret,
 **local-development-only** placeholder (e.g. `CASE_SERVICE_CLIENT_KEY`, `BP1_API_KEYS`) -- override every
@@ -150,6 +161,8 @@ description of the intended behavior.
 against the real request/response shapes of every endpoint they call, but have not been run with a real
 Docker daemon in this development environment either (confirmed: `docker` is not on `PATH`, and there is
 no disk space available to install supporting ML libraries to verify model inference locally as an
-alternative check). Their first real execution is the GitHub Actions run after this work is pushed --
-confirm its result on the repository's Actions tab before treating the integrated multi-container
+alternative check). Their first real GitHub Actions run did surface a real bug -- the bind-mount
+permission issue documented above -- which is now fixed in both `docker-compose.yml`'s own consumer (the
+`integrated-workflow` job) and this guide; that fix has not yet been observed passing in a fresh CI run.
+Confirm the result on the repository's Actions tab before treating the integrated multi-container
 workflow as verified.

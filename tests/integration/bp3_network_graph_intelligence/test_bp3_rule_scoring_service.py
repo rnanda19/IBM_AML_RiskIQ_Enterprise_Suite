@@ -222,7 +222,5 @@ def test_score_endpoint_accepts_optional_event_timestamp(stub_service):
     from fastapi.testclient import TestClient
 
     client = TestClient(stub_service.app)
-    resp = client.post(
-        "/score", json={"account_key": FLAGGED_KEY, "event_timestamp": "2026-10-12T00:00:00Z"}
-    )
+    resp = client.post("/score", json={"account_key": FLAGGED_KEY, "event_timestamp": "2026-10-12T00:00:00Z"})
     assert resp.status_code == 200

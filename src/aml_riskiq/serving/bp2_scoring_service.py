@@ -80,7 +80,7 @@ import os
 import pickle
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 from fastapi import Depends, FastAPI, Request
@@ -253,7 +253,9 @@ MODEL_REGISTRY_ENTRY = build_registry_entry(
 # `null` for an undefined ratio (standard JSON has no NaN literal -- the same real fix BP4's
 # own service already applies for its own NaN-prone column).
 # ----------------------------------------------------------------------------------------
-_FIELD_TYPES = {c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...)) for c in FEATURE_COLS}
+_FIELD_TYPES: dict[str, tuple[Any, Any]] = {
+    c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...)) for c in FEATURE_COLS
+}
 # Optional, non-feature identifier fields added for the end-to-end AML workflow integration
 # phase (2026-10-12) -- see serving/_alert_dispatch.py's module docstring. Purely additive:
 # score_transaction() below only ever reads FEATURE_COLS keys from its input dict, so these

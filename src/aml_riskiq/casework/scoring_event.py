@@ -169,7 +169,9 @@ def compute_idempotency_key(event: ScoringEvent) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def build_alert_from_scoring_event(event: ScoringEvent, *, idempotency_key: str, severity: str | None) -> Alert:
+def build_alert_from_scoring_event(
+    event: ScoringEvent, *, idempotency_key: str, severity: str | None
+) -> Alert:
     """Builds the case-management Alert from a validated ScoringEvent. Sibling to
     alert_schema.alert_from_score_response() (which builds from a raw /score response dict,
     used by manual/offline callers) -- this one is the automated-dispatch path, so it always

@@ -49,6 +49,7 @@ import os
 import pickle
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from fastapi import Depends, FastAPI, Request
@@ -172,7 +173,7 @@ MODEL_REGISTRY_ENTRY = build_registry_entry(
 # has no disclosed-NaN column anywhere in FEATURE_COLS, so every field is simply
 # (float, ...), required -- no Optional[float] special case needed.
 # ----------------------------------------------------------------------------------------
-_FIELD_TYPES = {c: (float, ...) for c in FEATURE_COLS}
+_FIELD_TYPES: dict[str, tuple[Any, Any]] = {c: (float, ...) for c in FEATURE_COLS}
 # Optional, non-feature identifier fields added for the end-to-end AML workflow integration
 # phase (2026-10-12) -- see serving/_alert_dispatch.py's module docstring. Purely additive:
 # score_transaction() below only ever reads FEATURE_COLS keys from its input dict, so these

@@ -486,7 +486,8 @@ def test_ingest_rejects_service_role_key(client, service, monkeypatch):
     POST /alerts, never a bypass for scoring-service callers."""
     monkeypatch.setenv(
         "AML_RISKIQ_API_KEYS",
-        "analyst:key-analyst,investigator:key-inv,compliance_officer:key-comp,admin:key-admin,bare-service-key",
+        "analyst:key-analyst,investigator:key-inv,compliance_officer:key-comp,"
+        "admin:key-admin,bare-service-key",
     )
     import importlib
     import sys
@@ -527,7 +528,9 @@ def test_ingest_observability_metrics_recorded(client):
 
 
 def test_ingest_preserves_model_provenance_and_severity(client):
-    resp = client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "f" * 64}, headers=H_ANALYST)
+    resp = client.post(
+        "/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "f" * 64}, headers=H_ANALYST
+    )
     alert_id = resp.json()["alert_id"]
     fetched = client.get(f"/alerts/{alert_id}", headers=H_ANALYST).json()
     assert fetched["severity"] == "high"
@@ -570,7 +573,9 @@ def test_ingest_created_alert_has_full_investigation_lifecycle_available(client)
     manually created one, so assignment, notes, evidence, transitions, and hash-chain
     integrity verification all work on it identically. Exercises the whole chain end to
     end, not just one call."""
-    resp = client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "h" * 64}, headers=H_ANALYST)
+    resp = client.post(
+        "/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "h" * 64}, headers=H_ANALYST
+    )
     alert_id = resp.json()["alert_id"]
     assert resp.json()["status"] == "new"  # requirement: never created pre-resolved
 
@@ -580,9 +585,7 @@ def test_ingest_created_alert_has_full_investigation_lifecycle_available(client)
     note = client.post(f"/alerts/{alert_id}/notes", json={"text": "reviewing"}, headers=H_INV)
     assert note.status_code == 201
 
-    evidence = client.post(
-        f"/alerts/{alert_id}/evidence", json={"description": "txn log"}, headers=H_INV
-    )
+    evidence = client.post(f"/alerts/{alert_id}/evidence", json={"description": "txn log"}, headers=H_INV)
     assert evidence.status_code == 201
 
     transition = client.post(

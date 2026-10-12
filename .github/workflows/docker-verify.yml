@@ -273,6 +273,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build case-management and bp3 images
         run: docker compose build case-management bp3-network-graph-intelligence
+      - name: Prepare writable bind-mount data directories
+        # On a fresh checkout, ./data/case_management and ./data/alert_outbox do not
+        # exist yet. Docker auto-creates a missing bind-mount source directory as root,
+        # mode 0755 -- but every image in this stack drops to a non-root user (see each
+        # Dockerfile's `USER app`/`USER appuser`), which cannot write into a root-owned,
+        # group/other-unwritable directory. Left unfixed, case-management's own SQLite
+        # AlertStore (opened eagerly at import time -- casework/store.py) hits a
+        # PermissionError on first write, the process never comes up, its Docker
+        # HEALTHCHECK never reports healthy, and `docker compose up` (which blocks on
+        # bp3's `depends_on: case-management: condition: service_healthy`) fails before
+        # this job's own "Wait for both services to report healthy" step ever runs. This
+        # is a real local-deployment gotcha too (see docs/deployment/DEPLOYMENT_GUIDE.md),
+        # not only a CI one -- fixed here the same way: create both directories up front
+        # and make them writable by any uid.
+        run: |
+          mkdir -p data/case_management data/alert_outbox
+          chmod -R 777 data
       - name: Bring up case-management and bp3 together
         run: docker compose up -d case-management bp3-network-graph-intelligence
       - name: Wait for both services to report healthy

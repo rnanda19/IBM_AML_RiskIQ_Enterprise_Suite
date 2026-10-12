@@ -414,9 +414,17 @@ class AlertStore:
                 )
             for ref in alert.evidence:
                 conn.execute(
-                    "INSERT INTO case_evidence (alert_id, evidence_id, timestamp, actor, description, external_ref) "
+                    "INSERT INTO case_evidence "
+                    "(alert_id, evidence_id, timestamp, actor, description, external_ref) "
                     "VALUES (?,?,?,?,?,?)",
-                    (alert.alert_id, ref.evidence_id, ref.timestamp.isoformat(), ref.actor, ref.description, ref.external_ref),
+                    (
+                        alert.alert_id,
+                        ref.evidence_id,
+                        ref.timestamp.isoformat(),
+                        ref.actor,
+                        ref.description,
+                        ref.external_ref,
+                    ),
                 )
             return alert, True
 

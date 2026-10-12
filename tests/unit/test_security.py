@@ -439,7 +439,7 @@ def test_record_custom_metric_increments_and_renders(security_module):
     text = security_module.render_metrics()
     assert "aml_riskiq_alert_dispatch_delivered_total" in text
     assert 'service="bp1_scoring_service"' in text
-    assert "aml_riskiq_alert_dispatch_delivered_total{service=\"bp1_scoring_service\"} 2.0" in text
+    assert 'aml_riskiq_alert_dispatch_delivered_total{service="bp1_scoring_service"} 2.0' in text
 
 
 def test_record_custom_metric_with_labels(security_module):
@@ -461,7 +461,7 @@ def test_set_custom_gauge_sets_not_increments(security_module):
     security_module.set_custom_gauge("case_management_service", "unresolved_alerts", 5)
     security_module.set_custom_gauge("case_management_service", "unresolved_alerts", 3)
     text = security_module.render_metrics()
-    assert "aml_riskiq_unresolved_alerts{service=\"case_management_service\"} 3" in text
+    assert 'aml_riskiq_unresolved_alerts{service="case_management_service"} 3' in text
     assert "# TYPE aml_riskiq_unresolved_alerts gauge" in text
 
 

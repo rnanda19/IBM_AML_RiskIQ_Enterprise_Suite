@@ -452,7 +452,10 @@ def _render_custom_metric_block(
         by_name.setdefault(metric_name, []).append((service_name, label_items, value))
     for metric_name in sorted(by_name):
         full_name = f"aml_riskiq_{metric_name}"
-        lines.append(f"# HELP {full_name} Business-level {metric_type} recorded via record_custom_metric/set_custom_gauge.")
+        lines.append(
+            f"# HELP {full_name} Business-level {metric_type} recorded via "
+            "record_custom_metric/set_custom_gauge."
+        )
         lines.append(f"# TYPE {full_name} {metric_type}")
         for service_name, label_items, value in sorted(by_name[metric_name]):
             all_labels = (("service", service_name),) + label_items
