@@ -24,7 +24,6 @@ Built on IBM's published synthetic AML dataset -- see the Dataset section below 
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {
-  "background": "#e5e7eb",
   "primaryColor": "#1e293b",
   "primaryTextColor": "#ffffff",
   "primaryBorderColor": "#64748b",
@@ -33,6 +32,8 @@ Built on IBM's published synthetic AML dataset -- see the Dataset section below 
   "fontFamily": "Segoe UI, Helvetica, Arial, sans-serif"
 }}}%%
 flowchart TD
+  subgraph CANVAS[" "]
+    direction TD
     SRC(["IBM AML-Data · github.com/IBM/AML-Data · synthetic transactions"]):::source
 
     SRC ==> NB["Per-BP Notebooks<br/>01 Business Understanding → 02 Feature Eng + Modeling → 03 Statistical Validation → 04 Compliance Reporting"]:::stage
@@ -52,9 +53,7 @@ flowchart TD
     SEC["_security.py<br/>API-key auth · rate-limit · audit log"]:::infra -.-> S1 & S2 & S3 & S4 & S5
     REG["_model_registry.py<br/>live SHA-256 + mtime under /health"]:::infra -.-> S1 & S2 & S4 & S5
 
-    S1 & S4 & S5 ==> DOK["Docker: BP1 / BP4 / BP5<br/>build + run verified in CI"]:::docker
-    S2 ==> DOKB2["Docker: BP2<br/>awaiting report refresh"]:::dockerwarn
-    S3 ==> DOKW["Docker: BP3<br/>awaiting lookup artifact"]:::dockerwarn
+    S1 & S2 & S3 & S4 & S5 ==> DOK["Docker: BP1-BP5<br/>build + run + fail-closed-auth verified in CI"]:::docker
 
     DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (100 tests)"]:::ci
     DOK ==> CI2["code-quality.yml<br/>bandit + format"]:::ci
@@ -63,22 +62,23 @@ flowchart TD
 
     NB ==> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1 – BP5"]:::report
     R1 ==> R2["BP6 PLATFORM_CARD.md<br/>platform rollup, no model of its own"]:::report
-    R2 ==> DOKB["Docker: BP6<br/>batch smoke check pending"]:::dockerwarn
+    R2 ==> DOKB["Docker: BP6<br/>batch smoke check verified in CI"]:::docker
+  end
 
-    classDef source fill:#0ea5e9,stroke:#0369a1,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef stage fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef model fill:#7c3aed,stroke:#5b21b6,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef service fill:#ea580c,stroke:#9a3412,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef infra fill:#334155,stroke:#0f172a,color:#ffffff,stroke-width:2px,font-weight:bold,stroke-dasharray: 3 3
-    classDef docker fill:#0d9488,stroke:#115e59,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef dockerwarn fill:#64748b,stroke:#334155,color:#ffffff,stroke-width:3px,font-weight:bold,stroke-dasharray: 5 5
-    classDef ci fill:#16a34a,stroke:#14532d,color:#ffffff,stroke-width:3px,font-weight:bold
-    classDef report fill:#dc2626,stroke:#7f1d1d,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef source fill:#0ea5e9,stroke:#0369a1,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef stage fill:#1d4ed8,stroke:#1e3a8a,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef model fill:#7c3aed,stroke:#5b21b6,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef service fill:#ea580c,stroke:#9a3412,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef infra fill:#334155,stroke:#0f172a,color:#ffffff,stroke-width:2px,font-weight:bold,stroke-dasharray: 3 3
+  classDef docker fill:#0d9488,stroke:#115e59,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef ci fill:#16a34a,stroke:#14532d,color:#ffffff,stroke-width:3px,font-weight:bold
+  classDef report fill:#dc2626,stroke:#7f1d1d,color:#ffffff,stroke-width:3px,font-weight:bold
 
-    linkStyle default stroke:#0f172a,stroke-width:3px
+  linkStyle default stroke:#0f172a,stroke-width:3px
+  style CANVAS fill:#e5e7eb,stroke:none
 ```
 
-Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). BP1, BP4 and BP5 have scoring-service build/run checks. **BP2** remains blocked on a real validation-report refresh; **BP3** remains blocked on the missing lookup Parquet. **BP6** is a one-shot batch job rather than an API, so `.github/workflows/docker-verify.yml` now executes it and checks its report outputs instead of polling `/health`; that check is pending on the current branch. See the workflow and defect register for exact scope.
+Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
 
 ## Table of Contents
 - [Dataset](#dataset)
