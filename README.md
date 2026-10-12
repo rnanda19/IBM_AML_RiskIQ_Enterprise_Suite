@@ -10,13 +10,20 @@
 
 **IBM AML RiskIQ Enterprise Suite** is a research and portfolio demonstration for AML analytics, covering six
 business-problem workstreams: transaction monitoring, typology classification, graph intelligence, structuring and
-smurfing, cross-border risk, and enterprise compliance rollup. It includes model/rule artifacts, scoring-service code,
-reports, and governance documentation. It is **not a validated live-bank deployment or a production-ready compliance
-system**. Current release status is mixed: BP1, BP4 and BP5 have Docker build/run checks in CI; BP2 still requires a
-real validation-report refresh, BP3 still requires its generated lookup Parquet, and BP6 is a batch rollup rather than
-a scoring API. Statistical benchmark results and assumed financial-impact scenarios must be interpreted within the
-synthetic dataset and documented evaluation protocol. See `ROADMAP.md`, `BENCHMARKS.md`, and the evidence ledger for
-current status and provenance.
+smurfing, cross-border risk, and enterprise compliance rollup, plus a seventh, RBAC-protected **Case Management
+Service** that BP1-BP5 now dispatch real, idempotent alerts to automatically (see
+`docs/architecture/SCORING_ALERT_INTEGRATION.md`). It includes model/rule artifacts, scoring-service code, reports,
+and governance documentation. It is **not a validated live-bank deployment or a production-ready compliance
+system**. All 5 scoring services (BP1-BP5), the Case Management Service, and BP6's batch rollup have Docker
+build/run checks in CI, and the real, multi-container integrated alert workflow -- a live scoring call producing a
+real alert, duplicate resubmission correctly suppressed, and a non-flagged account correctly producing no alert --
+is verified end to end against live containers. CI (lint/format/type-check plus the full test suite on Python 3.10
+and 3.11), Docker Build & Run Verification, CodeQL, and Code Quality all pass together on the same commit (see the
+badges above and `ROADMAP.md`'s "Resolved" log for the confirming run). Statistical benchmark results and assumed
+financial-impact scenarios must be interpreted within the synthetic dataset and documented evaluation protocol --
+`docs/data/LEAKAGE_AUDIT.md` documents known methodological risks (random rather than chronological splits, no
+explicit entity-level separation) that a temporal/entity-separated re-validation effort is now addressing (see
+`ROADMAP.md`). See `ROADMAP.md`, `BENCHMARKS.md`, and the evidence ledger for current status and provenance.
 
 Built on IBM's published synthetic AML dataset -- see the Dataset section below for licensing and source details.
 
@@ -57,12 +64,16 @@ flowchart TD
 
     CW["casework package<br/>Alert/CaseEvent/AlertStore (SQLite)"]:::model ==> CMS["case_management_service<br/>:8005 · RBAC-protected"]:::service
     SEC -.-> CMS
+    S1 & S2 & S3 & S4 & S5 -.->|"POST /alerts/ingest<br/>idempotent alert dispatch"| CMS
 
-    DOK ==> CI1["ci.yml<br/>lint + mypy + pytest (189 tests)"]:::ci
+    CMS ==> IW["integrated-workflow<br/>real scoring→alert round trip<br/>(create · dedupe · non-flagged) verified in CI"]:::docker
+
+    DOK ==> CI1["ci.yml<br/>flake8+black+isort+mypy + pytest<br/>296 tests × Py 3.10 & 3.11"]:::ci
     DOK ==> CI2["code-quality.yml<br/>bandit + format"]:::ci
     DOK ==> CI3["codeql.yml<br/>weekly security scan"]:::ci
     DOK ==> CI4["docker-verify.yml<br/>build + poll /health (incl. case-management)"]:::ci
     CMS ==> CI4
+    IW ==> CI4
 
     NB ==> R1["MODEL_CARD.md / RULE_CARD.md<br/>per BP1 – BP5"]:::report
     R1 ==> R2["BP6 PLATFORM_CARD.md<br/>platform rollup, no model of its own"]:::report
@@ -82,7 +93,7 @@ flowchart TD
   style CANVAS fill:#e5e7eb,stroke:none
 ```
 
-Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). The Case Management Service (`:8005`) is a 6th, RBAC-protected live service added 2026-10-12, built on the `casework` package and its own SQLite-backed store -- see `docs/security/RBAC.md` for its permission matrix. See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
+Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). The Case Management Service (`:8005`) is a 6th, RBAC-protected live service added 2026-10-12, built on the `casework` package and its own SQLite-backed store -- see `docs/security/RBAC.md` for its permission matrix. Each of BP1-BP5 also dispatches a real, idempotent alert to the Case Management Service's `POST /alerts/ingest` whenever its own already-validated alert-worthiness line is crossed (see `docs/architecture/SCORING_ALERT_INTEGRATION.md`), and `docker-verify.yml`'s `integrated-workflow` job proves this round trip for real against live containers -- a real alert created with scoring provenance intact, an identical resubmission correctly suppressed as a duplicate, and a non-flagged account correctly producing no alert -- confirmed passing in CI. See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
 
 ## Table of Contents
 - [Dataset](#dataset)
@@ -292,11 +303,14 @@ equivalent to live deployment verification by themselves: `docker-verify.yml` bu
 fail-closed-by-default auth works before running with a disposable CI key (the case-management job also
 checks a live, running container actually rejects an unauthenticated write with 401), plus a separate
 `bp6-batch` job verified by execution + report-output checks (BP6 has no port/`/health`, so it is never
-polled). BP2's and BP3's real artifacts (DEF-001/DEF-002) were regenerated 2026-10-12 via real notebook
-re-runs and both services were re-added to the workflow -- the assistant has not directly observed a
-passing GitHub Actions run of this workflow (no Docker daemon is available in its own sandboxes), so
-confirm current status on the repository's Actions tab before relying on it. Shared API-key
-auth/rate-limit/audit-log/metrics primitives, real RBAC on the Case Management Service, and a 189-test
+polled), and an `integrated-workflow` job proving a real scoring-to-alert round trip against live
+containers. BP2's and BP3's real artifacts (DEF-001/DEF-002) were regenerated 2026-10-12 via real notebook
+re-runs and both services were re-added to the workflow. All required checks -- `ci.yml` (lint, format,
+type-check, and the full pytest suite on both Python 3.10 and 3.11), `docker-verify.yml` (every job above),
+`codeql.yml`, and `code-quality.yml` -- are confirmed passing together on the same commit, verified via
+GitHub's check-runs REST API (direct Actions log access requires authenticated scope this assistant
+doesn't have; see `ROADMAP.md`'s "Resolved" log for the exact commit and run IDs). Shared API-key
+auth/rate-limit/audit-log/metrics primitives, real RBAC on the Case Management Service, and a 296-test
 suite are documented. **No claim of regulatory compliance or production readiness is made anywhere in
 this repository** -- RBAC, audit trails, and case management are real and tested, but they are platform
 building blocks, not a certification. See `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source

@@ -1,12 +1,14 @@
 # Roadmap
 
 ## Done
-- BP1-BP6 workstreams and their current evaluation/reporting artifacts are documented. This does **not** mean
-  all six are *live-CI-confirmed* deployment-verified: BP2's and BP3's real artifacts were regenerated
-  2026-10-12 (see "Resolved 2026-10-12" below) and `docker-verify.yml` builds/starts/polls `/health` for all
-  5 scoring services plus a separate BP6 batch check, but the assistant has not directly observed a passing
-  GitHub Actions run (no Docker daemon in its sandboxes) -- confirm on the repository's Actions tab. See the
-  defect register and evidence ledger for exact artifacts and limitations.
+- BP1-BP6 workstreams and their current evaluation/reporting artifacts are documented. BP2's and BP3's real
+  artifacts were regenerated 2026-10-12 (see "Resolved 2026-10-12" below) and `docker-verify.yml`
+  builds/starts/polls `/health` for all 5 scoring services plus a separate BP6 batch check -- this is now
+  **confirmed live-CI-passing**: commit `eb00ac9` has all 15 required checks green together (`ci.yml` on
+  Python 3.10 and 3.11, `docker-verify.yml` incl. `integrated-workflow`, `codeql.yml`, `code-quality.yml`),
+  verified via GitHub's check-runs REST API (see "Resolved 2026-10-12 -- CI fixes after first real push"
+  below for how the two real failures on the first push were found and fixed). See the defect register and
+  evidence ledger for exact artifacts and limitations.
 - Full hardening pass: dependency lockfile (`requirements.in`/`requirements.txt`), mypy wired into CI/
   pre-commit (0 errors across 15 files), API-key auth + rate limiting + audit logging on all 5 scoring
   services, a real model-registry fingerprint exposed via `/health`, a real Docker COPY-path verifier that
@@ -24,8 +26,8 @@
   before running with a disposable CI test key; the `case-management` job additionally confirms a live
   running container actually rejects an unauthenticated write with 401. A separate `bp6-batch` job runs
   the real rollup and checks its report outputs are non-empty (BP6 has no port, so it is never polled for
-  `/health`). The assistant has not directly observed a passing GitHub Actions run of this workflow --
-  confirm current status on the repository's Actions tab.
+  `/health`). This has been confirmed passing: commit `eb00ac9` has every `docker-verify.yml` job green,
+  including the `integrated-workflow` job described below.
 - **RBAC is now real on one surface.** `require_any_role()` genuinely protects all 12 non-public routes
   of the new Case Management Service with 4 roles (`analyst`/`investigator`/`compliance_officer`/`admin`)
   -- see `docs/security/RBAC.md` and the 43-test suite in
@@ -41,10 +43,14 @@
   relevant if a second, more sensitive route (e.g. model reload/config change) is ever added to one of
   them; the `require_any_role()` mechanism proven on the Case Management Service would protect it the
   same way.
-- The `integrated-workflow` CI job (see "Added 2026-10-12 -- End-to-End AML Workflow Integration" below)
-  has been written and locally YAML-validated but not yet observed passing in GitHub Actions -- Docker is
-  unavailable in this development environment, so its first real execution is the next push's CI run.
-  Confirm on the repository's Actions tab before treating the real-container integration path as verified.
+- **Strengthening AML model-validation evidence** (started 2026-10-12): `docs/data/LEAKAGE_AUDIT.md`
+  documents random (non-chronological) splitting and no explicit entity-level separation across BP1-BP5 as
+  methodological risks, not proof the published metrics are wrong. Adding reproducible temporal and
+  entity-separated evaluation code, baseline comparisons, and a precision/recall/PR-AUC/calibration/
+  threshold-trade-off report, with synthetic-data results kept explicitly separate from any real-world AML
+  performance claim. Per this project's standing execution boundary, the evaluation code is written here;
+  running it against the real dataset to produce the actual numbers happens on your own machine, with you
+  watching.
 
 ## Resolved 2026-10-12
 - **BP2's Docker image wouldn't start** (found 2026-10-03) -- fixed by a real re-run of BP2 Notebook 3
@@ -57,6 +63,36 @@
   a `.gitignore` gap -- every other BP's champion artifact had a `!` exception carved out of the blanket
   `*.pkl`/`*.parquet` rules, but BP3's never did; that exception is now added. `bp3` re-added to
   `docker-verify.yml`.
+
+## Resolved 2026-10-12 -- CI fixes after the first real push of the integration phase
+The "Added 2026-10-12 -- End-to-End AML Workflow Integration" work below was pushed, and its first real
+GitHub Actions run (commit `c5e4da74`) genuinely failed two jobs -- found via GitHub's unauthenticated
+check-runs/annotations/jobs REST API (job-log downloads require authenticated scope even on a public repo,
+so step-by-step job status was the available signal; nothing here was guessed).
+- **`Lint & Type Check` failed at its `flake8` step** (black/isort/mypy never ran that time, since the job
+  stops on first failure): real `E501` line-length violations in `casework/store.py`, `serving/_security.py`,
+  and 3 test files, plus genuinely-unused imports (`ScoringEvent` in `serving/_alert_dispatch.py`,
+  `dispatch_alert` in `test_scoring_alert_e2e.py`). Fixed by rewrapping the offending lines and removing
+  the dead imports. Running black/isort/mypy for real afterward (not just guessing they'd pass) also found
+  and fixed: 2 more pre-existing drifted files under `black`, and a real `mypy` bug in BP1/2/4/5 --
+  `_FIELD_TYPES`'s dict comprehension inferred a narrower tuple type than the new
+  `entity_ref`/`transaction_ref`/`event_timestamp` fields' `(Optional[float], None)` shape, fixed with an
+  explicit `dict[str, tuple[Any, Any]]` annotation.
+- **`integrated-workflow` failed at `docker compose up` itself**, before its own health-wait step ever ran:
+  `./data/case_management` doesn't exist on a fresh checkout, so Docker auto-created the bind-mount source
+  as root, mode `0755` -- unwritable by the non-root `app` user every image in this stack runs as.
+  case-management's SQLite `AlertStore` opens eagerly at import time, so the resulting `PermissionError`
+  crashed the container before it could serve `/health`; its `HEALTHCHECK` never went healthy, and bp3's
+  `depends_on: condition: service_healthy` made `docker compose up` fail outright. Fixed with a new
+  "Prepare writable bind-mount data directories" CI step (`mkdir -p` + `chmod -R 777 data`), and the same
+  note added to `docs/deployment/DEPLOYMENT_GUIDE.md` since it is a real local-deployment gotcha too.
+- Both fixes committed as `eb00ac9` and pushed. **Confirmed green on the real re-run**: all 15 check runs
+  on `eb00ac9` -- `Lint & Type Check`, `Pytest (Py 3.10)`, `Pytest (Py 3.11)`, `integrated-workflow`, `bp1`
+  through `bp5`, `bp6-batch`, `case-management`, `bandit-security-scan`, `format-check`,
+  `Analyze (python) (python)` (CodeQL), and `Dependabot` -- succeeded, with every step of
+  `integrated-workflow` (including the real alert-creation, duplicate-suppression, and non-flagged-account
+  checks) actually running rather than being skipped. This is the first commit in this project with every
+  required check observed green together.
 
 ## Added this session (2026-10-10), not requiring real pipeline execution
 - Fail-closed auth gate, role-aware API keys (primitive), `/metrics` endpoint on all 5 services.
@@ -105,9 +141,10 @@
 - Docs: new `docs/architecture/SCORING_ALERT_INTEGRATION.md`; updated `README.md`, `CHANGELOG.md`,
   `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
 - **Explicitly not claimed**: a new or retrained ML model, any change to the Case Management Service's
-  own lifecycle/RBAC/audit trail (reused unchanged), that a generated alert is proof of laundering (it is
-  an investigation starting point, not a verdict), or that the `integrated-workflow` CI job has been
-  observed passing (see "In progress / pending" above).
+  own lifecycle/RBAC/audit trail (reused unchanged), or that a generated alert is proof of laundering (it
+  is an investigation starting point, not a verdict). The `integrated-workflow` CI job's first real run did
+  fail (a real bind-mount permission bug, not a flaky test) -- see "Resolved 2026-10-12 -- CI fixes after
+  the first real push" below for the fix and the confirmed-green re-run.
 
 ## Added 2026-10-12 -- RBAC, Case Management & Audit Trails (not requiring real pipeline execution)
 - `require_any_role()`/`resolve_caller_role()` in `_security.py` -- the role-aware API keys and
