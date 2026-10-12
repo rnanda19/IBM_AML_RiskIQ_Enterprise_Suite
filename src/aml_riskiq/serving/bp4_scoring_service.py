@@ -69,6 +69,7 @@ try:
         require_api_key,
         score_rate_limit,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
     from src.aml_riskiq.serving._security import (
@@ -76,12 +77,18 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         require_api_key,
         score_rate_limit,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 try:
     from serving._alert_dispatch import maybe_generate_and_dispatch_alert
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
     from src.aml_riskiq.serving._alert_dispatch import maybe_generate_and_dispatch_alert
 from pydantic import create_model
+
+try:
+    from serving._request_validation import FiniteFloatFieldsModel
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.aml_riskiq.serving._request_validation import FiniteFloatFieldsModel
 
 
 # ----------------------------------------------------------------------------------------
@@ -212,7 +219,7 @@ _FIELD_TYPES["entity_ref"] = (str | None, None)
 _FIELD_TYPES["transaction_ref"] = (str | None, None)
 _FIELD_TYPES["event_timestamp"] = (datetime | None, None)
 TxnFeatures = create_model(
-    "TxnFeatures", **_FIELD_TYPES
+    "TxnFeatures", __base__=FiniteFloatFieldsModel, **_FIELD_TYPES
 )  # type: ignore[call-overload]  # pydantic's mypy plugin only validates create_model()
 # calls that use literal field definitions; here the fields are built dynamically from
 # FEATURE_COLS (loaded from the real saved validation report at runtime, per Lesson #2 --
@@ -250,6 +257,18 @@ def score_transaction(record: dict) -> dict:
 app = FastAPI(title=f"BP4 Structuring & Smurfing Scoring Service ({DATASET_VARIANT})")
 _limiter = harden_app(app, "bp4_scoring_service")
 wire_metrics_endpoint(app)
+
+
+def _readiness_checks() -> dict[str, bool]:
+    """Real readiness check (added 2026-10-12) -- see wire_readiness_endpoint's own
+    docstring for why this is distinct from /health in this architecture."""
+    return {
+        "champion_model_loaded": champion_model is not None,
+        "feature_cols_loaded": len(FEATURE_COLS) > 0,
+    }
+
+
+wire_readiness_endpoint(app, _readiness_checks)
 
 
 @app.get("/health")

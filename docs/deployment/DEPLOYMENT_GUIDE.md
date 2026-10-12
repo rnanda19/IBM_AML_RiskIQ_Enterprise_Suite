@@ -156,13 +156,20 @@ live-container check (create an alert with an admin key, then confirm an unauthe
 rejected with 401). If that run fails, the CI log is the authoritative signal, not this document's
 description of the intended behavior.
 
-**Also not yet verified (2026-10-12, End-to-End AML Workflow Integration)**: the root-level
-`docker-compose.yml` and the `integrated-workflow` CI job described above are YAML-valid and reviewed
-against the real request/response shapes of every endpoint they call, but have not been run with a real
-Docker daemon in this development environment either (confirmed: `docker` is not on `PATH`, and there is
-no disk space available to install supporting ML libraries to verify model inference locally as an
-alternative check). Their first real GitHub Actions run did surface a real bug -- the bind-mount
-permission issue documented above -- which is now fixed in both `docker-compose.yml`'s own consumer (the
-`integrated-workflow` job) and this guide; that fix has not yet been observed passing in a fresh CI run.
-Confirm the result on the repository's Actions tab before treating the integrated multi-container
-workflow as verified.
+**Updated 2026-10-12 (End-to-End AML Workflow Integration, now confirmed)**: the root-level
+`docker-compose.yml` and the `integrated-workflow` CI job described above were not run with a real Docker
+daemon in this development sandbox (confirmed: `docker` is not on `PATH` here, and there is no disk space
+available to install supporting ML libraries to verify model inference locally as an alternative check).
+Their first real GitHub Actions run did surface a real bug -- the bind-mount permission issue documented
+above -- which was fixed in both `docker-compose.yml`'s own consumer (the `integrated-workflow` job) and
+this guide. That fix **has since been observed passing**: commit `4c134f1`'s actual GitHub Actions results
+were fetched from GitHub's check-runs REST API and confirmed `conclusion: success` on all 4 workflow runs
+and all 14 required check runs, including `integrated-workflow`'s four specific alert-lifecycle assertions
+and the case-management job's live-container RBAC/fail-closed-auth check (see the "docs: record real CI
+verification of commit 4c134f1" commit and `ROADMAP.md`'s "Resolved" log for the exact run IDs). Raw job
+logs and the CodeQL alerts list were not readable without the repository owner's own authenticated
+session (403/401) -- a disclosed limitation of that verification method, not a gap in the result itself.
+This production-readiness pass (2026-10-12, Improvement 3) added further automated tests and controls on
+top of that confirmed-green commit but has not itself been pushed or re-checked against a fresh CI run as
+of this writing -- confirm the result on the repository's Actions tab for whatever commit is actually
+deployed before treating it as current, continuing evidence rather than a one-time snapshot.

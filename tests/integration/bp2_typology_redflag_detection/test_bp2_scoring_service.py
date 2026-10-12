@@ -295,3 +295,45 @@ def test_bp2_alert_confidence_baseline_is_chance_level(stub_service):
     """BP2's own disclosed, non-fabricated alerting threshold: 1 / len(CLASS_NAMES), never a
     hand-tuned value."""
     assert stub_service.BP2_ALERT_CONFIDENCE_BASELINE == pytest.approx(1.0 / len(CLASS_NAMES))
+
+
+def test_score_endpoint_rejects_non_finite_feature_values(stub_service):
+    """Same real gap as BP1's identically-named test -- see
+    serving/_request_validation.py's module docstring. BP2's one NaN-prone column legitimately
+    accepts JSON `null` (Optional[float] = None); it must still reject an actual NaN/Infinity
+    value, same as every required column."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload[FEATURE_COLS[0]] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_score_endpoint_rejects_non_finite_on_the_nan_prone_column_itself(stub_service):
+    """The one column that legitimately accepts `null` must still reject a real NaN/Infinity
+    value sent in its place -- None and NaN are not the same thing."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload["amount_paid_received_ratio"] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_score_endpoint_still_accepts_null_on_the_nan_prone_column(stub_service):
+    """Regression guard: the finite-float check must not accidentally start rejecting the
+    legitimate `null` sentinel for this column."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    payload["amount_paid_received_ratio"] = None
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200

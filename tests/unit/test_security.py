@@ -490,3 +490,236 @@ def test_render_metrics_includes_both_generic_and_custom_sections(security_modul
     assert resp.status_code == 200
     assert "aml_riskiq_requests_total" in resp.text
     assert "aml_riskiq_widgets_total" in resp.text
+
+
+# -- _json_safe / RequestValidationError handler (Improvement 3 production-readiness pass,
+# 2026-10-12): a NaN/Infinity feature value rejected by FiniteFloatFieldsModel was crashing
+# with an unhandled 500 instead of a clean 422, because FastAPI's default validation-error
+# handler tries to JSON-serialize the raw offending value (and, for a model-level validator,
+# a raw exception object inside pydantic's error ctx) using strict JSON encoding. Confirmed
+# against a real running service before this fix; these are the isolated unit-level tests
+# for the sanitizer itself. --
+
+
+def test_json_safe_passes_through_ordinary_values(security_module):
+    assert security_module._json_safe({"a": 1, "b": "x", "c": [1, 2, 3]}) == {
+        "a": 1,
+        "b": "x",
+        "c": [1, 2, 3],
+    }
+
+
+def test_json_safe_replaces_nan(security_module):
+    assert security_module._json_safe(float("nan")) == "NaN"
+
+
+def test_json_safe_replaces_positive_infinity(security_module):
+    assert security_module._json_safe(float("inf")) == "Infinity"
+
+
+def test_json_safe_replaces_negative_infinity(security_module):
+    assert security_module._json_safe(float("-inf")) == "-Infinity"
+
+
+def test_json_safe_replaces_exception_objects_with_their_string(security_module):
+    exc = ValueError("boom")
+    assert security_module._json_safe(exc) == "boom"
+
+
+def test_json_safe_recurses_into_nested_dicts_and_lists(security_module):
+    payload = {
+        "detail": [
+            {
+                "loc": ["body", "hour"],
+                "msg": "bad",
+                "ctx": {"error": ValueError("nope")},
+                "input": float("nan"),
+            }
+        ]
+    }
+    sanitized = security_module._json_safe(payload)
+    assert sanitized["detail"][0]["ctx"]["error"] == "nope"
+    assert sanitized["detail"][0]["input"] == "NaN"
+
+
+def test_validation_error_handler_returns_422_with_sanitized_body(security_module):
+    import json
+
+    from fastapi.exceptions import RequestValidationError
+
+    exc = RequestValidationError(
+        errors=[
+            {
+                "type": "value_error",
+                "loc": (),
+                "msg": "Value error, bad",
+                "input": {"hour": float("nan")},
+                "ctx": {"error": ValueError("bad")},
+            }
+        ]
+    )
+    response = security_module._validation_error_handler(request=None, exc=exc)
+    assert response.status_code == 422
+    body = json.loads(bytes(response.body))
+    assert body["detail"][0]["ctx"]["error"] == "bad"
+    assert body["detail"][0]["input"]["hour"] == "NaN"
+
+
+def test_harden_app_wires_validation_error_handler(security_module):
+    from fastapi import FastAPI
+    from fastapi.exceptions import RequestValidationError
+
+    app = FastAPI()
+    security_module.harden_app(app, "test-service")
+    assert RequestValidationError in app.exception_handlers
+
+
+# -- request correlation IDs (Improvement 3 production-readiness pass, 2026-10-12) --
+
+
+def test_response_gets_a_generated_request_id_when_caller_sends_none(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "corr-test")
+
+    @app.get("/ping")
+    def _ping() -> dict:
+        return {"ok": True}
+
+    client = TestClient(app)
+    resp = client.get("/ping")
+    assert resp.status_code == 200
+    assert security_module.REQUEST_ID_HEADER in resp.headers
+    assert len(resp.headers[security_module.REQUEST_ID_HEADER]) == 36  # a real UUID4 string
+
+
+def test_response_echoes_back_the_callers_own_request_id(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "corr-test")
+
+    @app.get("/ping")
+    def _ping() -> dict:
+        return {"ok": True}
+
+    client = TestClient(app)
+    resp = client.get("/ping", headers={"X-Request-ID": "caller-supplied-id-123"})
+    assert resp.headers[security_module.REQUEST_ID_HEADER] == "caller-supplied-id-123"
+
+
+def test_audit_log_line_includes_the_same_request_id(security_module, caplog):
+    import json
+    import logging
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "corr-test")
+
+    @app.get("/ping")
+    def _ping() -> dict:
+        return {"ok": True}
+
+    client = TestClient(app)
+    with caplog.at_level(logging.INFO, logger="aml_riskiq.audit"):
+        resp = client.get("/ping", headers={"X-Request-ID": "trace-xyz"})
+    response_request_id = resp.headers[security_module.REQUEST_ID_HEADER]
+    assert response_request_id == "trace-xyz"
+    record = json.loads(caplog.records[-1].message)
+    assert record["request_id"] == "trace-xyz"
+
+
+def test_audit_log_defaults_request_id_when_not_supplied(security_module):
+    """audit_log() itself is reused outside the middleware (route handlers call it ad hoc);
+    confirm it still produces a usable, non-empty request_id when none is passed in."""
+    import json
+    import logging
+
+    logger = logging.getLogger("aml_riskiq.audit")
+    records = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    handler = _Capture()
+    logger.addHandler(handler)
+    try:
+        security_module.audit_log(
+            service_name="svc",
+            method="GET",
+            path="/x",
+            status_code=200,
+            latency_ms=1.0,
+            client_ip="1.2.3.4",
+            caller_id="anonymous",
+        )
+    finally:
+        logger.removeHandler(handler)
+    payload = json.loads(records[-1].getMessage())
+    assert len(payload["request_id"]) == 36
+
+
+# -- /ready readiness endpoint (Improvement 3 production-readiness pass, 2026-10-12) --
+
+
+def test_wire_readiness_endpoint_returns_200_when_all_checks_pass(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "ready-test")
+    security_module.wire_readiness_endpoint(app, lambda: {"db_ok": True, "model_ok": True})
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ready", "checks": {"db_ok": True, "model_ok": True}}
+
+
+def test_wire_readiness_endpoint_returns_503_when_a_check_fails(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "ready-test")
+    security_module.wire_readiness_endpoint(app, lambda: {"db_ok": False, "model_ok": True})
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 503
+    assert resp.json()["status"] == "not_ready"
+
+
+def test_wire_readiness_endpoint_returns_503_when_check_fn_raises(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    def _boom() -> dict:
+        raise RuntimeError("db connection refused")
+
+    app = FastAPI()
+    security_module.harden_app(app, "ready-test")
+    security_module.wire_readiness_endpoint(app, _boom)
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 503
+    assert resp.json()["status"] == "not_ready"
+    assert "db connection refused" in resp.json()["checks"]["_error"]
+
+
+def test_wire_readiness_endpoint_returns_503_when_no_checks_at_all(security_module):
+    """An empty checks dict must not be vacuously 'ready' (all([]) is True in Python, which
+    would be the wrong default here)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "ready-test")
+    security_module.wire_readiness_endpoint(app, lambda: {})
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 503

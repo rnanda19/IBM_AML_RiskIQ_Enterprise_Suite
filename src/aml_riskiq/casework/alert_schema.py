@@ -10,11 +10,12 @@ Nothing here is invented data a real deployment would not actually have access t
 
 from __future__ import annotations
 
+import math
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 ALERT_SCHEMA_VERSION = "1.0.0"
 
@@ -130,6 +131,21 @@ class Alert(BaseModel):
     # BP1-BP5 /score result meeting its configured alerting criteria via POST
     # /alerts/ingest? Never inferred after the fact -- set once, at creation, by whichever
     # code path actually created the Alert.
+
+    @field_validator("risk_score", "selected_threshold")
+    @classmethod
+    def _finite_score(cls, v: float) -> float:
+        """Real gap this closes (found 2026-10-12, Improvement 3 production-readiness
+        pass): this is the request model for BOTH public mutating alert routes (POST
+        /alerts/ingest directly, and POST /alerts via case_management_service's
+        AlertCreateRequest, which shares this exact check -- see that module). Before this
+        validator existed, casework/scoring_event.py's internal ScoringEvent already
+        rejected a non-finite risk_score/selected_threshold, but this public-facing model did
+        not -- a caller to either public route could submit risk_score: NaN and have it
+        accepted into a real stored case."""
+        if not math.isfinite(v):
+            raise ValueError(f"must be a finite number, got {v!r}")
+        return v
 
 
 def alert_from_score_response(

@@ -99,14 +99,18 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import os
 import secrets
 import sys
 import threading
 import time
+import uuid
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -317,10 +321,23 @@ def case_rate_limit() -> str:
     return os.environ.get(CASE_RATE_LIMIT_ENV_VAR, DEFAULT_CASE_RATE_LIMIT)
 
 
+REQUEST_ID_HEADER = "X-Request-ID"
+
+
 class AuditLogMiddleware(BaseHTTPMiddleware):
     """Emits one structured JSON audit line per request, for every route (health checks
     included, so a gap in traffic is visible too) -- regardless of whether auth or rate
-    limiting allowed, rejected, or throttled the request."""
+    limiting allowed, rejected, or throttled the request.
+
+    REQUEST CORRELATION (added 2026-10-12, Improvement 3 production-readiness pass): every
+    request gets a correlation identifier -- the caller's own `X-Request-ID` header if it
+    sent one (so a caller's own tracing ID round-trips through this service unchanged,
+    standard practice for a service sitting behind a gateway that already assigns one), or a
+    freshly generated UUID4 otherwise. It is echoed back on the response's `X-Request-ID`
+    header and included in the audit-log line as `request_id`, so a single real request can
+    be traced end to end (gateway log -> this service's audit log -> any downstream service
+    it calls, e.g. a scoring service's alert-dispatch call to case-management, which the
+    caller can also pass the same header on) without needing a dedicated tracing backend."""
 
     def __init__(self, app: FastAPI, service_name: str) -> None:
         super().__init__(app)
@@ -332,6 +349,8 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
         start = time.monotonic()
         caller_key = request.headers.get("x-api-key")
         caller_id = _key_fingerprint(caller_key) if caller_key else "anonymous"
+        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        request.state.request_id = request_id
         try:
             response = await call_next(request)
             status_code = response.status_code
@@ -348,8 +367,10 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 latency_ms=elapsed_ms,
                 client_ip=get_remote_address(request),
                 caller_id=caller_id,
+                request_id=request_id,
             )
             _record_metric(self._service_name, request.method, request.url.path, status_code, elapsed_ms)
+        response.headers[REQUEST_ID_HEADER] = request_id
         return response
 
 
@@ -387,6 +408,48 @@ def render_metrics() -> str:
     lines.extend(_render_custom_metric_block(_custom_counters, "counter"))
     lines.extend(_render_custom_metric_block(_custom_gauges, "gauge"))
     return "\n".join(lines) + "\n"
+
+
+def wire_readiness_endpoint(app: FastAPI, check_fn: Callable[[], dict[str, bool]]) -> None:
+    """Mounts GET /ready on the given app (added 2026-10-12, Improvement 3 production-
+    readiness pass), deliberately distinct from /health.
+
+    HONEST SCOPE NOTE on why these two are not just aliases of each other in THIS
+    architecture: every BP1-BP5 service loads its champion model (or, for BP3, its
+    near-train-flagged lookup table) synchronously at MODULE IMPORT time, before the FastAPI
+    app object is even constructed -- a load failure already raises before the process can
+    serve any traffic at all, so there is no real window where this process is "alive but
+    not ready" the way there would be for, say, a service that connects to a database
+    asynchronously after startup. /health and /ready report overlapping information for
+    that reason. /ready still exists, separately, because (a) standard container
+    orchestration (Kubernetes readiness probes, a load balancer's own health-check
+    convention) expects a distinct readiness endpoint and (b) it gives each service a place
+    to assert something more specific than "the process didn't crash on import" -- e.g.
+    case-management's real check actually queries its SQLite store, not just checks that the
+    module imported.
+
+    `check_fn` returns {check_name: passed}; /ready is 200 (`{"status": "ready", ...}`) only
+    if every value is truthy, else 503 (`{"status": "not_ready", ...}`) -- and an exception
+    raised inside `check_fn` is caught and reported as a failed check, never an unhandled
+    500 (a readiness probe failing loudly as "not ready" is the whole point; crashing the
+    endpoint that reports it would defeat that point)."""
+
+    @app.get("/ready")
+    def _ready() -> Response:
+        from starlette.responses import JSONResponse
+
+        checks: dict[str, Any]
+        try:
+            checks = dict(check_fn())
+            ready = bool(checks) and all(checks.values())
+        except Exception as exc:  # noqa: BLE001 -- deliberately broad: a readiness check
+            # must never itself crash the endpoint reporting it; see docstring above.
+            checks = {"check_raised_exception": True, "_error": str(exc)}
+            ready = False
+        return JSONResponse(
+            status_code=status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "ready" if ready else "not_ready", "checks": checks},
+        )
 
 
 def wire_metrics_endpoint(app: FastAPI) -> None:
@@ -473,10 +536,14 @@ def audit_log(
     latency_ms: float,
     client_ip: str,
     caller_id: str,
+    request_id: str | None = None,
 ) -> None:
     """Writes one structured audit record. Pulled out of the middleware as its own function
     so a route handler that needs to log something ad hoc (not just the generic request/
-    response shape) can reuse the exact same record shape and logger."""
+    response shape) can reuse the exact same record shape and logger. `request_id` is
+    optional (defaults to a fresh UUID4 when not supplied, e.g. for an ad hoc call not tied
+    to an in-flight HTTP request) so every existing caller of this function keeps working
+    unchanged."""
     import json as _json
     from datetime import datetime, timezone
 
@@ -489,8 +556,53 @@ def audit_log(
         "latency_ms": latency_ms,
         "client_ip": client_ip,
         "caller_id": caller_id,
+        "request_id": request_id or str(uuid.uuid4()),
     }
     _audit_logger.info(_json.dumps(record))
+
+
+def _json_safe(value: object) -> object:
+    """Recursively replaces any non-finite float (NaN/Infinity/-Infinity) with its plain
+    string name, leaving every other value untouched. Real bug this closes (found 2026-10-12,
+    Improvement 3 production-readiness pass): a request carrying a NaN/Infinity field value
+    (a valid Python float, and FastAPI's own JSON body parsing accepts the non-standard but
+    widely-supported NaN/Infinity/-Infinity tokens) that FAILS Pydantic validation (e.g. via
+    `serving/_request_validation.py`'s FiniteFloatFieldsModel) still crashed with an
+    unhandled 500 -- not the expected clean 422 -- because FastAPI's default
+    RequestValidationError handler echoes the raw offending value back inside the error
+    detail, and strict JSON encoding (correctly) refuses to serialize a literal NaN/Infinity.
+    Confirmed empirically against a real running service before this fix existed. This
+    function is the generic fix: sanitize error payloads before they are serialized, so a
+    non-finite input value is reported as a readable string ("NaN", "Infinity",
+    "-Infinity") instead of crashing the response encoder -- never exposes anything beyond
+    what the caller already sent."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return "NaN" if value != value else ("Infinity" if value > 0 else "-Infinity")
+    if isinstance(value, BaseException):
+        # Pydantic v2 puts the raw exception object (not a string) in a model-level
+        # validator error's `ctx.error` field -- found alongside the NaN/Infinity bug this
+        # function exists for for, same empirical confirmation, same fix shape: render it as
+        # text instead of letting the default JSON encoder crash on a non-serializable object.
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _validation_error_handler(request: Request, exc: RequestValidationError) -> Response:
+    """Replaces FastAPI's default RequestValidationError handler so a non-finite float in
+    the rejected input (see `_json_safe` above) is always reportable as a clean 422, never an
+    unhandled 500. Behaviorally identical to FastAPI's own default handler (same
+    `{"detail": [...]}` shape, same 422 status) for every other validation failure -- this
+    only changes what happens with an otherwise-unserializable value."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": _json_safe(exc.errors())},
+    )
 
 
 def harden_app(app: FastAPI, service_name: str) -> Limiter:
@@ -513,6 +625,7 @@ def harden_app(app: FastAPI, service_name: str) -> Limiter:
     # slowapi's real, widely-used API actually requires (both calls are copied from
     # slowapi's own README).
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, _validation_error_handler)  # type: ignore[arg-type]
     app.add_middleware(AuditLogMiddleware, service_name=service_name)  # type: ignore[arg-type]
     warn_if_open_mode(service_name)
     return limiter
@@ -528,6 +641,8 @@ def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Re
 
 
 __all__ = [
+    "REQUEST_ID_HEADER",
+    "wire_readiness_endpoint",
     "API_KEYS_ENV_VAR",
     "RATE_LIMIT_ENV_VAR",
     "REQUIRE_AUTH_ENV_VAR",

@@ -215,6 +215,68 @@ repository), not assumed from the prior commit's green run:
   routes, an automatic scoring-to-case pipeline, or tamper-*proofing* (only tamper-*evidence*) on the
   audit trail.
 
+## Added 2026-10-12 -- Production-Readiness & Operational Resilience (Improvement 3)
+- **Fixed a real security/robustness gap**: BP1/BP2/BP4/BP5's `/score` schemas silently accepted
+  `NaN`/`Infinity` feature values (producing a fabricated-looking score) and, once rejected, the
+  resulting FastAPI validation-error response itself crashed with a 500 (`ValueError: Out of range
+  float values are not JSON compliant`, then `TypeError: Object of type ValueError is not JSON
+  serializable`) rather than returning a clean error. Fixed once, shared everywhere: a new
+  `FiniteFloatFieldsModel` (`serving/_request_validation.py`) wired as every affected BP's
+  `create_model(__base__=...)`, plus a new `_json_safe()` + `_validation_error_handler()` pair in
+  `_security.py` wired into `harden_app()`. The same gap existed in the Case Management Service's
+  public `Alert`/`AlertCreateRequest` models (its internal `ScoringEvent` already guarded against it)
+  -- fixed with the same `field_validator` pattern already used there.
+- **Request correlation IDs**: every one of the 6 HTTP services now reads/generates an `X-Request-ID`
+  (`serving/_security.py`'s `AuditLogMiddleware`), echoes it on the response, and records it in the
+  structured audit-log line.
+- **Real `/ready` endpoints**: all 6 services now expose `GET /ready` (via a new
+  `wire_readiness_endpoint()` helper), distinct from the existing `/health` -- each with a real,
+  service-appropriate check (model-loaded for BP1/2/4/5, lookup-table-loaded for BP3, DB-reachable for
+  case management), returning 503 with the specific failing check(s) rather than a blanket 200.
+- **Secrets-hygiene audit** (`SECRETS_MANAGEMENT.md`): a grep-based scan across every git-tracked file
+  for hardcoded keys/tokens/passwords came back clean. **Known gap, not yet delivered**: no dedicated
+  automated secret-scanning CI hook (e.g. `gitleaks` or `detect-secrets`) exists yet -- the audit so far
+  is a manual, point-in-time pass, not a continuously-enforced control. Adding that hook is open work.
+- **Resilience test plan** (`docs/operations/RESILIENCE_TEST_PLAN.md`): honestly separates what is
+  automated/verified today (duplicate-event handling, dependency-failure recovery via the existing
+  outbox pattern, interrupted-write atomicity via fault injection on `AlertStore._append_event_row`,
+  service-restart recovery via a fresh `AlertStore` instance against the same SQLite file -- the latter
+  two added this pass) from what would need live Docker infrastructure this sandbox does not have.
+- **Reproducibility evidence** (`docs/operations/REPRODUCIBILITY.md`): confirmed `requirements.txt` is
+  fully version-pinned, confirmed the documented install+test commands match `ci.yml`'s own clean-runner
+  sequence exactly, confirmed no unseeded randomness exists anywhere in `tests/`, and found + fixed a
+  real `.env.example` gap -- 9 of 13 real `AML_RISKIQ_*` environment variables (the Case Management
+  Service's DB path and all of the scoring-to-alert dispatch settings, plus the project-root override)
+  were read by the code but undocumented in the example file. Now all 13 are documented, and
+  `tests/unit/test_env_example_completeness.py` makes this a permanent regression guard. A literal
+  from-scratch `git clone` + from-scratch `pip install` reproduction was attempted in this review
+  session but abandoned as unreliable on this sandbox's device-bridge filesystem (disclosed in that doc
+  rather than reported as passing); CI's own continuous clean-runner execution stands in its place.
+- **New input/data-quality monitoring module** (`src/aml_riskiq/monitoring/data_quality.py`, see
+  `MONITORING.md`): schema validation, missing-value reporting, baseline-quantile-derived out-of-range
+  detection, per-feature PSI drift (reusing `drift_monitor.py`'s existing PSI function), alert-volume
+  anomaly detection, and a `recommend_retraining_review()` verdict that never recommends automatic
+  retraining -- only that a human review the model. `baseline_is_synthetic` is a required (no-default)
+  parameter so a report can never silently imply live production monitoring it isn't doing. Wired into
+  BP1's Notebook 3 only so far (same "first real consumer" precedent `drift_monitor.py` itself set);
+  extending this to BP2-BP5's own Notebook 3 scripts is open work.
+- **New/extended automated tests**: `tests/unit/test_request_validation.py` (10), a from-scratch
+  `tests/unit/test_drift_monitor.py` (13, filling a pre-existing gap -- that module had no test file at
+  all before this pass despite its own docstring claiming test coverage), `tests/unit/test_data_quality.py`
+  (29), `tests/unit/test_env_example_completeness.py` (3), ~25 new security tests in
+  `tests/unit/test_security.py` (JSON-safety/validation-handler, correlation IDs, readiness), 2 new
+  resilience tests in `tests/unit/test_casework_store.py`, and new negative-path/readiness integration
+  tests across every BP's scoring-service test file and the case-management test file -- all
+  auto-discovered by `ci.yml`'s existing `pytest tests/` call. Local suite: 425/425 passing as of this
+  pass (not yet re-confirmed against a fresh CI run -- see `README.md`'s "Status" section).
+- Docs: `MONITORING.md`, `SECRETS_MANAGEMENT.md`, `docs/deployment/DEPLOYMENT_GUIDE.md` (also fixed a
+  stale paragraph that predated this project's own later, real confirmation that the
+  `integrated-workflow` CI job had passed), `README.md`, this file.
+- **Explicitly not claimed**: production readiness from any of the above; a live, continuously-running
+  monitoring or secret-scanning process; a real Docker-daemon-backed resilience test (service restart,
+  dependency outage) in this sandbox -- those remain CI-only or manual-run evidence, not something this
+  review session executed itself.
+
 ## Not planned
 - The 4 business problems dropped from the original 8-BP draft (Account/Entity AML Risk Scoring, Alert
   Escalation/SAR-Filing Prediction, GenAI SAR Narrative Assistant, Alert Prioritization & Case Decision

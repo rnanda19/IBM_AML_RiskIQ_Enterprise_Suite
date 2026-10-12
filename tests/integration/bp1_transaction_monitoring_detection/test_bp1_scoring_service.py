@@ -233,3 +233,31 @@ def test_score_endpoint_entity_ref_optional_transaction_ref_and_event_timestamp_
     payload["event_timestamp"] = "2026-10-12T00:00:00Z"
     resp = client.post("/score", json=payload)
     assert resp.status_code == 200
+
+
+def test_score_endpoint_rejects_non_finite_feature_values(stub_service):
+    """NaN/Infinity are valid Python floats but meaningless (and dangerous -- silently
+    propagate through predict_proba rather than failing loudly) transaction-feature values.
+    A caller able to reach this route should get a clean 422, not a 200 with a fabricated
+    score or an unhandled 500."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload[FEATURE_COLS[0]] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_ready_endpoint_reports_model_and_features_loaded(stub_service):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    resp = client.get("/ready")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ready"
+    assert body["checks"]["champion_model_loaded"] is True
+    assert body["checks"]["feature_cols_loaded"] is True

@@ -264,7 +264,7 @@ docker compose -f src/docker/case_management/docker-compose.yml up --build
 ```
 
 ## Engineering & Testing
-- **Tests:** 296/296 passing (`pytest tests/`), covering the scoring-service code, shared
+- **Tests:** 425/425 passing (`pytest tests/`), covering the scoring-service code, shared
   `_security.py`/`_model_registry.py` modules (429 rate-limit and 401/200/403 auth integration tests), the
   `casework` package and its SQLite-backed `AlertStore`, the **Case Management Service's RBAC security
   suite** (positive/negative access per role per route, input-validation 422s, audit-log and
@@ -295,6 +295,16 @@ docker compose -f src/docker/case_management/docker-compose.yml up --build
 - **Docker:** a real, permanent regression guard (`scripts/check_docker_copy_paths.py`, wired into CI)
   caught and fixed a genuine bug where 5 of 5 Dockerfiles never copied their required validation-report JSON
   into the image.
+- **Production-readiness hardening (added 2026-10-12):** non-finite (`NaN`/`Infinity`) feature values are
+  now rejected with a clean `422` (not silently scored or a `500`) on every BP1/BP2/BP4/BP5 `/score` route
+  and on the Case Management Service's `/alerts` and `/alerts/ingest` routes; every one of the 6 HTTP
+  services now exposes a real `/ready` endpoint distinct from `/health`, and every request/response carries
+  an `X-Request-ID` correlation ID recorded in the structured audit log. See
+  `docs/operations/RESILIENCE_TEST_PLAN.md` and `docs/operations/REPRODUCIBILITY.md` for the honest,
+  current state of this platform's resilience and reproducibility evidence, and
+  `src/aml_riskiq/monitoring/data_quality.py` / `MONITORING.md` for the new input/data-quality monitoring
+  module (schema, missing-value, out-of-range, feature-drift, and alert-volume checks; currently wired into
+  BP1's Notebook 3 only).
 
 ## Status
 The committed reports record evaluation verdicts for all 6 BPs on LI-Medium. These recorded results are not
@@ -311,7 +321,12 @@ type-check, and the full pytest suite on both Python 3.10 and 3.11), `docker-ver
 GitHub's check-runs REST API (direct Actions log access requires authenticated scope this assistant
 doesn't have; see `ROADMAP.md`'s "Resolved" log for the exact commit and run IDs). Shared API-key
 auth/rate-limit/audit-log/metrics primitives, real RBAC on the Case Management Service, and a 296-test
-suite are documented. **No claim of regulatory compliance or production readiness is made anywhere in
+suite are documented for that specific commit's confirmed-green CI run. The production-readiness pass
+added 2026-10-12 (see the "Production-readiness hardening" bullet above) brought the local suite to
+425/425 passing, verified locally in this repository's own `.venv` but **not yet** re-confirmed against a
+fresh CI run as of this writing -- treat 425 as the current local count and 296 as the last
+CI-check-run-verified count until a new commit carrying this work is pushed and its own CI run is checked
+the same way. **No claim of regulatory compliance or production readiness is made anywhere in
 this repository** -- RBAC, audit trails, and case management are real and tested, but they are platform
 building blocks, not a certification. See `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source
 of truth and `ROADMAP.md` for what remains.

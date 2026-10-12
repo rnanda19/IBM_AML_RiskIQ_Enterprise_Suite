@@ -254,3 +254,41 @@ def test_score_endpoint_with_entity_ref_attempts_alert_dispatch(stub_service, tm
     assert len(body["alert"]["idempotency_key"]) == 64
     outbox_file = outbox_dir / "bp4_scoring_service.outbox.jsonl"
     assert outbox_file.exists()
+
+
+def test_score_endpoint_rejects_non_finite_feature_values(stub_service):
+    """Same real gap as BP1's identically-named test -- see
+    serving/_request_validation.py's module docstring."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload[FEATURE_COLS[0]] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_score_endpoint_rejects_non_finite_on_the_nan_prone_column_itself(stub_service):
+    """BP4's one NaN-prone column (amount_to_rolling_window_mean_ratio) legitimately accepts
+    JSON `null`; it must still reject an actual NaN/Infinity value."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload["amount_to_rolling_window_mean_ratio"] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_score_endpoint_still_accepts_null_on_the_nan_prone_column(stub_service):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    payload["amount_to_rolling_window_mean_ratio"] = None
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200

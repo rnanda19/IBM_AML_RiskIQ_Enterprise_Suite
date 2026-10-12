@@ -180,3 +180,18 @@ def test_score_endpoint_with_entity_ref_attempts_alert_dispatch(stub_service, tm
     assert len(body["alert"]["idempotency_key"]) == 64
     outbox_file = outbox_dir / "bp5_scoring_service.outbox.jsonl"
     assert outbox_file.exists()
+
+
+def test_score_endpoint_rejects_non_finite_feature_values(stub_service):
+    """Same real gap as BP1's identically-named test -- see
+    serving/_request_validation.py's module docstring. BP5 has no Optional[float] column, so
+    every feature is checked identically."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    base_payload = {c: 1.0 for c in FEATURE_COLS}
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        payload = dict(base_payload)
+        payload[FEATURE_COLS[0]] = bad_value
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"

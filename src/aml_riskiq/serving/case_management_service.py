@@ -40,12 +40,13 @@ mapping keys to named users is future work, not fabricated here.
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 try:
     from casework.alert_schema import Alert, CaseStatus
@@ -63,6 +64,7 @@ try:
         resolve_caller_role,
         set_custom_gauge,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
     from src.aml_riskiq.casework.alert_schema import Alert, CaseStatus
@@ -80,6 +82,7 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         resolve_caller_role,
         set_custom_gauge,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 
 
@@ -133,6 +136,15 @@ class AlertCreateRequest(BaseModel):
     event_timestamp: datetime | None = None
     reason_codes: list[str] = Field(default_factory=list)
 
+    @field_validator("risk_score", "selected_threshold")
+    @classmethod
+    def _finite_score(cls, v: float) -> float:
+        """Same real gap, same fix as casework/alert_schema.py's Alert._finite_score (see
+        that docstring) -- this is the separate request model POST /alerts itself uses."""
+        if not math.isfinite(v):
+            raise ValueError(f"must be a finite number, got {v!r}")
+        return v
+
 
 class AssignRequest(BaseModel):
     assignee: str
@@ -162,6 +174,23 @@ _COMPLIANCE_ONLY_TARGETS = {CaseStatus.ESCALATED, CaseStatus.CLOSED}
 app = FastAPI(title="AML RiskIQ Case Management Service")
 _limiter = harden_app(app, "case_management_service")
 wire_metrics_endpoint(app)
+
+
+def _readiness_checks() -> dict[str, bool]:
+    """Real readiness check (added 2026-10-12) -- unlike BP1-BP5 (whose "model" is loaded
+    synchronously at import time, see wire_readiness_endpoint's own docstring), this
+    service's real dependency is its SQLite-backed AlertStore, so this check actually
+    queries it (the same real count_unresolved() call /health already reports) rather than
+    just checking that the module imported without raising."""
+    try:
+        store.count_unresolved()
+        database_reachable = True
+    except Exception:  # noqa: BLE001 -- any DB error means "not ready", not a 500 here.
+        database_reachable = False
+    return {"database_reachable": database_reachable}
+
+
+wire_readiness_endpoint(app, _readiness_checks)
 
 
 def _not_found(alert_id: str) -> HTTPException:

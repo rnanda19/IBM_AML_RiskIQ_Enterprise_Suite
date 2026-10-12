@@ -955,6 +955,65 @@ print("This baseline is what a future live/recent score stream gets PSI-compared
       "current_scores=<live scores>) -- PSI > 0.25 is the significant-shift/retrain-review trigger.")
 
 # ============================================================================
+# NEW (2026-10-12, Improvement 3 production-readiness pass): Real Input-Quality +
+# Feature-Drift + Retraining-Trigger Report
+# ============================================================================
+# The PSI block above monitors the champion's OUTPUT (score) distribution. This block
+# monitors the INPUT side: does X_test's real feature schema/missing-value/range profile
+# still look like X_train's, and has any individual feature column itself drifted -- a
+# distinct signal from score drift (a feature can drift while the score distribution
+# happens to stay stable, if the drift lands in a low-importance feature). See
+# src/aml_riskiq/monitoring/data_quality.py's own module docstring for the full design
+# rationale and the synthetic-data-baseline disclosure this report carries forward.
+import json  # safe to import again here -- same stdlib module as the later `import json`
+
+from monitoring.data_quality import (
+    build_input_quality_report,
+    feature_drift_report,
+    missing_value_report,
+    out_of_range_report,
+    recommend_retraining_review,
+    validate_input_schema,
+)
+
+with timer("real input-quality + feature-drift report (X_train baseline vs X_test current)"):
+    _schema_result = validate_input_schema(X_test, expected_columns=FEATURE_COLS)
+    _missing_result = missing_value_report(X_test, columns=FEATURE_COLS)
+    _out_of_range_result = out_of_range_report(X_test, X_train, columns=FEATURE_COLS)
+    _feature_drift_result = feature_drift_report(X_test, X_train, columns=FEATURE_COLS)
+    _retraining_recommendation = recommend_retraining_review(
+        schema_result=_schema_result,
+        missing_value_result=_missing_result,
+        out_of_range_result=_out_of_range_result,
+        feature_drift_result=_feature_drift_result,
+        score_psi_verdict=psi_self_check["verdict"],
+    )
+    input_quality_report = build_input_quality_report(
+        bp_id="BP1",
+        schema_result=_schema_result,
+        missing_value_result=_missing_result,
+        out_of_range_result=_out_of_range_result,
+        feature_drift_result=_feature_drift_result,
+        baseline_is_synthetic=True,  # X_train is this project's own synthetic IBM AML
+        # dataset split -- never a real production baseline. See module docstring.
+    )
+    input_quality_report["retraining_recommendation"] = _retraining_recommendation
+    input_quality_path = REPORTS_DIR / f"bp1_input_quality_report_{variant_tag}.json"
+    input_quality_path.write_text(json.dumps(input_quality_report, indent=2, default=str))
+print(f"Real input-quality report saved: {input_quality_path}")
+print(f"Schema valid: {_schema_result['is_valid']}; max missing fraction: "
+      f"{_missing_result['max_missing_fraction']:.4%}; max out-of-range fraction: "
+      f"{_out_of_range_result['max_fraction_out_of_range']:.4%}; columns with significant "
+      f"feature drift: {_feature_drift_result['columns_with_significant_shift']}")
+print(f"Retraining-review recommendation: {_retraining_recommendation['recommend_review']} "
+      f"({_retraining_recommendation['reasons'] or 'no trigger reasons'})")
+print("NOTE: this is X_train (synthetic) vs X_test (synthetic) from the SAME real notebook "
+      "run -- a self-check that this reporting code works against this platform's own real "
+      "data, not a live production comparison. A genuine future production input-quality "
+      "check would compare a real live/recent batch against this saved baseline the same way "
+      "the PSI block above does for scores.")
+
+# ============================================================================
 # NEW (2026-09-30, corrections review): Real Alert-Routing Tiers (percentile-based)
 # ============================================================================
 # Real, percentile-based tiering over the champion's own real flagged (>= selected_threshold)

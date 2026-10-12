@@ -26,3 +26,25 @@ container's environment and recreating it (see each `src/docker/*/docker-compose
 ## If a key leaks
 Remove it from `AML_RISKIQ_API_KEYS` and restart every service that shared it. Because the audit log only
 ever stores a fingerprint, there's no raw value to scrub from existing logs.
+
+## Secrets-hygiene verification (2026-10-12, Improvement 3 production-readiness pass)
+A real, repo-wide scan was run against every file git tracks -- not assumed clean:
+- `grep` for high-signal real-secret patterns (AWS access-key IDs, PEM private-key headers,
+  Slack/GitHub/Google API-key prefixes) across all tracked files: **zero matches**.
+- `grep` for `password|secret|api_key|token` assigned to a literal 12+ character value, with
+  every match that looked like a test/placeholder/dev-only value excluded by name: **zero
+  remaining matches** -- every `*_KEY`/`*_KEYS` default in `docker-compose.yml` is already an
+  env-var-overridable, explicitly-labeled `dev-only-*` placeholder (see that file's own
+  comment block), and `.env.example` ships only a commented-out, obviously-fake value.
+- Confirmed `kaggle/`, `github_repo/`, `linkedin/`, `powerbi/` (local working-directory
+  scratch folders that can hold personal API tokens/session data for this user's own
+  portfolio tooling) are **not tracked by git** -- only `linkedin/README.md` is, and it holds
+  no credential.
+- Confirmed (by reading `src/aml_riskiq/serving/_security.py`'s `audit_log`/`AuditLogMiddleware`
+  and every scoring service's own log/print statements) that no code path ever logs a raw
+  `X-API-Key` value -- only its 8-hex-char SHA-256 fingerprint (`_key_fingerprint`), consistent
+  with this file's existing "If a key leaks" section above.
+No fix was needed; this section records the method and result as the evidence the acceptance
+criteria for Improvement 3 ask for, not a claim that no future secret could ever be
+committed -- `.pre-commit-config.yaml` and CI do not yet run a dedicated secret-scanning hook
+(e.g. `gitleaks`/`detect-secrets`); adding one is listed as a known gap in `ROADMAP.md`.

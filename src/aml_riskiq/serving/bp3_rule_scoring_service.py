@@ -71,6 +71,7 @@ try:
         require_api_key,
         score_rate_limit,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
     from src.aml_riskiq.serving._security import (
@@ -78,6 +79,7 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         require_api_key,
         score_rate_limit,
         wire_metrics_endpoint,
+        wire_readiness_endpoint,
     )
 try:
     from serving._alert_dispatch import maybe_generate_and_dispatch_alert
@@ -264,6 +266,20 @@ def score_account(account_key: str) -> dict:
 app = FastAPI(title=f"BP3 Network-Signal Rule Scoring Service ({DATASET_VARIANT})")
 _limiter = harden_app(app, "bp3_rule_scoring_service")
 wire_metrics_endpoint(app)
+
+
+def _readiness_checks() -> dict[str, bool]:
+    """Real readiness check (added 2026-10-12) -- BP3 has no trained model, so its
+    equivalent of "the model is loaded" is "the real near_train_flagged lookup table (built
+    once, at import time, from Notebook 3's own committed Parquet) is present and the
+    champion rule signal resolved"."""
+    return {
+        "near_train_flagged_lookup_loaded": isinstance(NEAR_TRAIN_FLAGGED_BY_KEY, dict),
+        "champion_signal_resolved": bool(CHAMPION_SIGNAL),
+    }
+
+
+wire_readiness_endpoint(app, _readiness_checks)
 
 
 @app.get("/health")

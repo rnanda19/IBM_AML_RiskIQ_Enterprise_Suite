@@ -118,6 +118,24 @@ def test_create_alert_wrong_type_rejected_with_422(client):
     assert resp.status_code == 422
 
 
+def test_create_alert_rejects_non_finite_risk_score(client):
+    """Real gap closed 2026-10-12 (Improvement 3 production-readiness pass): risk_score is a
+    plain `float` field, which Pydantic/FastAPI accept NaN/Infinity for just like any other
+    float -- confirmed empirically before casework/alert_schema.py's Alert._finite_score
+    validator existed. A caller must not be able to file a case with a nonsensical score."""
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        body = {**_ALERT_BODY, "risk_score": bad_value}
+        resp = client.post("/alerts", json=body, headers=H_ANALYST)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
+def test_create_alert_rejects_non_finite_selected_threshold(client):
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        body = {**_ALERT_BODY, "selected_threshold": bad_value}
+        resp = client.post("/alerts", json=body, headers=H_ANALYST)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
 # -- list / get: role matrix -------------------------------------------------------------------
 
 
@@ -475,6 +493,15 @@ def test_ingest_rejects_malformed_body(client):
     assert resp.status_code == 422
 
 
+def test_ingest_rejects_non_finite_risk_score(client):
+    """Same real gap as POST /alerts' identically-shaped test above, for the separate Alert
+    model this route uses directly (casework/alert_schema.py's Alert._finite_score)."""
+    for bad_value in (float("nan"), float("inf"), float("-inf")):
+        body = {**_INGEST_BODY, "risk_score": bad_value, "idempotency_key": "b" * 64}
+        resp = client.post("/alerts/ingest", json=body, headers=H_ANALYST)
+        assert resp.status_code == 422, f"{bad_value!r} unexpectedly got {resp.status_code}: {resp.text}"
+
+
 def test_ingest_requires_authentication(client):
     resp = client.post("/alerts/ingest", json=_INGEST_BODY)
     assert resp.status_code == 401
@@ -607,3 +634,17 @@ def test_ingest_created_alert_has_full_investigation_lifecycle_available(client)
     integrity = client.get(f"/alerts/{alert_id}/integrity", headers=H_COMP)
     assert integrity.status_code == 200
     assert integrity.json()["verified"] is True
+
+
+def test_ready_endpoint_reports_database_reachable(client):
+    resp = client.get("/ready")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ready"
+    assert body["checks"]["database_reachable"] is True
+
+
+def test_ready_is_public_even_in_closed_mode(client):
+    """Same reasoning as /health -- a readiness probe must be reachable with no API key."""
+    resp = client.get("/ready")
+    assert resp.status_code == 200

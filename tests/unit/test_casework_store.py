@@ -444,3 +444,79 @@ def test_migration_adds_idempotency_columns_to_pre_existing_db(tmp_path):
     new_alert = _alert(entity_ref="acct-post-migration").model_copy(update={"idempotency_key": "post-key"})
     store.create_alert_idempotent(new_alert)
     assert store.get_alert_by_idempotency_key("post-key") is not None
+
+
+# -- resilience: restart recovery + interrupted-write atomicity (Improvement 3
+# production-readiness pass, 2026-10-12) -- see docs/operations/RESILIENCE_TEST_PLAN.md --------
+
+
+def test_data_survives_a_fresh_store_instance_against_the_same_db_file(tmp_path):
+    """Simulates a real service restart (a container/process stopping and a new one starting
+    against the same persistent volume) WITHOUT needing a live Docker daemon: a second,
+    completely independent AlertStore object -- no shared Python state, no shared connection
+    -- opened against the same on-disk SQLite file as the first, after the first store object
+    is discarded. SQLite's own durability (each write commits before _connect() returns) is
+    what real restart recovery depends on in this architecture; this test exercises that real
+    guarantee rather than asserting it from the docstring."""
+    from casework.store import AlertStore as _AlertStoreCls
+
+    db_path = tmp_path / "restart_test.db"
+    store1 = _AlertStoreCls(db_path)
+    alert = _alert(entity_ref="restart-acct")
+    store1.create_alert(alert)
+    store1.assign(alert.alert_id, assignee="investigator-1", actor="admin")
+    store1.add_note(alert.alert_id, actor="investigator-1", text="working this case")
+    del store1  # as close a Python-level stand-in for "the old process is gone" as this gets
+
+    store2 = _AlertStoreCls(db_path)  # a fresh instance, as a newly-started process would create
+    reloaded = store2.get_alert(alert.alert_id)
+    assert reloaded.assigned_to == "investigator-1"
+    assert len(reloaded.notes) == 1
+    assert reloaded.notes[0].text == "working this case"
+    assert len(reloaded.history) == 1  # the assign() transition's own appended event
+    integrity = store2.verify_integrity(alert.alert_id)
+    assert integrity["verified"] is True  # hash chain still verifies after the "restart"
+
+
+def test_create_alert_rolls_back_fully_when_interrupted_partway_through(store, monkeypatch):
+    """Simulates an interrupted write (a crash, or any exception) partway through
+    create_alert()'s real multi-statement transaction (alert row, then N history-event rows,
+    then notes, then evidence -- all one SQLite transaction, see store.py's own _connect()).
+    Confirms the real, existing atomicity guarantee (commit only at the very end; any
+    exception rolls back everything) rather than assuming it: after the first of two history
+    events is appended but the second raises, NEITHER the alert row NOR the first event
+    should be left behind -- a half-written case is strictly worse than a rejected one."""
+    from casework.case_lifecycle import transition
+
+    alert = _alert(entity_ref="interrupted-acct")
+    alert = transition(alert, CaseStatus.ASSIGNED, actor="admin", now=NOW)
+    alert = transition(alert, CaseStatus.UNDER_REVIEW, actor="investigator-1", now=NOW)
+    assert len(alert.history) == 2  # two real, hash-chained events built entirely in memory
+
+    # Patched on type(store) -- the fixture's OWN actual class -- rather than via a fresh
+    # `import casework.store`, which could resolve to a different module object than the
+    # fixture's instance if another test file in the same pytest session has reloaded
+    # casework.store via sys.modules.pop() (several integration test files do this for their
+    # own fixture isolation) in between collection and this test running. Patching
+    # type(store) directly is immune to that -- it is always the exact class whose
+    # create_alert() this test calls.
+    call_count = {"n": 0}
+    real_append = type(store)._append_event_row
+
+    def _flaky_append(self, conn, alert_id, event):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise RuntimeError("simulated crash mid-write (e.g. disk full, process killed)")
+        return real_append(self, conn, alert_id, event)
+
+    monkeypatch.setattr(type(store), "_append_event_row", _flaky_append)
+
+    with pytest.raises(RuntimeError, match="simulated crash"):
+        store.create_alert(alert)
+
+    assert call_count["n"] == 2  # confirms the failure actually happened mid-transaction,
+    # not before create_alert even started inserting
+    with pytest.raises(AlertNotFoundError):
+        store.get_alert(alert.alert_id)  # the alert row itself must also be gone -- proves
+        # the FIRST successfully-appended event's insert was rolled back too, not just the
+        # second (failed) one

@@ -46,6 +46,7 @@ Service -- see `docs/architecture/SCORING_ALERT_INTEGRATION.md` for the design t
 | A malicious or buggy caller submits a scoring event with a forged `entity_ref`/`model_name` to inflate case-management records | `ScoringEvent` validates shape (non-empty identifiers, finite scores, supported schema version) but not the *truth* of any field's content -- `/score`'s own caller, not `/alerts/ingest`, is this platform's actual trust boundary for that data (added 2026-10-12) | No cross-check between a dispatched alert's claimed `model_name`/`model_sha256` and the Case Management Service's own independent knowledge of what model actually produced it -- case-management trusts the scoring service's own report of its provenance |
 | A queued alert sitting in the local outbox file is read or tampered with before replay | File lives under the scoring service's own filesystem, same trust boundary as its model artifacts and config (added 2026-10-12) | The outbox file is plain, unencrypted JSON Lines at rest -- no additional access control beyond the container's own filesystem permissions |
 | Retrying or replaying a scoring event creates a duplicate alert | A real SQLite partial `UNIQUE` index on `idempotency_key` (`casework/store.py`'s `create_alert_idempotent()`), not an application-level check-then-insert that would have a race window (added 2026-10-12) | None known -- this is treated as resolved, not a residual gap, because the guarantee is database-enforced |
+| A caller submits `NaN`/`Infinity` as a feature value on `/score`, or as `risk_score`/`selected_threshold` on the Case Management Service's `/alerts`/`/alerts/ingest` (fixed 2026-10-12) | Every dynamically-built `TxnFeatures` schema (BP1/2/4/5) now derives from a shared `FiniteFloatFieldsModel` (`serving/_request_validation.py`) that rejects any non-finite float field with a clean 422; the public `Alert`/`AlertCreateRequest` models gained the same `field_validator` already used by the internal `ScoringEvent`. A second, related bug -- the 422 response itself crashing with a 500 while trying to report the rejected value -- was fixed by a new `_json_safe()` sanitizer wired into a dedicated `RequestValidationError` handler in `_security.py`'s `harden_app()`, used by every one of the 6 services | None known -- covered by `tests/unit/test_request_validation.py` and new negative-path tests in every BP's and the case-management service's own integration test file |
 
 ## Residual risks (explicitly not mitigated by this codebase)
 
@@ -78,6 +79,13 @@ Service -- see `docs/architecture/SCORING_ALERT_INTEGRATION.md` for the design t
   `AML_RISKIQ_CASE_SERVICE_API_KEY` across the 5 scoring services that hold it -- a real deployer's
   secrets-manager responsibility, not built here (same disclosed trade-off as every other API key in
   this platform).
+
+- **Operational observability added 2026-10-12 is detection/diagnosis tooling, not a new security
+  boundary**: `X-Request-ID` correlation and the new `/ready` endpoints (distinct from `/health`) make an
+  incident easier to trace and a dependency failure easier to detect -- they do not change what any
+  caller is authorized to do, and `/ready`'s check functions were deliberately kept public/unauthenticated
+  like `/health`, so they must never be extended to return anything more sensitive than a boolean
+  readiness signal.
 
 ## Review cadence
 Re-review this document whenever a new route is added to any service, when `_security.py` changes, or
