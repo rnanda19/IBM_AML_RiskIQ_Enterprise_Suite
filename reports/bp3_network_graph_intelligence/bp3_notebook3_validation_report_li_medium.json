@@ -1,7 +1,7 @@
 {
   "bp_id": "BP3",
   "bp_name": "Transaction Network & Graph Intelligence",
-  "generated_at_utc": "2026-10-01T08:51:30.582280+00:00",
+  "generated_at_utc": "2026-10-12T04:49:33.503799+00:00",
   "dataset_variant": "LI-Medium",
   "random_seed": 42,
   "primary_metric": "network_lift_ratio",

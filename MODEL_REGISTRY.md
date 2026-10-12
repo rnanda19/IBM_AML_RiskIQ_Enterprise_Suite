@@ -10,13 +10,19 @@ committing multi-megabyte binaries to git.
 |---|---|---|---|---|
 | BP1 | `models/bp1_transaction_monitoring_detection/bp1_notebook3_champion_li_medium.pkl` | XGBoost | 1,662,760 bytes | `500931694c9dfc84a2876f4732bcfe385756c5d4ff4b44ef7db53daaa22d0af2` |
 | BP2 | `models/bp2_typology_redflag_detection/bp2_notebook3_champion_li_medium.pkl` | RandomForest | 24,723,702 bytes | `ce0d4b013313681d5bc7a43025ffcb33a56a3479bd55b38c08e1dfa88a1561b9` |
-| BP3 | `models/bp3_network_graph_intelligence/bp3_notebook3_champion_rule_li_medium.json` | 2-hop proximity-to-flagged RULE (no trained model -- see `RULE_CARD.md`) | 2,957 bytes | `ca0fd5c1cc9ecfc97d85480afbddcaad9073b6069723f7b5715e553a74bf83c1` |
+| BP3 | `models/bp3_network_graph_intelligence/bp3_notebook3_champion_rule_li_medium.json` | 2-hop proximity-to-flagged RULE (no trained model -- see `RULE_CARD.md`) | 421 bytes | `ca0fd5c1cc9ecfc97d85480afbddcaad9073b6069723f7b5715e553a74bf83c1` |
+| BP3 (lookup) | `models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet` | Per-account `near_train_flagged` boolean lookup the rule above reads at score time (Notebook 3's own BFS result, not a trained model) | 24,532,481 bytes | `c21cbd395b04d025f2e3592b2ccb5abb7b2bb6d4a06565ce295e669f50222596` |
 | BP4 | `models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl` | XGBoost | 1,699,812 bytes | `2287d370d49d1a465bcd9fda4950f33f8a62806aba8cf0086dd5d4a257cd0751` |
 | BP5 | `models/bp5_correspondent_banking_crossborder_risk/bp5_li_medium_model_v1.pkl` | XGBoost | 1,682,159 bytes | `e4a5908c3f4cee13456c7adc4e2653ca6b41de098565e0608e4f565a68178b0b` |
 | BP6 | n/a -- pure rollup of BP1-BP5's own already-computed summary JSON, no model of its own | n/a | n/a | n/a |
 
-All five hashes above were computed directly from the real on-disk files (`sha256sum`), not copied from a
+All six hashes above were computed directly from the real on-disk files (`sha256sum`), not copied from a
 report or carried forward from memory -- re-run `sha256sum` on the path in the table to reproduce them.
+The BP3 (lookup) row and the BP2/BP3 validation-report re-runs it depends on were generated 2026-10-12
+by a real re-run of BP2 Notebook 3 and BP3 Notebook 3 (LI-Medium) on the user's own machine -- this
+closes DEF-001 and DEF-002 in `docs/audit/DEFECT_REGISTER.md`. The earlier-stated BP3 rule JSON size
+(2,957 bytes) was a stale documentation error, corrected above to the real on-disk size (421 bytes) --
+the SHA-256 itself was already correct and unchanged.
 
 ## Live verification
 Every BP1/BP2/BP4/BP5 scoring service recomputes its own champion's SHA-256 (streamed, not loaded whole)

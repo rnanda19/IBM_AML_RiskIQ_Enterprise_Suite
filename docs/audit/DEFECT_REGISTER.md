@@ -4,7 +4,7 @@ Real defects found by direct inspection/execution during Phase 1 audit (2026-10-
 file path, evidence, severity, business impact, and recommended fix. Severity: Critical (blocks a core
 claim or service), High (real functional gap), Medium (real but contained), Low (hygiene).
 
-## DEF-001 -- BP2 scoring service crashes on startup (Critical)
+## DEF-001 -- BP2 scoring service crashes on startup (Critical) -- RESOLVED 2026-10-12
 - **File**: `src/aml_riskiq/serving/bp2_scoring_service.py`; `reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json`
 - **Evidence**: `.github/workflows/docker-verify.yml`'s own header comment documents the real `KeyError`
   (confirmed, not re-derived fresh this pass): the committed validation report was generated 2026-10-01,
@@ -17,10 +17,15 @@ claim or service), High (real functional gap), Medium (real but contained), Low 
   be invented or hand-written. **Blocked on the standing no-pipeline-execution rule** (see
   `INITIAL_REPOSITORY_AUDIT.md`'s "Standing constraint" section) unless the user authorizes this specific
   execution.
-- **Verification method**: `docker-verify.yml`'s `bp2` job (would need to be re-added) builds, starts,
-  and polls `/health`.
+- **Verification method**: `docker-verify.yml`'s `bp2` job (re-added 2026-10-12) builds, starts, and
+  polls `/health`.
+- **Resolution (2026-10-12)**: user re-ran BP2 Notebook 3 (LI-Medium) on their own machine (resumed
+  Stage A/B fits from the existing checkpoint). Regenerated report now carries
+  `champion_needs_rf_impute: true`, `rf_impute_value: 1.0`, plus real LIME explanations and a real
+  FastAPI self-test (480 rows, 0 mismatches) -- `generated_at_utc: 2026-10-12T04:41:50Z`. Committed in
+  `62c06fb`.
 
-## DEF-002 -- BP3 missing near-train-flagged lookup artifact (Critical)
+## DEF-002 -- BP3 missing near-train-flagged lookup artifact (Critical) -- RESOLVED 2026-10-12
 - **File**: `models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet` (absent)
 - **Evidence**: directory listing confirms only `.gitkeep`, `README.md`, and the rule JSON exist in
   `models/bp3_network_graph_intelligence/` -- the lookup Parquet is not present.
@@ -29,7 +34,15 @@ claim or service), High (real functional gap), Medium (real but contained), Low 
 - **Recommended fix**: same class as DEF-001 -- produced only by a real BP3 Notebook 3 (LI-Medium)
   re-run. Blocked on the same standing rule.
 - **Verification method**: artifact exists on disk with a real file size + hash recorded in
-  `MODEL_REGISTRY.md`; `docker-verify.yml`'s `bp3` job builds, starts, polls `/health`.
+  `MODEL_REGISTRY.md`; `docker-verify.yml`'s `bp3` job (re-added 2026-10-12) builds, starts, polls
+  `/health`.
+- **Resolution (2026-10-12)**: user re-ran BP3 Notebook 3 (LI-Medium) on their own machine (no
+  checkpoint exists for this notebook, so this was a full-cost re-run). The lookup Parquet now exists
+  (24,532,481 bytes, sha256 `c21cbd395b04d025f2e3592b2ccb5abb7b2bb6d4a06565ce295e669f50222596`) and is
+  tracked in git -- it was previously excluded by `.gitignore`'s blanket `*.parquet` rule with no `!`
+  exception carved out for it, unlike every other BP's champion artifact; that exception is now added.
+  Regenerated report: Gate 1 PASS, Gate 2 PASS, overall PASS, real FastAPI self-test (2,000 rows, 0
+  mismatches) -- `generated_at_utc: 2026-10-12T04:49:33Z`.
 
 ## DEF-003 -- No RBAC at the API layer (High) -- PARTIALLY ADDRESSED
 - **File**: `src/aml_riskiq/serving/_security.py`
