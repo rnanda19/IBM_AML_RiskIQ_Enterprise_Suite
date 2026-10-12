@@ -102,7 +102,7 @@ def _locate_project_root():
     )
 
 _here = _locate_project_root()
-sys.path.insert(0, str(_here / "src"))
+sys.path.insert(0, str(_here / "src" / "aml_riskiq"))
 print(f"Bootstrapped from: {_here}")
 
 from utils.project_root import find_suite_root, raw_data_dir

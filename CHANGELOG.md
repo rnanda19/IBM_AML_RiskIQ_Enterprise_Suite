@@ -5,6 +5,25 @@ notebook/model work on each business problem live in `reports/<bp>/CHANGELOG.md`
 repository's own structure, hardening, and governance history, in the same plain-date style used on the
 a prior customer-intelligence-focused enterprise platform in this same methodology lineage.
 
+## 2026-10-12
+- Real re-runs of BP2 and BP3 Notebook 3 (LI-Medium) on the user's own machine, closing DEF-001 and
+  DEF-002 from `docs/audit/DEFECT_REGISTER.md` (both Critical):
+  - BP2: regenerated `reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json`
+    (resumed Stage A/B fits from the existing checkpoint). Now carries `champion_needs_rf_impute`/
+    `rf_impute_value`, 3 real LIME instance explanations, and a real FastAPI self-test (480 rows,
+    0 mismatches, bit-identical). Gate 1 PASS, Gate 2 PASS, overall PASS.
+  - BP3: a real, full-cost re-run (no checkpoint exists for this notebook) produced the previously-missing
+    `models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet`
+    (24,532,481 bytes). Fixed a `.gitignore` gap that would have silently blocked this artifact from ever
+    being committed -- every other BP's champion artifact had a `!` exception carved out of the blanket
+    `*.pkl`/`*.parquet` rules; BP3's never did. Gate 1 PASS, Gate 2 PASS, overall PASS, real FastAPI
+    self-test (2,000 rows, 0 mismatches).
+  - Corrected a stale byte count in `MODEL_REGISTRY.md` (BP3 rule JSON recorded as 2,957 bytes; the real
+    on-disk file is 421 bytes -- the SHA-256 itself was already correct).
+  - Re-added the `bp2` and `bp3` jobs to `.github/workflows/docker-verify.yml` (removed 2026-10-03 pending
+    exactly these two fixes) and emptied `scripts/check_docker_copy_paths.py`'s now-stale
+    `KNOWN_PENDING_ARTIFACTS` allowlist.
+
 ## 2026-10-10
 - External benchmark-upgrade review (ChatGPT-produced blueprint) worked through in two scoped batches,
   limited to what does not require executing the real notebook/data pipeline:

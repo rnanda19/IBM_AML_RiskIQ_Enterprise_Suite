@@ -13,11 +13,12 @@
 # persisted alongside the rule JSON as a real per-account near_train_flagged Parquet
 # lookup table (Notebook 3's own already-computed near_flagged_ids BFS result, written to
 # disk by that notebook's 2026-10-02 hardening addition) -- COPYed in below as
-# BP3_LOOKUP_PATH. REMAINING REAL DEPENDENCY, disclosed rather than worked around: that
-# lookup Parquet file does not exist on this real on-device project tree until the user
-# re-runs 03_statistical_validation_deployment_SINGLE_CELL.py (LI-Medium) ONE MORE TIME
-# post-patch -- this image will fail to start with a clear FileNotFoundError until that
-# real re-run happens; this Dockerfile does not fabricate a placeholder lookup file.
+# BP3_LOOKUP_PATH. RESOLVED (2026-10-12): the user re-ran
+# 03_statistical_validation_deployment_SINGLE_CELL.py (LI-Medium) on their own machine; the real
+# lookup Parquet now exists on disk (24,532,481 bytes, sha256
+# c21cbd395b04d025f2e3592b2ccb5abb7b2bb6d4a06565ce295e669f50222596, recorded in
+# MODEL_REGISTRY.md) and is tracked in git (see .gitignore's BP3-lookup exception) -- this image no
+# longer fails to start with FileNotFoundError.
 FROM python:3.11-slim
 
 WORKDIR /app

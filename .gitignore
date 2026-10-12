@@ -11,7 +11,8 @@ models/**/*.joblib
 models/**/*.pkl
 models/**/*.onnx
 *.parquet
-# Exceptions (2026-10-03): the 6 real, small champion artifacts MODEL_REGISTRY.md documents by
+# Exceptions (2026-10-03, extended 2026-10-12 for the BP3 lookup Parquet): the 7 real, small
+# artifacts MODEL_REGISTRY.md documents by
 # SHA-256 -- each under 25MB, needed for the Dockerfiles to actually build and for
 # docker-verify.yml's CI job to run a real container, not a staging-area copy.
 !models/bp1_transaction_monitoring_detection/bp1_notebook3_champion_li_medium.pkl
@@ -19,6 +20,7 @@ models/**/*.onnx
 !models/bp2_typology_redflag_detection/bp2_notebook3_label_encoder_li_medium.pkl
 !models/bp4_structuring_smurfing_detection/bp4_notebook3_champion_li_medium.pkl
 !models/bp5_correspondent_banking_crossborder_risk/bp5_li_medium_model_v1.pkl
+!models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_li_medium.parquet
 # bp3's champion is a rule JSON, already unaffected by the *.pkl pattern above, listed here only
 # for discoverability alongside its siblings:
 # models/bp3_network_graph_intelligence/bp3_notebook3_champion_rule_li_medium.json
