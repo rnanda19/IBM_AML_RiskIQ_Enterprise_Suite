@@ -1,0 +1,155 @@
+# docker-compose.yml -- repository root
+#
+# Root-level INTEGRATED stack for the "End-to-End AML Workflow Integration" phase
+# (2026-10-12): runs all five scoring services (BP1-BP5) together with the Case
+# Management Service so a qualifying scoring result produces a REAL alert through the
+# real HTTP path, using Docker Compose's own service-name DNS -- not mocked. This is
+# complementary to, not a replacement for, the already-passing pytest-level
+# tests/integration/end_to_end/test_scoring_alert_e2e.py suite, which exercises the same
+# integration logic in-process (no containers, no real network hop).
+#
+# This file is ADDITIONAL to, not a replacement for, each service's own per-service
+# compose file under src/docker/<service>/docker-compose.yml -- those remain how
+# .github/workflows/docker-verify.yml's existing per-service jobs build and smoke-test
+# ONE service in isolation. This file is what the new "integrated-workflow" CI job
+# (added alongside this file) uses to prove the complete, wired-together workflow.
+#
+# Topology (Docker Compose's built-in service-name DNS lets every BP container reach
+# case-management as "http://case-management:8005" with no manual network config beyond
+# the default bridge network Compose creates for this file):
+#
+#   bp1-transaction-monitoring (8000) --\
+#   bp2-typology-detection      (8001) ---\
+#   bp3-network-graph-intelligence (8003) --+-- POST /alerts/ingest --> case-management (8005)
+#   bp4-structuring-smurfing     (8004) ---/
+#   bp5-correspondent-banking... (8002) --/
+#
+# Every BP container's `depends_on: case-management: condition: service_healthy` means a
+# BP container is only started once case-management's own Docker HEALTHCHECK (already
+# baked into its Dockerfile) reports healthy -- so the very first /score call a BP
+# container can ever serve already has a live case-management to dispatch alerts to.
+#
+# Authentication model (see docs/security/RBAC.md, src/aml_riskiq/serving/_security.py,
+# src/aml_riskiq/serving/_alert_dispatch.py):
+#   - Each BP's own AML_RISKIQ_API_KEYS protects THAT BP's /score endpoint only, and is
+#     independent of every other service's key set -- a key that can call BP1 grants
+#     nothing on BP2 or on case-management.
+#   - case-management's AML_RISKIQ_API_KEYS protects its own routes, including the new
+#     /alerts/ingest route, which requires the analyst, investigator, or
+#     compliance_officer role -- deliberately never a bespoke "service" role (see
+#     case_management_service.py's ingest_alert_endpoint docstring for why).
+#   - CASE_SERVICE_CLIENT_KEY is the literal key value every BP container presents to
+#     case-management (as AML_RISKIQ_CASE_SERVICE_API_KEY) when dispatching an alert. It
+#     must be one of the keys case-management's own AML_RISKIQ_API_KEYS maps to an
+#     accepted role -- mapped to "analyst" below.
+#
+# Every *_KEY / *_KEYS default below is a committed, non-secret, LOCAL-DEVELOPMENT-ONLY
+# placeholder (the same discipline the existing per-service compose files already use for
+# AML_RISKIQ_API_KEYS). Override every one of them via a real .env file or your secrets
+# manager before running this anywhere reachable by anyone but you.
+# AML_RISKIQ_REQUIRE_AUTH=true is baked into every image already (fail-closed default,
+# see each Dockerfile) and is never disabled here.
+
+x-case-dispatch-env: &case-dispatch-env
+  AML_RISKIQ_CASE_SERVICE_URL: "http://case-management:8005"
+  AML_RISKIQ_CASE_SERVICE_API_KEY: "${CASE_SERVICE_CLIENT_KEY:-dev-only-case-client-key}"
+  AML_RISKIQ_ALERT_OUTBOX_DIR: "/app/data/alert_outbox"
+  AML_RISKIQ_REQUIRE_AUTH: "true"
+
+services:
+  case-management:
+    build:
+      context: .
+      dockerfile: src/docker/case_management/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      AML_RISKIQ_API_KEYS: "analyst:${CASE_SERVICE_CLIENT_KEY:-dev-only-case-client-key},investigator:${CASE_INVESTIGATOR_KEY:-dev-only-investigator-key},compliance_officer:${CASE_COMPLIANCE_KEY:-dev-only-compliance-key},admin:${CASE_ADMIN_KEY:-dev-only-admin-key}"
+    volumes:
+      - ./data/case_management:/app/data/case_management
+    restart: unless-stopped
+
+  bp1-transaction-monitoring:
+    build:
+      context: .
+      dockerfile: src/docker/bp1_transaction_monitoring_detection/Dockerfile
+    depends_on:
+      case-management:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *case-dispatch-env
+      BP1_DATASET_VARIANT: "LI-Medium"
+      AML_RISKIQ_API_KEYS: "${BP1_API_KEYS:-dev-only-bp1-key}"
+    volumes:
+      - ./data/alert_outbox:/app/data/alert_outbox
+    restart: unless-stopped
+
+  bp2-typology-detection:
+    build:
+      context: .
+      dockerfile: src/docker/bp2_typology_redflag_detection/Dockerfile
+    depends_on:
+      case-management:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      <<: *case-dispatch-env
+      BP2_DATASET_VARIANT: "LI-Medium"
+      AML_RISKIQ_API_KEYS: "${BP2_API_KEYS:-dev-only-bp2-key}"
+    volumes:
+      - ./data/alert_outbox:/app/data/alert_outbox
+    restart: unless-stopped
+
+  bp3-network-graph-intelligence:
+    build:
+      context: .
+      dockerfile: src/docker/bp3_network_graph_intelligence/Dockerfile
+    depends_on:
+      case-management:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    environment:
+      <<: *case-dispatch-env
+      BP3_DATASET_VARIANT: "LI-Medium"
+      AML_RISKIQ_API_KEYS: "${BP3_API_KEYS:-dev-only-bp3-key}"
+    volumes:
+      - ./data/alert_outbox:/app/data/alert_outbox
+    restart: unless-stopped
+
+  bp4-structuring-smurfing:
+    build:
+      context: .
+      dockerfile: src/docker/bp4_structuring_smurfing_detection/Dockerfile
+    depends_on:
+      case-management:
+        condition: service_healthy
+    ports:
+      - "8004:8004"
+    environment:
+      <<: *case-dispatch-env
+      BP4_DATASET_VARIANT: "LI-Medium"
+      AML_RISKIQ_API_KEYS: "${BP4_API_KEYS:-dev-only-bp4-key}"
+    volumes:
+      - ./data/alert_outbox:/app/data/alert_outbox
+    restart: unless-stopped
+
+  bp5-correspondent-banking-crossborder:
+    build:
+      context: .
+      dockerfile: src/docker/bp5_correspondent_banking_crossborder_risk/Dockerfile
+    depends_on:
+      case-management:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    environment:
+      <<: *case-dispatch-env
+      BP5_DATASET_VARIANT: "LI-Medium"
+      AML_RISKIQ_API_KEYS: "${BP5_API_KEYS:-dev-only-bp5-key}"
+    volumes:
+      - ./data/alert_outbox:/app/data/alert_outbox
+    restart: unless-stopped

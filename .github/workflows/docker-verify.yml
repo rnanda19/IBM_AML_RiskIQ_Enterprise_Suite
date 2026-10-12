@@ -17,6 +17,13 @@ name: Docker Build & Run Verification
 # All 5 scoring Dockerfiles set AML_RISKIQ_REQUIRE_AUTH=true by default (2026-10-10 hardening);
 # every job below both proves the fail-closed default (no key -> container refuses to start)
 # and runs the real container with a disposable CI-only key to reach /health.
+#
+# integrated-workflow (2026-10-12, End-to-End AML Workflow Integration phase) is different in
+# kind from every job above: those each build and smoke-test ONE service in isolation.
+# integrated-workflow instead builds the root-level docker-compose.yml's case-management +
+# bp3-network-graph-intelligence together, exercises a real scoring-to-alert round trip over
+# the real network between the two live containers, and verifies idempotency -- proving the
+# actual wired-together deployment, not just each service on its own.
 
 on: [push, pull_request]
 
@@ -236,3 +243,120 @@ jobs:
       - name: Teardown
         if: always()
         run: docker rm -f case-management || true
+
+  integrated-workflow:
+    # Proves the root-level docker-compose.yml (all 6 services wired together) at the
+    # deployment level, complementary to -- not a duplicate of -- the pytest-level
+    # tests/integration/end_to_end/ suite (same integration logic, in-process, no
+    # containers). This job builds case-management + bp3-network-graph-intelligence for
+    # real, brings them up together with Compose's own service-name DNS and
+    # health-check-gated startup, POSTs a REAL account key to BP3's live /score endpoint,
+    # and verifies against the live case-management container that a real alert was
+    # created with the originating scoring result's provenance intact.
+    #
+    # Uses BP3, not BP1/2/4/5, deliberately: BP3 is a deterministic RULE (account_key
+    # present in the committed near_train_flagged lookup table -> always alert-worthy),
+    # not a probabilistic model with a real selected_threshold of 0.98 -- so this job can
+    # assert a real alert IS created without guessing whether an invented feature vector
+    # happens to cross that threshold (it would not be honest to fabricate one and hope).
+    # "020|800104D70" below is a real node_key from the committed
+    # bp3_notebook3_near_train_flagged_lookup_li_medium.parquet with near_train_flagged ==
+    # True -- verified by reading that file directly, not invented. BP1/2/4/5 share BP3's
+    # exact integration pattern (see docs/architecture/SCORING_ALERT_INTEGRATION.md) and
+    # are proven at the unit/pytest level already.
+    runs-on: ubuntu-latest
+    env:
+      CASE_SERVICE_CLIENT_KEY: ci-integrated-case-client-key
+      BP3_API_KEYS: ci-integrated-bp3-key
+      FLAGGED_ACCOUNT_KEY: "020|800104D70"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build case-management and bp3 images
+        run: docker compose build case-management bp3-network-graph-intelligence
+      - name: Bring up case-management and bp3 together
+        run: docker compose up -d case-management bp3-network-graph-intelligence
+      - name: Wait for both services to report healthy
+        run: |
+          set -euo pipefail
+          for service in case-management bp3-network-graph-intelligence; do
+            cid=$(docker compose ps -q "$service")
+            for i in $(seq 1 30); do
+              status=$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "starting")
+              if [ "$status" = "healthy" ]; then
+                echo "PASS: $service is healthy"
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "ERROR: $service never became healthy (last status: $status)"
+                docker compose logs "$service"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+      - name: Submit a real, known-flagged account to BP3's live /score endpoint
+        id: score
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -sf -X POST http://localhost:8003/score \
+            -H "X-API-Key: $BP3_API_KEYS" \
+            -H "Content-Type: application/json" \
+            -d "{\"account_key\": \"$FLAGGED_ACCOUNT_KEY\"}")
+          echo "BP3 /score response: $RESPONSE"
+          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
+      - name: Verify a real alert was created in case-management, with provenance intact
+        run: |
+          set -euo pipefail
+          RESPONSE='${{ steps.score.outputs.response }}'
+          ALERT_PRESENT=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print('yes' if d.get('alert') else 'no')" "$RESPONSE")
+          if [ "$ALERT_PRESENT" != "yes" ]; then
+            echo "ERROR: BP3's /score response for a known-flagged account carried no 'alert' key."
+            exit 1
+          fi
+          ALERT_ID=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d['alert']['alert_id'])" "$RESPONSE")
+          echo "BP3 dispatched alert: $ALERT_ID"
+          ALERT_JSON=$(curl -sf "http://localhost:8005/alerts/$ALERT_ID" -H "X-API-Key: $CASE_SERVICE_CLIENT_KEY")
+          echo "case-management's record of this alert: $ALERT_JSON"
+          python3 -c "
+          import json, sys
+          alert = json.loads(sys.argv[1])
+          expected_entity = sys.argv[2]
+          assert alert['business_problem'] == 'BP3', alert
+          assert alert['entity_ref'] == expected_entity, alert
+          assert alert['model_name'], 'model_name provenance missing'
+          assert alert['generation_source'] == 'automated_scoring', alert
+          assert alert['risk_score'] == 1.0, alert
+          print('PASS: alert in case-management preserves BP3 scoring provenance.')
+          " "$ALERT_JSON" "$FLAGGED_ACCOUNT_KEY"
+      - name: Verify re-submitting the identical account does not create a duplicate alert
+        run: |
+          set -euo pipefail
+          BEFORE=$(curl -sf -G "http://localhost:8005/alerts" --data-urlencode "entity_ref=$FLAGGED_ACCOUNT_KEY" -H "X-API-Key: $CASE_SERVICE_CLIENT_KEY" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+          curl -sf -X POST http://localhost:8003/score \
+            -H "X-API-Key: $BP3_API_KEYS" -H "Content-Type: application/json" \
+            -d "{\"account_key\": \"$FLAGGED_ACCOUNT_KEY\"}" > /dev/null
+          AFTER=$(curl -sf -G "http://localhost:8005/alerts" --data-urlencode "entity_ref=$FLAGGED_ACCOUNT_KEY" -H "X-API-Key: $CASE_SERVICE_CLIENT_KEY" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+          if [ "$BEFORE" != "$AFTER" ]; then
+            echo "ERROR: alert count for this account changed from $BEFORE to $AFTER on an identical resubmission -- idempotency failed."
+            exit 1
+          fi
+          echo "PASS: identical resubmission did not create a duplicate alert ($BEFORE == $AFTER)."
+      - name: Verify an unflagged account produces no alert
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl -sf -X POST http://localhost:8003/score \
+            -H "X-API-Key: $BP3_API_KEYS" -H "Content-Type: application/json" \
+            -d '{"account_key": "03196|800107150"}')
+          echo "BP3 /score response for a real, non-flagged account: $RESPONSE"
+          ALERT_PRESENT=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print('yes' if d.get('alert') else 'no')" "$RESPONSE")
+          if [ "$ALERT_PRESENT" != "no" ]; then
+            echo "ERROR: a non-flagged account unexpectedly produced an alert."
+            exit 1
+          fi
+          echo "PASS: non-flagged account correctly produced no alert."
+      - name: Dump service logs
+        if: always()
+        run: docker compose logs
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
