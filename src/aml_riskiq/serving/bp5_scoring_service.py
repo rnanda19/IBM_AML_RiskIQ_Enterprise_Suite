@@ -47,6 +47,7 @@ from __future__ import annotations
 import json
 import os
 import pickle
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -66,6 +67,10 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         score_rate_limit,
         wire_metrics_endpoint,
     )
+try:
+    from serving._alert_dispatch import maybe_generate_and_dispatch_alert
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.aml_riskiq.serving._alert_dispatch import maybe_generate_and_dispatch_alert
 from pydantic import create_model
 
 
@@ -168,6 +173,14 @@ MODEL_REGISTRY_ENTRY = build_registry_entry(
 # (float, ...), required -- no Optional[float] special case needed.
 # ----------------------------------------------------------------------------------------
 _FIELD_TYPES = {c: (float, ...) for c in FEATURE_COLS}
+# Optional, non-feature identifier fields added for the end-to-end AML workflow integration
+# phase (2026-10-12) -- see serving/_alert_dispatch.py's module docstring. Purely additive:
+# score_transaction() below only ever reads FEATURE_COLS keys from its input dict, so these
+# extra fields are silently ignored by the real scoring logic -- a caller that omits them
+# sees byte-identical /score behavior to before this phase existed.
+_FIELD_TYPES["entity_ref"] = (str | None, None)
+_FIELD_TYPES["transaction_ref"] = (str | None, None)
+_FIELD_TYPES["event_timestamp"] = (datetime | None, None)
 TxnFeatures = create_model(
     "TxnFeatures", **_FIELD_TYPES
 )  # type: ignore[call-overload]  # pydantic's mypy plugin only validates create_model()
@@ -212,4 +225,25 @@ def health() -> dict:
 @app.post("/score")
 @_limiter.limit(score_rate_limit())
 def score_endpoint(request: Request, txn: TxnFeatures, _caller: str = Depends(require_api_key)) -> dict:
-    return score_transaction(txn.model_dump())
+    payload = txn.model_dump()
+    result = score_transaction(payload)
+    # Scoring-to-alert integration (requirement 1): only attempted when the caller supplied
+    # entity_ref -- a caller that does not is byte-identical to this service's pre-integration
+    # behavior (see maybe_generate_and_dispatch_alert()'s own docstring for every skip path).
+    alert_result = maybe_generate_and_dispatch_alert(
+        service_name="bp5_scoring_service",
+        business_problem="BP5",
+        detection_source=f"{CHAMPION_NAME.lower()}_champion",
+        entity_ref=payload.get("entity_ref"),
+        transaction_ref=payload.get("transaction_ref"),
+        is_flagged=result["is_flagged"],
+        risk_score=result["probability"],
+        selected_threshold=result["threshold"],
+        model_name=result["champion_name"],
+        model_sha256=MODEL_REGISTRY_ENTRY.get("model_sha256"),
+        dataset_variant=result["dataset_variant"],
+        event_timestamp=payload.get("event_timestamp"),
+    )
+    if alert_result is not None:
+        result["alert"] = alert_result
+    return result

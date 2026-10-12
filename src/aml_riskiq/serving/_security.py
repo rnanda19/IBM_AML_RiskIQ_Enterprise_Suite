@@ -384,6 +384,8 @@ def render_metrics() -> str:
     for (service_name, method, path, status_code), total_seconds in sorted(sums.items()):
         labels = f'service="{service_name}",method="{method}",path="{path}",status="{status_code}"'
         lines.append(f"aml_riskiq_request_latency_seconds_sum{{{labels}}} {total_seconds:.6f}")
+    lines.extend(_render_custom_metric_block(_custom_counters, "counter"))
+    lines.extend(_render_custom_metric_block(_custom_gauges, "gauge"))
     return "\n".join(lines) + "\n"
 
 
@@ -394,6 +396,69 @@ def wire_metrics_endpoint(app: FastAPI) -> None:
     @app.get("/metrics")
     def _metrics() -> Response:
         return Response(content=render_metrics(), media_type="text/plain; version=0.0.4")
+
+
+# ----------------------------------------------------------------------------------------
+# 7. CUSTOM BUSINESS METRICS (`record_custom_metric` / `set_custom_gauge`) -- added for the
+#    end-to-end AML workflow integration phase (2026-10-12). The generic per-request counters
+#    above (section 6) already cover HTTP-level observability (request counts/latency by
+#    service/method/path/status) for any new route, including the Case Management Service's
+#    new /alerts/ingest endpoint -- no new code needed there. What they cannot express is a
+#    BUSINESS-level event that is not 1:1 with one HTTP request: a scoring service's alert
+#    dispatch can retry several times (several HTTP attempts) for what is logically ONE
+#    alert-generation decision, and "duplicate suppressed" / "unresolved alert count" are not
+#    properties of any single request at all. This small, generic, dependency-free extension
+#    lets any service record a NAMED counter or gauge, rendered under its own Prometheus
+#    HELP/TYPE block alongside the generic request metrics -- written once here (same HYPER
+#    reuse pattern as the rest of this module), not reimplemented per service.
+#    HONEST SCOPE NOTE: same in-process-only limitation as section 6's counters -- reset on
+#    restart, not shared across multiple worker processes/replicas.
+# ----------------------------------------------------------------------------------------
+_custom_metrics_lock = threading.Lock()
+_custom_counters: dict[tuple[str, str, tuple[tuple[str, str], ...]], float] = {}
+_custom_gauges: dict[tuple[str, str, tuple[tuple[str, str], ...]], float] = {}
+
+
+def record_custom_metric(
+    service_name: str, metric_name: str, *, value: float = 1.0, labels: dict[str, str] | None = None
+) -> None:
+    """Increments a named, monotonic business-level counter (e.g. "alerts_delivered_total").
+    `metric_name` becomes the Prometheus metric name verbatim (caller's responsibility to
+    pick a valid, stable name); `labels` are rendered as extra label=value pairs alongside
+    the always-present `service` label."""
+    key = (service_name, metric_name, tuple(sorted((labels or {}).items())))
+    with _custom_metrics_lock:
+        _custom_counters[key] = _custom_counters.get(key, 0.0) + value
+
+
+def set_custom_gauge(
+    service_name: str, metric_name: str, value: float, *, labels: dict[str, str] | None = None
+) -> None:
+    """Sets (not increments) a named gauge to its current real value (e.g.
+    "unresolved_alerts" -- a live count, not something that only ever goes up)."""
+    key = (service_name, metric_name, tuple(sorted((labels or {}).items())))
+    with _custom_metrics_lock:
+        _custom_gauges[key] = value
+
+
+def _render_custom_metric_block(
+    metrics: dict[tuple[str, str, tuple[tuple[str, str], ...]], float], metric_type: str
+) -> list[str]:
+    lines: list[str] = []
+    with _custom_metrics_lock:
+        snapshot = dict(metrics)
+    by_name: dict[str, list[tuple[str, tuple[tuple[str, str], ...], float]]] = {}
+    for (service_name, metric_name, label_items), value in snapshot.items():
+        by_name.setdefault(metric_name, []).append((service_name, label_items, value))
+    for metric_name in sorted(by_name):
+        full_name = f"aml_riskiq_{metric_name}"
+        lines.append(f"# HELP {full_name} Business-level {metric_type} recorded via record_custom_metric/set_custom_gauge.")
+        lines.append(f"# TYPE {full_name} {metric_type}")
+        for service_name, label_items, value in sorted(by_name[metric_name]):
+            all_labels = (("service", service_name),) + label_items
+            label_str = ",".join(f'{k}="{v}"' for k, v in all_labels)
+            lines.append(f"{full_name}{{{label_str}}} {value}")
+    return lines
 
 
 def audit_log(
@@ -483,4 +548,6 @@ __all__ = [
     "warn_if_open_mode",
     "render_metrics",
     "wire_metrics_endpoint",
+    "record_custom_metric",
+    "set_custom_gauge",
 ]

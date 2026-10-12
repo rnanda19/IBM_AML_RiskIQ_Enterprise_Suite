@@ -176,3 +176,60 @@ def test_score_endpoint_requires_api_key_when_configured(stub_service, monkeypat
 
     resp_correct_key = client.post("/score", json=payload, headers={"X-API-Key": "bp1-integration-test-key"})
     assert resp_correct_key.status_code == 200
+
+
+# -- scoring-to-alert integration wiring (end-to-end AML workflow integration phase, 2026-10-12) --
+
+
+def test_score_endpoint_without_entity_ref_adds_no_alert_key(stub_service):
+    """No entity_ref supplied -- byte-identical to this service's pre-integration /score
+    response, per maybe_generate_and_dispatch_alert()'s own documented skip path."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+    assert "alert" not in resp.json()
+
+
+def test_score_endpoint_with_entity_ref_attempts_alert_dispatch(stub_service, tmp_path, monkeypatch):
+    """entity_ref supplied and the stub champion's flagged result (P=0.9 >= threshold 0.5)
+    together trigger a real dispatch attempt. No AML_RISKIQ_CASE_SERVICE_URL is configured in
+    this unit-level test, so delivery is expected to queue to the local outbox -- the real
+    point being proven is that the /score route actually calls dispatch, not that a live
+    Case Management Service is reachable (that is proven separately, at the end-to-end
+    integration level, once /alerts/ingest exists)."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.delenv("AML_RISKIQ_CASE_SERVICE_URL", raising=False)
+    outbox_dir = tmp_path / "outbox"
+    monkeypatch.setenv("AML_RISKIQ_ALERT_OUTBOX_DIR", str(outbox_dir))
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    payload["entity_ref"] = "acct-xyz"
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["alert"]["status"] == "queued_for_retry"
+    assert body["alert"]["reason"] == "not_configured"
+    assert len(body["alert"]["idempotency_key"]) == 64
+    assert body["alert"]["severity"] in ("medium", "high", "critical")
+    outbox_file = outbox_dir / "bp1_scoring_service.outbox.jsonl"
+    assert outbox_file.exists()
+
+
+def test_score_endpoint_entity_ref_optional_transaction_ref_and_event_timestamp_accepted(stub_service):
+    """transaction_ref and event_timestamp are optional, additive request fields -- a caller
+    may supply all three identifier fields together without the request schema rejecting
+    them (Pydantic, not a hand-rolled schema, is what proves this)."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    payload["entity_ref"] = "acct-xyz"
+    payload["transaction_ref"] = "txn-123"
+    payload["event_timestamp"] = "2026-10-12T00:00:00Z"
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200

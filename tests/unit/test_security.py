@@ -424,3 +424,69 @@ def test_platform_roles_constant_contains_all_four(security_module):
     assert security_module.ANALYST_ROLE == "analyst"
     assert security_module.INVESTIGATOR_ROLE == "investigator"
     assert security_module.COMPLIANCE_OFFICER_ROLE == "compliance_officer"
+
+
+# -- custom business metrics (record_custom_metric / set_custom_gauge) ------------------------
+# Added for the end-to-end AML workflow integration phase (2026-10-12): the scoring-to-alert
+# dispatch client and the Case Management Service's /alerts/ingest route both need business-
+# level counters/gauges the generic per-request metrics (section 6) cannot express on their
+# own -- see _security.py's own section-7 docstring for why.
+
+
+def test_record_custom_metric_increments_and_renders(security_module):
+    security_module.record_custom_metric("bp1_scoring_service", "alert_dispatch_delivered_total")
+    security_module.record_custom_metric("bp1_scoring_service", "alert_dispatch_delivered_total")
+    text = security_module.render_metrics()
+    assert "aml_riskiq_alert_dispatch_delivered_total" in text
+    assert 'service="bp1_scoring_service"' in text
+    assert "aml_riskiq_alert_dispatch_delivered_total{service=\"bp1_scoring_service\"} 2.0" in text
+
+
+def test_record_custom_metric_with_labels(security_module):
+    security_module.record_custom_metric(
+        "bp1_scoring_service", "alert_dispatch_failed_total", labels={"reason": "timeout"}
+    )
+    text = security_module.render_metrics()
+    assert 'reason="timeout"' in text
+
+
+def test_record_custom_metric_distinct_label_sets_are_separate_series(security_module):
+    security_module.record_custom_metric("bp1_scoring_service", "x", labels={"reason": "timeout"})
+    security_module.record_custom_metric("bp1_scoring_service", "x", labels={"reason": "rejected"})
+    text = security_module.render_metrics()
+    assert text.count("aml_riskiq_x{") == 2
+
+
+def test_set_custom_gauge_sets_not_increments(security_module):
+    security_module.set_custom_gauge("case_management_service", "unresolved_alerts", 5)
+    security_module.set_custom_gauge("case_management_service", "unresolved_alerts", 3)
+    text = security_module.render_metrics()
+    assert "aml_riskiq_unresolved_alerts{service=\"case_management_service\"} 3" in text
+    assert "# TYPE aml_riskiq_unresolved_alerts gauge" in text
+
+
+def test_custom_counter_type_line_is_counter(security_module):
+    security_module.record_custom_metric("case_management_service", "alerts_ingested_total")
+    text = security_module.render_metrics()
+    assert "# TYPE aml_riskiq_alerts_ingested_total counter" in text
+
+
+def test_render_metrics_includes_both_generic_and_custom_sections(security_module):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+    security_module.harden_app(app, "svc")
+    security_module.wire_metrics_endpoint(app)
+    security_module.record_custom_metric("svc", "widgets_total")
+
+    @app.get("/ping")
+    def _ping():
+        return {"ok": True}
+
+    client = TestClient(app)
+    client.get("/ping")
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "aml_riskiq_requests_total" in resp.text
+    assert "aml_riskiq_widgets_total" in resp.text

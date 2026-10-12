@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -78,6 +79,10 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         score_rate_limit,
         wire_metrics_endpoint,
     )
+try:
+    from serving._alert_dispatch import maybe_generate_and_dispatch_alert
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.aml_riskiq.serving._alert_dispatch import maybe_generate_and_dispatch_alert
 from pydantic import BaseModel
 
 
@@ -213,9 +218,17 @@ class AccountKey(BaseModel):
     the (Bank, Account) composite key, identical string format to Notebook 3's own
     `node_key` ("<Bank>|<Account>", e.g. "070|10042B660", per RULE_CARD.md's own illustrative
     seed_node_key examples). This is NOT a model feature vector (BP3 has no trained model) --
-    it is the account identifier a real investigator or upstream system would supply."""
+    it is the account identifier a real investigator or upstream system would supply.
+
+    Unlike BP1/BP2/BP4/BP5, BP3 needs no separate entity_ref field for the end-to-end AML
+    workflow integration phase (2026-10-12): account_key IS the entity identifier (there is
+    no separate transaction being scored -- see score_account()'s own docstring). Only
+    event_timestamp is added, optionally, for the same reason every other BP's identifier
+    fields are optional: a caller that omits it is byte-identical to this service's
+    pre-integration behavior."""
 
     account_key: str
+    event_timestamp: datetime | None = None
 
 
 def score_account(account_key: str) -> dict:
@@ -273,4 +286,27 @@ def health() -> dict:
 @app.post("/score")
 @_limiter.limit(score_rate_limit())
 def score_endpoint(request: Request, acct: AccountKey, _caller: str = Depends(require_api_key)) -> dict:
-    return score_account(acct.account_key)
+    result = score_account(acct.account_key)
+    # Scoring-to-alert integration (requirement 1): BP3 has no probability/threshold pair
+    # (genuinely not applicable -- see this module's own docstring), so its real binary rule
+    # outcome is normalized to risk_score=1.0 meeting selected_threshold=1.0 exactly when
+    # near_train_flagged is True; an account absent from the graph (near_train_flagged is
+    # None, the "account_not_in_graph_as_of_last_run" status) is never alert-worthy -- it is
+    # honestly unknown, never treated as a negative result.
+    near_train_flagged = result.get("near_train_flagged")
+    alert_result = maybe_generate_and_dispatch_alert(
+        service_name="bp3_rule_scoring_service",
+        business_problem="BP3",
+        detection_source=f"{CHAMPION_SIGNAL}_rule",
+        entity_ref=acct.account_key,
+        is_flagged=bool(near_train_flagged),
+        risk_score=1.0 if near_train_flagged else 0.0,
+        selected_threshold=1.0,
+        model_name=REAL_CHAMPION_NAME,
+        dataset_variant=DATASET_VARIANT,
+        event_timestamp=acct.event_timestamp,
+        reason_codes=[CHAMPION_SIGNAL],
+    )
+    if alert_result is not None:
+        result["alert"] = alert_result
+    return result

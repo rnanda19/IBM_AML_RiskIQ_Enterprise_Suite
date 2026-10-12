@@ -111,6 +111,26 @@ class Alert(BaseModel):
     notes: list[CaseNote] = Field(default_factory=list)
     evidence: list[EvidenceReference] = Field(default_factory=list)
 
+    # Added for the end-to-end AML workflow integration phase (2026-10-12) -- see
+    # scoring_event.py for how these are computed. All three default so every existing
+    # manually-created Alert (every pre-existing test, every POST /alerts caller) is
+    # unaffected: generation_source stays "manual", idempotency_key/severity stay None.
+    idempotency_key: str | None = None  # deterministic hash of the stable scoring-event
+    # fields (see scoring_event.compute_idempotency_key) -- set only for alerts generated
+    # automatically from a /score result; what makes POST /alerts/ingest's "retries never
+    # create duplicates" guarantee real rather than aspirational (enforced by a UNIQUE
+    # index on this column in store.py, not just checked in application code).
+    severity: str | None = None  # "medium" | "high" | "critical" -- risk-BASED ROUTING
+    # classification from how far risk_score exceeds selected_threshold (see
+    # scoring_event.classify_severity); None for a manually created alert (no automated
+    # routing decision was made for it) or for an automated alert whose score did not meet
+    # its threshold (never generated in the first place -- see is_alert_worthy()).
+    generation_source: str = "manual"  # "manual" | "automated_scoring" -- audit provenance:
+    # did a person file this alert via POST /alerts, or did it arrive automatically from a
+    # BP1-BP5 /score result meeting its configured alerting criteria via POST
+    # /alerts/ingest? Never inferred after the fact -- set once, at creation, by whichever
+    # code path actually created the Alert.
+
 
 def alert_from_score_response(
     *,

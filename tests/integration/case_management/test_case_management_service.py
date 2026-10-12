@@ -412,3 +412,195 @@ def test_metrics_endpoint_reflects_real_request_counts(client):
     assert resp.status_code == 200
     assert 'service="case_management_service"' in resp.text
     assert 'path="/alerts"' in resp.text
+
+
+# -- POST /alerts/ingest: scoring-to-alert integration (end-to-end AML workflow integration ---
+# -- phase, 2026-10-12) -- idempotent ingestion, RBAC, observability -------------------------
+
+
+_INGEST_BODY = {
+    "entity_ref": "acct-99",
+    "business_problem": "BP1",
+    "detection_source": "xgboost_champion",
+    "risk_score": 0.9,
+    "selected_threshold": 0.5,
+    "model_name": "xgboost_v1",
+    "idempotency_key": "a" * 64,
+    "severity": "high",
+    "generation_source": "automated_scoring",
+}
+
+
+def test_ingest_creates_new_alert_returns_201(client):
+    resp = client.post("/alerts/ingest", json=_INGEST_BODY, headers=H_ANALYST)
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["duplicate"] is False
+    assert body["status"] == "new"
+    assert body["alert_id"]
+
+
+def test_ingest_same_idempotency_key_returns_200_same_alert_id_not_duplicated(client):
+    first = client.post("/alerts/ingest", json=_INGEST_BODY, headers=H_ANALYST)
+    assert first.status_code == 201
+    first_alert_id = first.json()["alert_id"]
+
+    # A second, independently-built Alert (fresh alert_id would be generated client-side --
+    # simulated here by a body with NO alert_id field, so the server generates its own) but
+    # the SAME idempotency_key -- the real retry/duplicate-submission scenario.
+    second = client.post("/alerts/ingest", json=_INGEST_BODY, headers=H_ANALYST)
+    assert second.status_code == 200, second.text
+    body = second.json()
+    assert body["duplicate"] is True
+    assert body["alert_id"] == first_alert_id  # the ORIGINAL alert, never a second case
+
+    listed = client.get("/alerts", headers=H_ANALYST).json()
+    matching = [a for a in listed if a["idempotency_key"] == "a" * 64]
+    assert len(matching) == 1  # never duplicated in the store
+
+
+def test_ingest_without_idempotency_key_always_creates_separately(client):
+    body = {k: v for k, v in _INGEST_BODY.items() if k != "idempotency_key"}
+    first = client.post("/alerts/ingest", json=body, headers=H_ANALYST)
+    second = client.post("/alerts/ingest", json=body, headers=H_ANALYST)
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["alert_id"] != second.json()["alert_id"]
+    assert second.json()["duplicate"] is False
+
+
+def test_ingest_rejects_malformed_body(client):
+    bad = {k: v for k, v in _INGEST_BODY.items() if k != "model_name"}  # drop a required field
+    resp = client.post("/alerts/ingest", json=bad, headers=H_ANALYST)
+    assert resp.status_code == 422
+
+
+def test_ingest_requires_authentication(client):
+    resp = client.post("/alerts/ingest", json=_INGEST_BODY)
+    assert resp.status_code == 401
+
+
+def test_ingest_rejects_service_role_key(client, service, monkeypatch):
+    """A bare, unprefixed key defaults to role 'service' (per RBAC.md), which satisfies no
+    case-management route -- confirms /alerts/ingest enforces the same role matrix as
+    POST /alerts, never a bypass for scoring-service callers."""
+    monkeypatch.setenv(
+        "AML_RISKIQ_API_KEYS",
+        "analyst:key-analyst,investigator:key-inv,compliance_officer:key-comp,admin:key-admin,bare-service-key",
+    )
+    import importlib
+    import sys
+
+    sys.modules.pop("serving.case_management_service", None)
+    sys.modules.pop("serving._security", None)
+    module = importlib.reload(importlib.import_module("serving.case_management_service"))
+    from fastapi.testclient import TestClient
+
+    fresh_client = TestClient(module.app)
+    resp = fresh_client.post("/alerts/ingest", json=_INGEST_BODY, headers={"X-API-Key": "bare-service-key"})
+    assert resp.status_code == 403
+
+
+def test_ingest_accepted_for_investigator_and_compliance_officer_too(client):
+    body1 = {**_INGEST_BODY, "idempotency_key": "b" * 64}
+    body2 = {**_INGEST_BODY, "idempotency_key": "c" * 64}
+    resp1 = client.post("/alerts/ingest", json=body1, headers=H_INV)
+    resp2 = client.post("/alerts/ingest", json=body2, headers=H_COMP)
+    assert resp1.status_code == 201
+    assert resp2.status_code == 201
+
+
+def test_health_reports_unresolved_alerts_count(client):
+    before = client.get("/health").json()["unresolved_alerts"]
+    client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "d" * 64}, headers=H_ANALYST)
+    after = client.get("/health").json()["unresolved_alerts"]
+    assert after == before + 1
+
+
+def test_ingest_observability_metrics_recorded(client):
+    client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "e" * 64}, headers=H_ANALYST)
+    client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "e" * 64}, headers=H_ANALYST)
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "alert_ingest_created_total" in resp.text
+    assert "alert_ingest_duplicate_total" in resp.text
+
+
+def test_ingest_preserves_model_provenance_and_severity(client):
+    resp = client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "f" * 64}, headers=H_ANALYST)
+    alert_id = resp.json()["alert_id"]
+    fetched = client.get(f"/alerts/{alert_id}", headers=H_ANALYST).json()
+    assert fetched["severity"] == "high"
+    assert fetched["generation_source"] == "automated_scoring"
+    assert fetched["risk_score"] == 0.9
+    assert fetched["selected_threshold"] == 0.5
+    assert fetched["model_name"] == "xgboost_v1"
+
+
+# -- RBAC/audit-trail/lifecycle integrity unaffected by the new ingestion path (requirement ---
+# -- 5, verified explicitly rather than assumed from the generic middleware coverage above) --
+
+
+def test_ingest_emits_structured_audit_log_line(client, caplog):
+    """The real AuditLogMiddleware wraps every route, including the new one -- confirmed
+    directly rather than assumed, same discipline as
+    test_requests_emit_structured_audit_log_lines above."""
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="aml_riskiq.audit"):
+        caplog.clear()
+        resp = client.post(
+            "/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "g" * 64}, headers=H_ANALYST
+        )
+        records = [r for r in caplog.records if r.name == "aml_riskiq.audit"]
+    assert resp.status_code == 201
+    assert len(records) >= 1
+    record = json.loads(records[-1].message)
+    assert record["service"] == "case_management_service"
+    assert record["method"] == "POST"
+    assert record["path"] == "/alerts/ingest"
+    assert record["status_code"] == 201
+    assert record["caller_id"] != "anonymous"
+    assert "key-analyst" not in json.dumps(record)
+
+
+def test_ingest_created_alert_has_full_investigation_lifecycle_available(client):
+    """An alert created via /alerts/ingest is not a second-class record -- it goes through
+    the exact same store.create_alert_idempotent() -> _insert_alert_row() code path as a
+    manually created one, so assignment, notes, evidence, transitions, and hash-chain
+    integrity verification all work on it identically. Exercises the whole chain end to
+    end, not just one call."""
+    resp = client.post("/alerts/ingest", json={**_INGEST_BODY, "idempotency_key": "h" * 64}, headers=H_ANALYST)
+    alert_id = resp.json()["alert_id"]
+    assert resp.json()["status"] == "new"  # requirement: never created pre-resolved
+
+    assign = client.post(f"/alerts/{alert_id}/assign", json={"assignee": "inv-1"}, headers=H_INV)
+    assert assign.status_code == 200
+
+    note = client.post(f"/alerts/{alert_id}/notes", json={"text": "reviewing"}, headers=H_INV)
+    assert note.status_code == 201
+
+    evidence = client.post(
+        f"/alerts/{alert_id}/evidence", json={"description": "txn log"}, headers=H_INV
+    )
+    assert evidence.status_code == 201
+
+    transition = client.post(
+        f"/alerts/{alert_id}/transition", json={"to_status": "under_review"}, headers=H_INV
+    )
+    assert transition.status_code == 200
+
+    # Investigator cannot close -- compliance-officer sign-off is still required, same as
+    # for a manually created alert (requirement: "Enforce the existing role-based
+    # permissions").
+    closed_by_investigator = client.post(
+        f"/alerts/{alert_id}/transition", json={"to_status": "closed"}, headers=H_INV
+    )
+    assert closed_by_investigator.status_code == 403
+
+    closed = client.post(f"/alerts/{alert_id}/transition", json={"to_status": "closed"}, headers=H_COMP)
+    assert closed.status_code == 200
+
+    integrity = client.get(f"/alerts/{alert_id}/integrity", headers=H_COMP)
+    assert integrity.status_code == 200
+    assert integrity.json()["verified"] is True

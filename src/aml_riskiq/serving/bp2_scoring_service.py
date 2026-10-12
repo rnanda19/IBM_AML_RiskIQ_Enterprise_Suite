@@ -78,6 +78,7 @@ import json
 import math
 import os
 import pickle
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -98,6 +99,10 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         score_rate_limit,
         wire_metrics_endpoint,
     )
+try:
+    from serving._alert_dispatch import maybe_generate_and_dispatch_alert
+except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
+    from src.aml_riskiq.serving._alert_dispatch import maybe_generate_and_dispatch_alert
 from pydantic import create_model
 
 
@@ -182,6 +187,20 @@ with open(REPORT_PATH, encoding="utf-8") as _report_f:
 FEATURE_COLS: list[str] = _report["feature_cols"]
 CHAMPION_NAME: str = _report["champion_name"]
 CLASS_NAMES: list[str] = _report["class_names"]
+
+# HONEST SCOPE NOTE for the end-to-end AML workflow integration phase (2026-10-12): unlike
+# BP1/BP4/BP5 (binary, with a real cost-curve-derived selected_threshold saved by Notebook 3)
+# and BP3 (a binary rule), BP2 is a 5-class typology classifier with NO saved decision
+# threshold -- the real validation report's own "selected_threshold" key is null (macro-F1
+# via argmax has no single probability cutoff). Inventing one to force BP2 into the same
+# binary alerting shape would be exactly the "quietly tuned threshold" Lesson #15 forbids.
+# Instead this service uses the one real, non-tuned, mathematically-derived number available
+# -- the chance-baseline confidence a uniform random guess among CLASS_NAMES would achieve
+# (1 / len(CLASS_NAMES)) -- as BP2's own disclosed alerting-threshold convention: a
+# predicted_typology whose own confidence does not even clear random-guessing is not
+# dispatched as alert-worthy. This is a routing/dispatch decision about an already-computed
+# model output, never a new ML signal and never tuned toward any target verdict.
+BP2_ALERT_CONFIDENCE_BASELINE: float = 1.0 / len(CLASS_NAMES)
 # Hardening addition (2026-10-02): these two keys only exist in a validation report produced
 # by Notebook 3 AFTER that same-dated edit -- see the module docstring's NOTE above. Read
 # with plain dict indexing (not .get(..., default)) so a stale, pre-hardening report fails
@@ -235,6 +254,14 @@ MODEL_REGISTRY_ENTRY = build_registry_entry(
 # own service already applies for its own NaN-prone column).
 # ----------------------------------------------------------------------------------------
 _FIELD_TYPES = {c: ((Optional[float], None) if c == _NAN_PRONE_COL else (float, ...)) for c in FEATURE_COLS}
+# Optional, non-feature identifier fields added for the end-to-end AML workflow integration
+# phase (2026-10-12) -- see serving/_alert_dispatch.py's module docstring. Purely additive:
+# score_transaction() below only ever reads FEATURE_COLS keys from its input dict, so these
+# extra fields are silently ignored by the real scoring logic -- a caller that omits them
+# sees byte-identical /score behavior to before this phase existed.
+_FIELD_TYPES["entity_ref"] = (str | None, None)
+_FIELD_TYPES["transaction_ref"] = (str | None, None)
+_FIELD_TYPES["event_timestamp"] = (datetime | None, None)
 TxnFeatures = create_model(
     "TxnFeatures", **_FIELD_TYPES
 )  # type: ignore[call-overload]  # pydantic's mypy plugin only validates create_model()
@@ -297,4 +324,28 @@ def health() -> dict:
 @app.post("/score")
 @_limiter.limit(score_rate_limit())
 def score_endpoint(request: Request, txn: TxnFeatures, _caller: str = Depends(require_api_key)) -> dict:
-    return score_transaction(txn.model_dump())
+    payload = txn.model_dump()
+    result = score_transaction(payload)
+    # Scoring-to-alert integration (requirement 1): see BP2_ALERT_CONFIDENCE_BASELINE's own
+    # module-level comment for why BP2 uses confidence-vs-chance-baseline rather than a saved
+    # decision threshold, and why this is a routing decision, not a new ML signal. Only
+    # attempted when the caller supplied entity_ref -- a caller that does not is
+    # byte-identical to this service's pre-integration behavior.
+    alert_result = maybe_generate_and_dispatch_alert(
+        service_name="bp2_scoring_service",
+        business_problem="BP2",
+        detection_source=f"{CHAMPION_NAME.lower()}_typology_champion",
+        entity_ref=payload.get("entity_ref"),
+        transaction_ref=payload.get("transaction_ref"),
+        is_flagged=result["confidence"] >= BP2_ALERT_CONFIDENCE_BASELINE,
+        risk_score=result["confidence"],
+        selected_threshold=BP2_ALERT_CONFIDENCE_BASELINE,
+        model_name=result["champion_name"],
+        model_sha256=MODEL_REGISTRY_ENTRY.get("model_sha256"),
+        dataset_variant=result["dataset_variant"],
+        event_timestamp=payload.get("event_timestamp"),
+        reason_codes=[result["predicted_typology"]],
+    )
+    if alert_result is not None:
+        result["alert"] = alert_result
+    return result

@@ -67,8 +67,19 @@ CREATE TABLE IF NOT EXISTS alerts (
     status TEXT NOT NULL,
     assigned_to TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    idempotency_key TEXT,
+    severity TEXT,
+    generation_source TEXT NOT NULL DEFAULT 'manual'
 );
+-- NOTE: the UNIQUE index on idempotency_key is created in _migrate_idempotency_columns()
+-- below, not here -- a pre-existing "alerts" table (created before this phase, no
+-- idempotency_key column yet) would make CREATE TABLE IF NOT EXISTS a no-op while this
+-- index statement still runs unconditionally in the same executescript() batch, crashing
+-- with "no such column" before the migration that would have added it ever gets to run.
+-- Deferring the index creation to AFTER the migration step (which itself is `IF NOT
+-- EXISTS`-safe and re-runs harmlessly on an already-migrated database) handles both a
+-- brand-new database and a legacy one with the same code path.
 
 -- Append-only: see module docstring's "STRUCTURAL" protection -- no code in this module
 -- ever issues UPDATE/DELETE against this table.
@@ -131,6 +142,30 @@ class AlertStore:
         self._write_lock = threading.Lock()
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
+            self._migrate_idempotency_columns(conn)
+
+    def _migrate_idempotency_columns(self, conn: sqlite3.Connection) -> None:
+        """`CREATE TABLE IF NOT EXISTS` (above) does not retroactively add columns to a
+        table that already existed on disk before this phase (idempotency_key/severity/
+        generation_source, added 2026-10-12) -- a real deployment's pre-existing
+        data/case_management/casework.db would otherwise be stuck on the old schema
+        forever. Cheap, idempotent, and safe to run on every startup: checks the real
+        column list via PRAGMA table_info and ALTER TABLE ADD COLUMN only for whatever is
+        actually missing (a brand-new database created fresh by _SCHEMA above already has
+        all three, so this is a silent no-op there)."""
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(alerts)").fetchall()}
+        if "idempotency_key" not in existing:
+            conn.execute("ALTER TABLE alerts ADD COLUMN idempotency_key TEXT")
+        if "severity" not in existing:
+            conn.execute("ALTER TABLE alerts ADD COLUMN severity TEXT")
+        if "generation_source" not in existing:
+            conn.execute("ALTER TABLE alerts ADD COLUMN generation_source TEXT NOT NULL DEFAULT 'manual'")
+        # The partial unique index itself is also `IF NOT EXISTS` and column-order-
+        # independent, so it is safe (and necessary, for a pre-existing DB) to re-run here.
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_alerts_idempotency_key "
+            "ON alerts(idempotency_key) WHERE idempotency_key IS NOT NULL"
+        )
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -195,6 +230,7 @@ class AlertStore:
         ]
 
     def _row_to_alert(self, conn: sqlite3.Connection, row: sqlite3.Row) -> Alert:
+        row_keys = row.keys()
         return Alert(
             schema_version=row["schema_version"],
             alert_id=row["alert_id"],
@@ -217,6 +253,13 @@ class AlertStore:
             history=self._load_events(conn, row["alert_id"]),
             notes=self._load_notes(conn, row["alert_id"]),
             evidence=self._load_evidence(conn, row["alert_id"]),
+            # row_keys guard: a row fetched mid-migration (between executescript() and
+            # _migrate_idempotency_columns() in the same __init__ call) could theoretically
+            # lack these columns; in practice __init__ always finishes migrating before any
+            # query runs, so this is defensive, not load-bearing.
+            idempotency_key=row["idempotency_key"] if "idempotency_key" in row_keys else None,
+            severity=row["severity"] if "severity" in row_keys else None,
+            generation_source=row["generation_source"] if "generation_source" in row_keys else "manual",
         )
 
     def _insert_alert_row(self, conn: sqlite3.Connection, alert: Alert, *, now: str) -> None:
@@ -225,8 +268,9 @@ class AlertStore:
                 alert_id, schema_version, entity_ref, transaction_ref, business_problem,
                 detection_source, risk_score, selected_threshold, model_name, model_sha256,
                 dataset_variant, event_timestamp, scoring_timestamp, reason_codes, status,
-                assigned_to, created_at, updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                assigned_to, created_at, updated_at, idempotency_key, severity,
+                generation_source
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 alert.alert_id,
                 alert.schema_version,
@@ -246,6 +290,9 @@ class AlertStore:
                 alert.assigned_to,
                 now,
                 now,
+                alert.idempotency_key,
+                alert.severity,
+                alert.generation_source,
             ),
         )
 
@@ -308,6 +355,82 @@ class AlertStore:
             if row is None:
                 raise AlertNotFoundError(alert_id)
             return self._row_to_alert(conn, row)
+
+    def get_alert_by_idempotency_key(self, idempotency_key: str) -> Alert | None:
+        """Returns the alert already stored under this idempotency_key, or None if no such
+        alert exists yet. Used both by create_alert_idempotent() (the race-safe path, which
+        does not rely on this method alone -- see its own docstring) and by a caller that
+        wants to check for a prior delivery without attempting a write."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM alerts WHERE idempotency_key = ?", (idempotency_key,)
+            ).fetchone()
+            return self._row_to_alert(conn, row) if row is not None else None
+
+    def create_alert_idempotent(self, alert: Alert) -> tuple[Alert, bool]:
+        """Idempotent alert creation keyed on alert.idempotency_key -- the real enforcement
+        behind "retries do not create duplicate alerts". Returns (alert, True) if this call
+        created a brand-new row, or (the ALREADY-STORED alert, False) if one with the same
+        idempotency_key already existed -- the caller gets back the real persisted alert
+        either way, never a value it has to reconcile itself.
+
+        Race-safety, not just a check-then-insert: the UNIQUE index on idempotency_key (see
+        _SCHEMA) is the actual source of truth. This method attempts the INSERT directly and
+        only falls back to a SELECT if that insert fails with an IntegrityError that is
+        specifically the idempotency_key conflict (detected by string-matching the real
+        sqlite3 error message, which names the failing index/column) -- any OTHER
+        IntegrityError (e.g. a genuine alert_id collision, which create_alert() already
+        tests raises) is re-raised unchanged, never silently swallowed as "it must have been
+        a duplicate". Two concurrent callers racing to create the same idempotency_key both
+        attempt the INSERT; SQLite's own file-level locking (serialized further by this
+        store's own _write_lock for same-process callers) means at most one can win, and the
+        loser's IntegrityError is exactly what routes it to the re-fetch-and-return-existing
+        path -- correct under real concurrency, not just the common case.
+
+        If alert.idempotency_key is None (a manually created alert, or a caller that chose
+        not to deduplicate), this is simply create_alert() -- always creates, as before."""
+        if alert.idempotency_key is None:
+            self.create_alert(alert)
+            return alert, True
+        now = datetime.now(alert.scoring_timestamp.tzinfo or None).isoformat()
+        with self._write_lock, self._connect() as conn:
+            try:
+                self._insert_alert_row(conn, alert, now=now)
+            except sqlite3.IntegrityError as exc:
+                if "idempotency_key" not in str(exc):
+                    raise
+                row = conn.execute(
+                    "SELECT * FROM alerts WHERE idempotency_key = ?", (alert.idempotency_key,)
+                ).fetchone()
+                if row is None:
+                    raise  # genuinely unexpected -- do not mask an error we cannot explain
+                return self._row_to_alert(conn, row), False
+            for event in alert.history:
+                self._append_event_row(conn, alert.alert_id, event)
+            for note in alert.notes:
+                conn.execute(
+                    "INSERT INTO case_notes (alert_id, note_id, timestamp, actor, text) VALUES (?,?,?,?,?)",
+                    (alert.alert_id, note.note_id, note.timestamp.isoformat(), note.actor, note.text),
+                )
+            for ref in alert.evidence:
+                conn.execute(
+                    "INSERT INTO case_evidence (alert_id, evidence_id, timestamp, actor, description, external_ref) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (alert.alert_id, ref.evidence_id, ref.timestamp.isoformat(), ref.actor, ref.description, ref.external_ref),
+                )
+            return alert, True
+
+    def count_unresolved(self) -> int:
+        """A live COUNT of every alert not yet in a terminal state (everything except
+        CLOSED) -- the "unresolved alerts" observability gauge requirement. A single SQL
+        COUNT, not a Python-side len(list_alerts(...)) over every row's full history/notes/
+        evidence (list_alerts reconstructs full Alert objects via _row_to_alert, real but
+        unnecessary work for a count this cheap to compute directly)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM alerts WHERE status != ?", (CaseStatus.CLOSED.value,)
+            ).fetchone()
+            return int(row[0])
 
     def list_alerts(
         self,

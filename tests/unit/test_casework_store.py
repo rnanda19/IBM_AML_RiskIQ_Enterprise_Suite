@@ -273,3 +273,157 @@ def test_reconciliation_report_filters_by_business_problem(store):
     store.create_alert(_alert(entity_ref="acct-2", business_problem="BP4"))
     report = store.reconciliation_report(n_transactions_evaluated=100, business_problem="BP1")
     assert report["n_alerts_generated"] == 1
+
+
+# -- idempotent alert creation (end-to-end AML workflow integration phase, 2026-10-12) ---------
+
+
+def test_create_alert_idempotent_first_call_creates(store):
+    a = _alert(entity_ref="acct-idem-1")
+    a = a.model_copy(update={"idempotency_key": "key-1"})
+    created, was_new = store.create_alert_idempotent(a)
+    assert was_new is True
+    assert created.alert_id == a.alert_id
+    reloaded = store.get_alert(a.alert_id)
+    assert reloaded.idempotency_key == "key-1"
+
+
+def test_create_alert_idempotent_second_call_returns_existing_not_duplicate(store):
+    a1 = _alert(entity_ref="acct-idem-2").model_copy(update={"idempotency_key": "key-2"})
+    a2 = _alert(entity_ref="acct-idem-2").model_copy(update={"idempotency_key": "key-2"})
+    first, was_new_1 = store.create_alert_idempotent(a1)
+    second, was_new_2 = store.create_alert_idempotent(a2)
+    assert was_new_1 is True
+    assert was_new_2 is False
+    assert second.alert_id == first.alert_id  # same real stored alert, not a2's own id
+    all_alerts = store.list_alerts(entity_ref="acct-idem-2")
+    assert len(all_alerts) == 1  # never two rows for the same idempotency_key
+
+
+def test_create_alert_idempotent_without_key_always_creates(store):
+    """A manually created alert (idempotency_key=None) is never deduplicated -- two
+    separate manual submissions are two separate real alerts, same as create_alert()."""
+    a1 = _alert(entity_ref="acct-manual")
+    a2 = _alert(entity_ref="acct-manual")
+    _, new1 = store.create_alert_idempotent(a1)
+    _, new2 = store.create_alert_idempotent(a2)
+    assert new1 is True
+    assert new2 is True
+    assert len(store.list_alerts(entity_ref="acct-manual")) == 2
+
+
+def test_create_alert_idempotent_different_keys_both_created(store):
+    a1 = _alert(entity_ref="acct-idem-3").model_copy(update={"idempotency_key": "key-a"})
+    a2 = _alert(entity_ref="acct-idem-3").model_copy(update={"idempotency_key": "key-b"})
+    _, new1 = store.create_alert_idempotent(a1)
+    _, new2 = store.create_alert_idempotent(a2)
+    assert new1 is True
+    assert new2 is True
+    assert len(store.list_alerts(entity_ref="acct-idem-3")) == 2
+
+
+def test_create_alert_idempotent_preserves_severity_and_generation_source(store):
+    a = _alert(entity_ref="acct-idem-4").model_copy(
+        update={"idempotency_key": "key-sev", "severity": "critical", "generation_source": "automated_scoring"}
+    )
+    store.create_alert_idempotent(a)
+    reloaded = store.get_alert(a.alert_id)
+    assert reloaded.severity == "critical"
+    assert reloaded.generation_source == "automated_scoring"
+
+
+def test_get_alert_by_idempotency_key_found_and_not_found(store):
+    a = _alert(entity_ref="acct-idem-5").model_copy(update={"idempotency_key": "key-lookup"})
+    store.create_alert_idempotent(a)
+    found = store.get_alert_by_idempotency_key("key-lookup")
+    assert found is not None
+    assert found.alert_id == a.alert_id
+    assert store.get_alert_by_idempotency_key("no-such-key") is None
+
+
+def test_manually_created_alert_has_manual_generation_source_by_default(store):
+    a = _alert(entity_ref="acct-manual-default")
+    store.create_alert(a)
+    reloaded = store.get_alert(a.alert_id)
+    assert reloaded.generation_source == "manual"
+    assert reloaded.idempotency_key is None
+    assert reloaded.severity is None
+
+
+# -- count_unresolved ---------------------------------------------------------------------------
+
+
+def test_count_unresolved_excludes_closed_only(store):
+    a1 = _alert(entity_ref="acct-u1")
+    a2 = _alert(entity_ref="acct-u2")
+    a3 = _alert(entity_ref="acct-u3")
+    store.create_alert(a1)
+    store.create_alert(a2)
+    store.create_alert(a3)
+    store.apply_transition(a1.alert_id, CaseStatus.ASSIGNED, actor="x")
+    store.apply_transition(a2.alert_id, CaseStatus.ASSIGNED, actor="x")
+    store.apply_transition(a2.alert_id, CaseStatus.UNDER_REVIEW, actor="x")
+    store.apply_transition(a2.alert_id, CaseStatus.CLOSED, actor="x")
+    # a1: ASSIGNED (unresolved), a2: CLOSED (resolved), a3: NEW (unresolved)
+    assert store.count_unresolved() == 2
+
+
+def test_count_unresolved_zero_on_empty_store(store):
+    assert store.count_unresolved() == 0
+
+
+# -- schema migration for a pre-existing database (idempotency columns added 2026-10-12) -------
+
+
+def test_migration_adds_idempotency_columns_to_pre_existing_db(tmp_path):
+    """Simulates a real on-disk casework.db created BEFORE this phase (no idempotency_key/
+    severity/generation_source columns) -- opening it with the current AlertStore must
+    migrate it in place, not crash or silently ignore the old rows."""
+    db_path = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE alerts (
+            alert_id TEXT PRIMARY KEY,
+            schema_version TEXT NOT NULL,
+            entity_ref TEXT NOT NULL,
+            transaction_ref TEXT,
+            business_problem TEXT NOT NULL,
+            detection_source TEXT NOT NULL,
+            risk_score REAL NOT NULL,
+            selected_threshold REAL NOT NULL,
+            model_name TEXT NOT NULL,
+            model_sha256 TEXT,
+            dataset_variant TEXT,
+            event_timestamp TEXT,
+            scoring_timestamp TEXT NOT NULL,
+            reason_codes TEXT NOT NULL,
+            status TEXT NOT NULL,
+            assigned_to TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        "INSERT INTO alerts VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "legacy-alert-1", "1.0.0", "acct-legacy", None, "BP1", "xgboost_champion",
+            0.9, 0.5, "XGBoost", None, None, None, NOW.isoformat(), "[]", "new", None,
+            NOW.isoformat(), NOW.isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    store = AlertStore(db_path)  # must not raise -- migrates the pre-existing table in place
+    reloaded = store.get_alert("legacy-alert-1")
+    assert reloaded.entity_ref == "acct-legacy"
+    assert reloaded.idempotency_key is None
+    assert reloaded.severity is None
+    assert reloaded.generation_source == "manual"
+
+    # And the new store is fully functional on the migrated table, including idempotency.
+    new_alert = _alert(entity_ref="acct-post-migration").model_copy(update={"idempotency_key": "post-key"})
+    store.create_alert_idempotent(new_alert)
+    assert store.get_alert_by_idempotency_key("post-key") is not None

@@ -221,3 +221,36 @@ def test_rf_impute_path_not_applied_when_not_needed(stub_service):
     import math
 
     assert math.isnan(stub.last_X[NAN_PRONE_COL].iloc[0])
+
+
+# -- scoring-to-alert integration wiring (end-to-end AML workflow integration phase, 2026-10-12) --
+
+
+def test_score_endpoint_without_entity_ref_adds_no_alert_key(stub_service):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+    assert "alert" not in resp.json()
+
+
+def test_score_endpoint_with_entity_ref_attempts_alert_dispatch(stub_service, tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    monkeypatch.delenv("AML_RISKIQ_CASE_SERVICE_URL", raising=False)
+    outbox_dir = tmp_path / "outbox"
+    monkeypatch.setenv("AML_RISKIQ_ALERT_OUTBOX_DIR", str(outbox_dir))
+
+    client = TestClient(stub_service.app)
+    payload = {c: 1.0 for c in FEATURE_COLS}
+    payload["entity_ref"] = "acct-xyz"
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["alert"]["status"] == "queued_for_retry"
+    assert body["alert"]["reason"] == "not_configured"
+    assert len(body["alert"]["idempotency_key"]) == 64
+    outbox_file = outbox_dir / "bp4_scoring_service.outbox.jsonl"
+    assert outbox_file.exists()

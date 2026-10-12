@@ -44,7 +44,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 try:
@@ -58,8 +58,10 @@ try:
         INVESTIGATOR_ROLE,
         case_rate_limit,
         harden_app,
+        record_custom_metric,
         require_any_role,
         resolve_caller_role,
+        set_custom_gauge,
         wire_metrics_endpoint,
     )
 except ImportError:  # pragma: no cover -- exercised under Docker's import context, not pytest's
@@ -73,8 +75,10 @@ except ImportError:  # pragma: no cover -- exercised under Docker's import conte
         INVESTIGATOR_ROLE,
         case_rate_limit,
         harden_app,
+        record_custom_metric,
         require_any_role,
         resolve_caller_role,
+        set_custom_gauge,
         wire_metrics_endpoint,
     )
 
@@ -164,13 +168,25 @@ def _not_found(alert_id: str) -> HTTPException:
     return HTTPException(status_code=404, detail=f"Alert {alert_id} not found.")
 
 
+def _refresh_unresolved_gauge() -> None:
+    """Observability (requirement 7): refreshes the real, store-computed count of every
+    alert not yet CLOSED (store.count_unresolved() -- a single SELECT COUNT(*), not an
+    estimate) as a Prometheus gauge on this service's own /metrics. Called after every route
+    that can change which alerts are unresolved (ingest, manual create, transition) and on
+    every /health probe, so the gauge never goes stale for longer than the time between two
+    real requests."""
+    set_custom_gauge("case_management_service", "unresolved_alerts_total", store.count_unresolved())
+
+
 @app.get("/health")
 def health() -> dict:
     total = len(store.list_alerts(limit=1))  # cheap liveness probe of the real DB connection
+    _refresh_unresolved_gauge()
     return {
         "status": "ok",
         "db_path": str(DB_PATH),
         "db_reachable": True if total >= 0 else False,
+        "unresolved_alerts": store.count_unresolved(),
     }
 
 
@@ -183,7 +199,50 @@ def create_alert_endpoint(
 ) -> dict:
     alert = Alert(**body.model_dump())
     store.create_alert(alert)
+    _refresh_unresolved_gauge()
     return alert.model_dump(mode="json")
+
+
+@app.post("/alerts/ingest")
+@_limiter.limit(case_rate_limit())
+def ingest_alert_endpoint(
+    request: Request,
+    response: Response,
+    body: Alert,
+    _caller: str = Depends(require_any_role(ANALYST_ROLE, INVESTIGATOR_ROLE, COMPLIANCE_OFFICER_ROLE)),
+) -> dict:
+    """Reliable alert delivery (requirements 1 and 3): the one route
+    serving/_alert_dispatch.py's dispatch_alert() POSTs every automated-scoring alert to.
+    Unlike POST /alerts (which builds a fresh Alert from caller-supplied fields and always
+    inserts it), this route accepts a COMPLETE, already-built Alert -- alert_id,
+    idempotency_key, severity, and generation_source all already set by
+    casework/scoring_event.py's build_alert_from_scoring_event(), on the calling BP service's
+    side, not regenerated here -- and inserts it IDEMPOTENTLY via
+    store.create_alert_idempotent(), which is enforced by a real SQLite UNIQUE index on
+    idempotency_key (store.py), not application-level checking. A retry or a replay of the
+    exact same scoring event (same idempotency_key) returns the ORIGINAL alert_id with
+    duplicate=True rather than creating a second case -- this is what makes "retries do not
+    create duplicate alerts" a database-enforced guarantee. RBAC is unchanged from POST
+    /alerts: the same three roles (never a separate "service" role) -- each BP's own
+    configured case-service API key must be one of analyst/investigator/compliance_officer
+    (or admin), per docs/security/RBAC.md.
+
+    Authenticated-but-malformed-body handling (requirement 2): a body that fails Alert's own
+    Pydantic validation never reaches this function body -- FastAPI returns a real 422
+    automatically, which dispatch_alert() already treats as a non-retryable rejection (see
+    that module's _NON_RETRYABLE_STATUS_CODES), not a transient failure to retry forever."""
+    created_alert, was_created = store.create_alert_idempotent(body)
+    record_custom_metric(
+        "case_management_service",
+        "alert_ingest_created_total" if was_created else "alert_ingest_duplicate_total",
+    )
+    _refresh_unresolved_gauge()
+    response.status_code = 201 if was_created else 200
+    return {
+        "alert_id": created_alert.alert_id,
+        "duplicate": not was_created,
+        "status": created_alert.status.value,
+    }
 
 
 @app.get("/alerts")
@@ -312,6 +371,7 @@ def transition_endpoint(
         raise _not_found(alert_id)
     except InvalidTransitionError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    _refresh_unresolved_gauge()
     return updated.model_dump(mode="json")
 
 

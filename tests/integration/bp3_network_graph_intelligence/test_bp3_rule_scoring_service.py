@@ -173,3 +173,56 @@ def test_score_endpoint_rejects_missing_account_key(stub_service):
     client = TestClient(stub_service.app)
     resp = client.post("/score", json={})
     assert resp.status_code == 422  # Pydantic validation error, not a 500
+
+
+# -- scoring-to-alert integration wiring (end-to-end AML workflow integration phase, 2026-10-12) --
+
+
+def test_score_endpoint_flagged_account_attempts_alert_dispatch(stub_service, tmp_path, monkeypatch):
+    """account_key IS BP3's entity_ref -- no separate identifier field is needed for BP3 (see
+    AccountKey's own docstring). A flagged account must attempt a real dispatch."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.delenv("AML_RISKIQ_CASE_SERVICE_URL", raising=False)
+    outbox_dir = tmp_path / "outbox"
+    monkeypatch.setenv("AML_RISKIQ_ALERT_OUTBOX_DIR", str(outbox_dir))
+
+    client = TestClient(stub_service.app)
+    resp = client.post("/score", json={"account_key": FLAGGED_KEY})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["alert"]["status"] == "queued_for_retry"
+    assert body["alert"]["reason"] == "not_configured"
+    assert len(body["alert"]["idempotency_key"]) == 64
+    outbox_file = outbox_dir / "bp3_rule_scoring_service.outbox.jsonl"
+    assert outbox_file.exists()
+
+
+def test_score_endpoint_not_flagged_account_adds_no_alert_key(stub_service):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    resp = client.post("/score", json={"account_key": NOT_FLAGGED_KEY})
+    assert resp.status_code == 200
+    assert "alert" not in resp.json()
+
+
+def test_score_endpoint_unknown_account_adds_no_alert_key(stub_service):
+    """An account absent from the graph (near_train_flagged is None, honestly "unknown") must
+    never be treated as alert-worthy -- see score_endpoint's own comment."""
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    resp = client.post("/score", json={"account_key": UNKNOWN_KEY})
+    assert resp.status_code == 200
+    assert "alert" not in resp.json()
+
+
+def test_score_endpoint_accepts_optional_event_timestamp(stub_service):
+    from fastapi.testclient import TestClient
+
+    client = TestClient(stub_service.app)
+    resp = client.post(
+        "/score", json={"account_key": FLAGGED_KEY, "event_timestamp": "2026-10-12T00:00:00Z"}
+    )
+    assert resp.status_code == 200
