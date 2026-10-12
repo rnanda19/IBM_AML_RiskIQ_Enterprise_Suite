@@ -231,6 +231,9 @@ curl http://localhost:8000/health
 
 # build + run a service's real Docker image
 docker compose -f src/docker/bp1_transaction_monitoring_detection/docker-compose.yml up --build
+
+# or bring up all 6 services together (added 2026-10-12) -- see docs/deployment/DEPLOYMENT_GUIDE.md
+docker compose up --build
 ```
 When run directly from source, `/score` uses documented open mode only if `AML_RISKIQ_API_KEYS` is unset; configuring keys enforces API-key auth. **Scoring Docker images set `AML_RISKIQ_REQUIRE_AUTH=true` by default and refuse startup without configured keys.** For Compose, export `AML_RISKIQ_API_KEYS` from a real secret source before starting the container; do not use the example placeholder. Local source execution remains open-mode-capable for development, so set `AML_RISKIQ_REQUIRE_AUTH=true` for any non-local source deployment. See `SECRETS_MANAGEMENT.md`, `SECURITY.md`, and `.env.example`. API keys may
 optionally carry a role prefix (`role:key`); BP1-BP5's `/score` routes still accept any valid key
@@ -250,12 +253,15 @@ docker compose -f src/docker/case_management/docker-compose.yml up --build
 ```
 
 ## Engineering & Testing
-- **Tests:** 189/189 passing (`pytest tests/`), covering the scoring-service code, shared
+- **Tests:** 296/296 passing (`pytest tests/`), covering the scoring-service code, shared
   `_security.py`/`_model_registry.py` modules (429 rate-limit and 401/200/403 auth integration tests), the
-  `casework` package and its SQLite-backed `AlertStore`, and the **Case Management Service's 43-test RBAC
-  security suite** (positive/negative access per role per route, input-validation 422s, audit-log and
+  `casework` package and its SQLite-backed `AlertStore`, the **Case Management Service's RBAC security
+  suite** (positive/negative access per role per route, input-validation 422s, audit-log and
   hash-chain-tamper verification -- see `docs/security/RBAC.md` and
-  `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
+  `docs/architecture/INVESTIGATOR_WORKFLOW.md`), and, added 2026-10-12, the **scoring-to-alert
+  integration** (validated event contract, reliable/idempotent delivery, per-BP wiring, and an
+  end-to-end suite exercising the real FastAPI apps over a real `httpx` transport -- see
+  `docs/architecture/SCORING_ALERT_INTEGRATION.md`).
 - **Type checking:** `mypy src/` -- 0 errors.
 - **Security scanning:** `bandit -r src/` -- 0 blocking findings, 7 low-severity baseline (see `SECURITY.md`);
   CodeQL runs weekly + on every push/PR.
@@ -265,6 +271,11 @@ docker compose -f src/docker/case_management/docker-compose.yml up --build
   non-public Case Management Service routes via `require_any_role()`/`require_role()` -- the first routes
   in the platform to actually use the role-aware API keys added earlier; BP1-BP5's `/score` routes are
   still single-tier (see `docs/audit/DEFECT_REGISTER.md` DEF-003).
+- **Automated alerting (added 2026-10-12):** every BP1-BP5 `/score` call that crosses its own real,
+  already-validated alert-worthiness line (never a value fabricated for this feature -- see
+  `docs/architecture/SCORING_ALERT_INTEGRATION.md`) dispatches a real, idempotent, provenance-carrying
+  alert to the Case Management Service's `POST /alerts/ingest`, with a durable local outbox and
+  `scripts/replay_alert_outbox.py` for recovering from a sustained outage.
 - **Audit trail:** every case status transition, assignment, note, and evidence addition is recorded
   with caller fingerprint, action, and timestamp, linked into a SHA-256 hash chain for tamper-evidence
   (not tamper-proofing -- see `SECURITY.md`'s "Case management audit trail" section).

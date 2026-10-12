@@ -41,12 +41,10 @@
   relevant if a second, more sensitive route (e.g. model reload/config change) is ever added to one of
   them; the `require_any_role()` mechanism proven on the Case Management Service would protect it the
   same way.
-- No automatic pipeline from a BP1-BP5 scoring decision into a Case Management Service alert -- `POST
-  /alerts` still requires a caller to submit the alert. Blocked in part on the scoring services not
-  carrying a transaction/account identifier in their request/response schema (see
-  `docs/architecture/INVESTIGATOR_WORKFLOW.md`).
-- No root-level `docker-compose.yml` bringing up all 6 services (5 scoring + Case Management) at once
-  (Task #26, unchanged).
+- The `integrated-workflow` CI job (see "Added 2026-10-12 -- End-to-End AML Workflow Integration" below)
+  has been written and locally YAML-validated but not yet observed passing in GitHub Actions -- Docker is
+  unavailable in this development environment, so its first real execution is the next push's CI run.
+  Confirm on the repository's Actions tab before treating the real-container integration path as verified.
 
 ## Resolved 2026-10-12
 - **BP2's Docker image wouldn't start** (found 2026-10-03) -- fixed by a real re-run of BP2 Notebook 3
@@ -67,6 +65,49 @@
   next `docker-verify.yml` CI run).
 - `docs/audit/`, `docs/governance/`, `docs/business_value/`, `docs/data/LEAKAGE_AUDIT.md`,
   `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
+
+## Added 2026-10-12 -- End-to-End AML Workflow Integration
+- **Closes the automatic-pipeline gap tracked above.** Each of BP1-BP5's `/score` routes now decides,
+  using its own real scoring result, whether the outcome is alert-worthy, and if so dispatches a real
+  alert to the Case Management Service with full provenance (business problem, entity/transaction ref,
+  risk score, threshold, model name/sha256, timestamp) -- see
+  `docs/architecture/SCORING_ALERT_INTEGRATION.md` for the full design.
+- `casework/scoring_event.py` (new): a validated `ScoringEvent` contract (rejects missing identifiers,
+  NaN/infinite scores, unsupported schema versions), risk-based severity routing
+  (`is_alert_worthy()`/`classify_severity()`), and a deterministic SHA-256 idempotency key over each
+  event's stable identity fields.
+- `serving/_alert_dispatch.py` (new): the shared delivery client all 5 scoring services import --
+  bounded inline retries with backoff, a durable JSON-Lines outbox for sustained Case Management Service
+  outages (`data/alert_outbox/`), and non-retryable handling for 400/401/403/404/422 rejections.
+- `POST /alerts/ingest` (new route on the Case Management Service): idempotent ingestion
+  (`store.create_alert_idempotent()`, backed by a real SQLite partial `UNIQUE` index), the same
+  `analyst`/`investigator`/`compliance_officer` RBAC `POST /alerts` already enforces -- deliberately never
+  a bespoke "service" role -- plus `alert_ingest_created_total`/`alert_ingest_duplicate_total` counters
+  and an `unresolved_alerts_total` gauge on the existing `/metrics` endpoint.
+- BP2 (a 5-class typology classifier with no saved decision threshold) uses the mathematically-derived
+  chance baseline `1/len(CLASS_NAMES)` as its alert-worthiness line, rather than a hand-tuned value; BP3
+  (a rule, not a model) normalizes to a fixed `1.0`/`1.0` signal and never treats an out-of-graph account
+  as alert-worthy by omission. Neither introduces a new ML model.
+- Root-level `docker-compose.yml` (closes the item tracked above): wires all 5 scoring services + the
+  Case Management Service together via Compose's own service-name DNS, each BP depending on
+  case-management's Docker-native health check before starting. `scripts/replay_alert_outbox.py` (new):
+  the CLI wrapper for `replay_outbox()` the dispatch module's own docstring already promised.
+  `.github/workflows/docker-verify.yml` gained an `integrated-workflow` job that builds and brings up
+  `case-management` + `bp3-network-graph-intelligence` for real and proves a genuine scoring-to-alert
+  round trip (including idempotent resubmission and a correctly-silent non-flagged account) over the
+  real network between the two live containers.
+- **296 tests passing** (up from 189 at the start of this phase): 20 new unit tests for the scoring-event
+  contract, 20 for the dispatch client, 11 for the replay CLI, plus wiring tests on each BP's own
+  integration suite, 12+ new Case Management Service tests for `/alerts/ingest`, and a new
+  `tests/integration/end_to_end/` suite (8 scenarios) exercising the real FastAPI apps over a real `httpx`
+  transport -- normal scoring, threshold-triggered alerts, duplicate suppression, simulated outage +
+  retry + outbox, and an authorization-failure scenario.
+- Docs: new `docs/architecture/SCORING_ALERT_INTEGRATION.md`; updated `README.md`, `CHANGELOG.md`,
+  `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`.
+- **Explicitly not claimed**: a new or retrained ML model, any change to the Case Management Service's
+  own lifecycle/RBAC/audit trail (reused unchanged), that a generated alert is proof of laundering (it is
+  an investigation starting point, not a verdict), or that the `integrated-workflow` CI job has been
+  observed passing (see "In progress / pending" above).
 
 ## Added 2026-10-12 -- RBAC, Case Management & Audit Trails (not requiring real pipeline execution)
 - `require_any_role()`/`resolve_caller_role()` in `_security.py` -- the role-aware API keys and

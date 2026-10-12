@@ -5,6 +5,63 @@ notebook/model work on each business problem live in `reports/<bp>/CHANGELOG.md`
 repository's own structure, hardening, and governance history, in the same plain-date style used on the
 a prior customer-intelligence-focused enterprise platform in this same methodology lineage.
 
+## 2026-10-12 (End-to-End AML Workflow Integration)
+- **Scoring services now automatically generate alerts.** Each of BP1-BP5's `/score` routes calls
+  `maybe_generate_and_dispatch_alert()` (new, `src/aml_riskiq/serving/_alert_dispatch.py`) after scoring,
+  which decides alert-worthiness from the service's own real result and, if warranted, dispatches a real
+  alert to the Case Management Service's new `POST /alerts/ingest` route -- full design in the new
+  `docs/architecture/SCORING_ALERT_INTEGRATION.md`.
+- `src/aml_riskiq/casework/scoring_event.py` (new): `ScoringEvent` (validated: rejects missing
+  identifiers, NaN/infinite risk scores, unsupported schema versions), `is_alert_worthy()`/
+  `classify_severity()` for risk-based routing, `compute_idempotency_key()` (deterministic SHA-256 over
+  each event's stable identity fields), `build_alert_from_scoring_event()`. 20 new tests
+  (`tests/unit/test_scoring_event.py`).
+- `src/aml_riskiq/serving/_alert_dispatch.py` (new): `dispatch_alert()` -- bounded fast inline retries,
+  then a durable JSON-Lines outbox (`data/alert_outbox/<service>.outbox.jsonl`) on sustained failure;
+  `_NON_RETRYABLE_STATUS_CODES = {400, 401, 403, 404, 422}` (401/403 added deliberately: a misconfigured
+  case-service API key will never self-correct on retry); `replay_outbox()` for draining a queued
+  outbox, safe to run repeatedly thanks to idempotency. `maybe_generate_and_dispatch_alert()` never
+  raises -- a case-management outage can never fail a `/score` response. 20 new tests
+  (`tests/unit/test_alert_dispatch.py`).
+- `src/aml_riskiq/serving/case_management_service.py`: new `POST /alerts/ingest` route -- idempotent
+  (`store.create_alert_idempotent()`, backed by a real SQLite partial `UNIQUE` index on
+  `idempotency_key`), same RBAC as `POST /alerts` (`analyst`/`investigator`/`compliance_officer`, never
+  a bespoke "service" role), plus `alert_ingest_created_total`/`alert_ingest_duplicate_total` counters
+  and an `unresolved_alerts_total` gauge (`_refresh_unresolved_gauge()`, called from alert creation,
+  ingest, and status transition). 12+ new tests in
+  `tests/integration/case_management/test_case_management_service.py`, including a structured audit-log
+  assertion and a full ingest-to-closure lifecycle test.
+- `src/aml_riskiq/serving/bp{1,2,3,4,5}_*.py`: each `/score` endpoint now accepts optional
+  `entity_ref`/`transaction_ref`/`event_timestamp` fields and wires in alert dispatch. BP2 (multiclass,
+  no saved `selected_threshold`) uses the chance-baseline `1/len(CLASS_NAMES)` rather than a hand-tuned
+  cutoff; BP3 (a rule, not a model) normalizes to a fixed `1.0`/`1.0` risk score/threshold pair and never
+  alerts on an out-of-graph (`near_train_flagged is None`) account. 2-4 new wiring tests per BP's own
+  integration test file.
+- `tests/integration/end_to_end/test_scoring_alert_e2e.py` (new): 8 scenarios against the real in-process
+  FastAPI apps over a real `httpx` transport (Starlette's own sync `TestClient` transport, not
+  `ASGITransport`, which is async-only and cannot back a sync `httpx.Client`) -- normal scoring,
+  threshold-triggered alerts, duplicate suppression via idempotency, a simulated Case Management Service
+  outage with retry-then-outbox, and an authorization-failure (401/403 non-retry) scenario.
+- `docker-compose.yml` (new, repository root): wires all 5 scoring services + Case Management together
+  via Compose's own service-name DNS, `depends_on: condition: service_healthy` gating BP startup on
+  case-management's existing Docker-native `HEALTHCHECK`. `scripts/replay_alert_outbox.py` (new): the
+  CLI wrapper for `replay_outbox()` promised by `_alert_dispatch.py`'s own module docstring -- 11 new
+  tests (`tests/unit/test_replay_alert_outbox.py`). `.github/workflows/docker-verify.yml` gained an
+  `integrated-workflow` job: builds and brings up `case-management` + `bp3-network-graph-intelligence`
+  for real, POSTs a real, committed node_key from BP3's own `near_train_flagged` lookup table to BP3's
+  live `/score`, and verifies against the live case-management container that a real alert was created
+  with BP3's provenance intact, that an identical resubmission does not duplicate it, and that a real
+  non-flagged account produces no alert.
+- **296/296 total project tests passing** (up from 189) -- 0 regressions at every checkpoint.
+- Docs: new `docs/architecture/SCORING_ALERT_INTEGRATION.md`; updated `ROADMAP.md`,
+  `docs/security/THREAT_MODEL.md`, `docs/deployment/DEPLOYMENT_GUIDE.md`, `README.md`.
+- **Explicitly not claimed**: a new or retrained ML model; any change to case-management's own
+  lifecycle/RBAC/audit trail (reused unchanged, verified unchanged by a dedicated test); that a
+  generated alert is proof of laundering (it is an automated starting point for a human investigation,
+  not a verdict); or that the `integrated-workflow` CI job has been observed passing in GitHub Actions
+  (Docker is unavailable in this development environment -- its first real run is the next push's CI
+  run; confirm on the repository's Actions tab).
+
 ## 2026-10-12 (RBAC, Case Management & Audit Trails)
 - **RBAC applied to a real route surface for the first time.** Added `require_any_role()` and
   `resolve_caller_role()` to `src/aml_riskiq/serving/_security.py` (the pre-existing `require_role()` and

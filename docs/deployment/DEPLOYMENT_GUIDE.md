@@ -70,14 +70,47 @@ first write and is gitignored -- see `data/case_management/README.md`. It is a s
 multi-replica deployment of this service needs a real client-server database instead (documented
 limitation, not yet built).
 
-## Running the real multi-service stack together
+## Running the real multi-service stack together (added 2026-10-12)
 
-There is currently no root-level `docker-compose.yml` that brings up all 6 services (5 scoring + Case
-Management) at once -- each one's `docker-compose.yml` is independent
-(`src/docker/<bp-or-service>/docker-compose.yml`). To run several together, start each independently; the
-port table above is collision-free so this is safe to do for all 6. Building a single root-level compose
-file that brings up all of them as one stack is listed as a still-open task from earlier in this
-project's history (Task #26) -- not yet done.
+A root-level `docker-compose.yml` now brings up all 6 services together, wired so each BP can reach
+case-management as `http://case-management:8005` via Compose's own service-name DNS -- no manual network
+config beyond the default bridge network Compose creates for this file. Each BP's
+`depends_on: case-management: condition: service_healthy` means it only starts once case-management's own
+Docker-native `HEALTHCHECK` reports healthy.
+
+```bash
+# from the repository root
+docker compose up --build
+# or bring up a subset, e.g. just case-management + one BP:
+docker compose up --build case-management bp1-transaction-monitoring
+```
+
+Every `*_KEY`/`*_KEYS` environment variable in this file defaults to a committed, non-secret,
+**local-development-only** placeholder (e.g. `CASE_SERVICE_CLIENT_KEY`, `BP1_API_KEYS`) -- override every
+one of them via a real `.env` file or your secrets manager before running this anywhere reachable by
+anyone but you; see the file's own header comment for the full list and the authorization model (each
+BP's own `AML_RISKIQ_API_KEYS` is independent of every other service's; the case-service client key must
+be one of the keys case-management's own `AML_RISKIQ_API_KEYS` maps to `analyst`/`investigator`/
+`compliance_officer`, never a bespoke "service" role).
+
+Each BP also mounts `./data/alert_outbox` -- if case-management is ever unreachable, a BP's attempted
+alert dispatch queues there instead of being lost (see `docs/architecture/SCORING_ALERT_INTEGRATION.md`'s
+"Failure modes" table). Drain it once case-management is reachable again:
+
+```bash
+python scripts/replay_alert_outbox.py --all
+# or target one service specifically:
+python scripts/replay_alert_outbox.py --service bp1_scoring_service
+```
+
+Exit code is `0` only if nothing is left queued afterward -- safe to wire into a cron job or a CI step
+that should fail loudly on a persistent outage. This root `docker-compose.yml` is **additional to**, not a
+replacement for, each service's own `src/docker/<bp-or-service>/docker-compose.yml` (those remain how
+`docker-verify.yml`'s existing per-service CI jobs build and smoke-test one service in isolation).
+`.github/workflows/docker-verify.yml`'s `integrated-workflow` job is what proves this root compose file
+end to end in CI -- see `docs/architecture/SCORING_ALERT_INTEGRATION.md`'s "Verification evidence"
+section for exactly what it checks, and this document's own closing section for its current
+not-yet-observed-passing status.
 
 ## Startup failure modes to expect
 
@@ -111,3 +144,12 @@ locally -- this sandbox has no Docker daemon available. All of it will be verifi
 live-container check (create an alert with an admin key, then confirm an unauthenticated write is
 rejected with 401). If that run fails, the CI log is the authoritative signal, not this document's
 description of the intended behavior.
+
+**Also not yet verified (2026-10-12, End-to-End AML Workflow Integration)**: the root-level
+`docker-compose.yml` and the `integrated-workflow` CI job described above are YAML-valid and reviewed
+against the real request/response shapes of every endpoint they call, but have not been run with a real
+Docker daemon in this development environment either (confirmed: `docker` is not on `PATH`, and there is
+no disk space available to install supporting ML libraries to verify model inference locally as an
+alternative check). Their first real execution is the GitHub Actions run after this work is pushed --
+confirm its result on the repository's Actions tab before treating the integrated multi-container
+workflow as verified.
