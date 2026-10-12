@@ -26,8 +26,9 @@ ENV AML_RISKIQ_SUITE_ROOT=/app
 # Runs the one consolidated notebook end-to-end and writes its executed copy back out --
 # per the user's explicit 2026-10-02 "only one ipynb" request, BP6's reporting pipeline is
 # authored as a single real .ipynb, not 4 separate .py scripts (see
-# the committed notebook filename and LESSONS_LEARNED_APPLIED.md). Dependencies include
-# nbformat, nbconvert, and ipykernel. The dedicated GitHub Actions workflow builds this image,
-# executes the notebook against committed report/model artifacts, and checks required outputs.
+# 00_Executive_Rollup_Report.ipynb and LESSONS_LEARNED_APPLIED.md). RESOLVED (2026-10-02,
+# hardening pass): this image's own requirements.txt previously did not list
+# nbformat/nbconvert/ipykernel -- added (nbformat>=5.10, nbconvert>=7.16, ipykernel>=6.29) in
+# this pass. The dedicated GitHub Actions workflow builds this image, executes the notebook against committed report/model artifacts, and checks required outputs.
 CMD ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", \
      "notebooks/bp6_enterprise_compliance_monitoring/IBM AML RiskIQ Enterprise Suite 00_Executive_Rollup_Report.ipynb"]

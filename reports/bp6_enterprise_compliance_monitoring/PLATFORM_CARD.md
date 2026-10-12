@@ -1,6 +1,6 @@
 # Platform Card -- BP6: Enterprise AML Compliance Monitoring & Regulatory Reporting
 
-_Generated 2026-10-02T16:37:09.757388+00:00 UTC._
+_Generated 2026-10-12T06:42:07.461590+00:00 UTC._
 
 **This is a PLATFORM CARD, not a model card or rule card.** BP6 has no trained ML model and no structural signal of its own -- the real deployable artifact is a pure, read-only rollup of BP1-BP5's own already-computed real figures. No figure below is recomputed, estimated, or fabricated.
 

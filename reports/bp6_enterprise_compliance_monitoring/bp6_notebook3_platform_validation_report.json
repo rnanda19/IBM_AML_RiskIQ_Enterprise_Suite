@@ -1,9 +1,9 @@
 {
   "bp_id": "BP6",
   "bp_name": "Enterprise AML Compliance Monitoring & Regulatory Reporting",
-  "generated_at_utc": "2026-10-02T16:37:07.673053+00:00",
+  "generated_at_utc": "2026-10-12T06:42:04.217891+00:00",
   "random_seed": 42,
-  "source_phase_rollup_generated_at_utc": "2026-10-02T16:36:55.623226+00:00",
+  "source_phase_rollup_generated_at_utc": "2026-10-12T06:41:52.096941+00:00",
   "source_platform_data_generated_at_utc": "2026-10-02T14:23:27.264864+00:00",
   "master_rollup": {
     "benefit_category_1_fp_reduction_savings": {

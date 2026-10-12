@@ -74,7 +74,7 @@ DOCKER_DIR.mkdir(parents=True, exist_ok=True)
 print(f"Reports dir : {REPORTS_DIR}")
 print(f"Package dir : {PACKAGE_DIR}")
 
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "reporting"))
+sys.path.insert(0, str(PROJECT_ROOT / "src" / "aml_riskiq" / "reporting"))
 # Force a fresh import every run of this cell (same real Jupyter-footgun fix as BP1 NB4 --
 # sys.modules caching would otherwise silently serve a stale report_builder.py).
 if "report_builder" in sys.modules:
@@ -325,7 +325,7 @@ print(f"\nReal BP4 status: {context['status']['label']}")
 print(f"Rationale: {context['status']['rationale']}")
 print(f"Real SMART recommendations generated: {len(context['smart_recommendations'])}")
 
-CHARTJS_VENDOR_PATH = PROJECT_ROOT / "src" / "reporting" / "vendor" / "chart.umd.js"
+CHARTJS_VENDOR_PATH = PROJECT_ROOT / "src" / "aml_riskiq" / "reporting" / "vendor" / "chart.umd.js"
 if not CHARTJS_VENDOR_PATH.exists():
     raise FileNotFoundError(
         f"{CHARTJS_VENDOR_PATH} does not exist -- the real, locally-vendored Chart.js build "

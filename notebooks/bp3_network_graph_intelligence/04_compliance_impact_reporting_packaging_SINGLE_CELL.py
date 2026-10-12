@@ -81,7 +81,7 @@ print(f"Reports dir : {REPORTS_DIR}")
 print(f"Models dir  : {MODELS_DIR}")
 print(f"Package dir : {PACKAGE_DIR}")
 
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "reporting"))
+sys.path.insert(0, str(PROJECT_ROOT / "src" / "aml_riskiq" / "reporting"))
 # Force a fresh import every run of this cell -- if report_builder.py was edited/updated on
 # disk after this kernel already imported it once, a plain `import` is a no-op on re-run
 # (Python caches modules in sys.modules per-kernel), and any new real structural functions
@@ -287,7 +287,7 @@ print(f"\nReal BP3 status: {context['status']['label']}")
 print(f"Rationale: {context['status']['rationale']}")
 print(f"Real SMART recommendations generated: {len(context['smart_recommendations'])}")
 
-CHARTJS_VENDOR_PATH = PROJECT_ROOT / "src" / "reporting" / "vendor" / "chart.umd.js"
+CHARTJS_VENDOR_PATH = PROJECT_ROOT / "src" / "aml_riskiq" / "reporting" / "vendor" / "chart.umd.js"
 if not CHARTJS_VENDOR_PATH.exists():
     raise FileNotFoundError(
         f"{CHARTJS_VENDOR_PATH} does not exist -- the real, locally-vendored Chart.js build "
