@@ -106,8 +106,60 @@ Three-category financial rollup (never blended into one grand total, per Section
 - BP3's rule-based signal and BP1/BP4's trained models are not directly comparable on one scale (lift ratio vs. PR-AUC) -- each is reported in its own native metric, per this platform's locked no-blended-metric policy.
 - All 5 model-bearing BPs (BP1-BP5) pass both the structural and statistical-robustness gates on their mandatory LI-Medium tier -- no BP has been shipped on a partial or failed validation; BP6's own structural/reconciliation gate also passes as a pure pass-through of those five verdicts.
 
+## Validation methodology and known risks (added 2026-10-12)
+
+Every number above comes from a **random, class-stratified `train_test_split`** of that BP's modeling
+population (BP1/BP2/BP4/BP5), or a random split of accounts (BP3) -- not a chronological split, and (for
+BP1/BP2/BP4/BP5) not an entity-separated one. `docs/data/LEAKAGE_AUDIT.md` documents this as Findings L-1
+(random, not chronological) and L-2 (no entity-level separation) -- **documented methodological risks,
+not proof that any number above is wrong.** Read this section alongside that document, not instead of it.
+
+What has changed since the original 2026-10-02/2026-10-03 figures above were generated:
+- `docs/data/LEAKAGE_AUDIT.md` now also documents (2026-10-12): no target leakage found in any BP's
+  feature set (Finding L-4); a real, read-only duplicate-record check (Finding L-5; HI-Small's rate is
+  negligible, <0.0005%; LI-Medium not yet checked on this project's current hardware); and confirmation
+  that no scaler/imputer/resampler/feature-selector exists anywhere in this platform's pipeline for any
+  BP, so the one real train-only-imputation case (BP2/BP4's RandomForest median-impute) is correctly
+  fit on training data only, not the full dataset (Finding L-3).
+- A new, unit-tested, reusable module -- `src/aml_riskiq/validation/temporal_entity_validation.py` --
+  now exists and is wired into each BP's own `03_statistical_validation_deployment_SINGLE_CELL.py`
+  (Finding L-6). On the user's next real run of each notebook, it will additionally produce, saved
+  alongside each BP's existing `MODEL_CARD.md`/validation report:
+  - **BP1/BP4/BP5**: `reports/<bp>/bp{1,4,5}_notebook3_temporal_entity_validation_<variant>.{json,md}`
+    -- the SAME champion architecture re-fit (not re-tuned) on a chronological split and an
+    entity-aware split of that run's real rows, with PR-AUC, ROC-AUC, a full confusion matrix at the
+    production threshold (precision/recall/F1/FPR/alert volume), calibration (Brier score +
+    reliability-curve bins), a threshold trade-off table, majority-class and logistic-regression
+    baselines, entity-overlap and duplicate-overlap checks, a dataset content-hash fingerprint, and the
+    full run environment (Python/numpy/pandas/scikit-learn versions, git commit).
+  - **BP2**: `reports/bp2_typology_redflag_detection/bp2_notebook3_temporal_entity_validation_<variant>.{json,md}`
+    -- baseline-only (majority-class + logistic regression, both multiclass-safe) under the same two
+    alternative splits, plus entity-overlap; champion re-fit was deliberately scoped out for BP2 (see
+    Finding L-6 for why).
+  - **BP3**: `reports/bp3_network_graph_intelligence/bp3_notebook3_temporal_validation_<variant>.json` --
+    the real 2-hop network-proximity lift-ratio signal re-computed on a chronological-by-first-seen split
+    of accounts (BP3's own split already separates by entity, so no separate entity-aware split applies
+    -- see Finding L-4).
+
+**None of those four report pairs exist in this repository yet.** Per this project's standing execution
+boundary, this update wrote and unit-tested the code (41 passing tests against synthetic fixtures,
+`tests/unit/test_temporal_entity_validation.py`); it did not run any BP's real notebook against the real
+dataset. **This document's benchmark tables above are not changed by this section** -- they remain
+exactly what each BP's own real Notebook 3/4 run produced under the original random split, and will stay
+the authoritative figures for that split until the user re-runs a notebook and this document is updated
+again with whatever the re-run's own real `MODEL_CARD.md`/validation report says.
+
+Every figure in this entire document, both above and any future chronological/entity-aware figures,
+is computed against **IBM's published SYNTHETIC AML transaction dataset** (Kaggle:
+`ealtman2019/ibm-transactions-for-anti-money-laundering-aml`; no real account, transaction, or financial
+institution is represented) -- evidence about this platform's modeling methodology, never a claim about
+real-world AML detection performance, regulatory effectiveness, or production readiness. "RECOMMENDED FOR
+PRODUCTION" above describes this platform's own internal two-gate structural/statistical-robustness
+check passing on synthetic data, not a certification, regulatory approval, or real-bank effectiveness
+claim.
+
 _Generated 2026-10-02; BP5/BP6 sections updated 2026-10-03 after a staleness check against the real
-Evidence Ledger found they had been built and validated but never reflected here. Every figure above
-traces to a real, dated `MODEL_CARD.md`/`RULE_CARD.md`/`PLATFORM_CARD.md` generated by that BP's own real
-Notebook 3/4 run -- see each file for full detail, explainability values, and the complete SMART
-recommendation set._
+Evidence Ledger found they had been built and validated but never reflected here; "Validation methodology
+and known risks" section added 2026-10-12. Every figure in the tables above traces to a real, dated
+`MODEL_CARD.md`/`RULE_CARD.md`/`PLATFORM_CARD.md` generated by that BP's own real Notebook 3/4 run -- see
+each file for full detail, explainability values, and the complete SMART recommendation set._

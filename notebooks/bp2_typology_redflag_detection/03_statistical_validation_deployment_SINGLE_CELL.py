@@ -1126,3 +1126,167 @@ print("NEXT: notebooks/bp2_typology_redflag_detection/04_compliance_impact_repor
       "report_builder.py (already fixed for real dollar-shorthand formatting) to produce BP2's Word/Excel/"
       "HTML/PPTX compliance package.")
 print("\n### STAGE MARKER 4/4 COMPLETE -- Notebook 3 fully finished, all artifacts saved ###")
+
+
+# ============================================================================
+# Temporal & Entity-Separated Re-Validation (addresses docs/data/LEAKAGE_AUDIT.md
+# Finding L-1 -- random rather than chronological train/test splits -- and Finding L-2
+# -- no explicit account-level separation between train and test). BP2 is a 5-class
+# typology classifier, so this section reports baseline-only comparisons (majority-class
+# and a real, fitted, class-balanced logistic regression -- both multiclass-safe) under
+# two alternative, leakage-resistant splits, plus the two-sided sender/receiver entity-
+# overlap check, next to this notebook's own random-split macro-F1 saved above.
+#
+# Scope note: unlike BP1/BP4/BP5 (binary classifiers), this section does NOT re-fit BP2's
+# own champion architecture under the new splits. BP2's champion-fit path above
+# conditionally median-imputes one NaN-prone column only for RandomForest
+# (`_needs_impute`/`_train_median_full`), and faithfully reproducing that per-split would
+# risk silently diverging from the real notebook's own logic. The baseline comparisons
+# below are real, fitted, reproducible numbers in their own right -- they are reported as
+# baselines, not as a stand-in for the champion's own re-validated performance.
+# ============================================================================
+_print_resource("before temporal/entity re-validation")
+
+import sys as _sys
+
+_src_path = str((PROJECT_ROOT / "src" / "aml_riskiq").resolve())
+if _src_path not in _sys.path:
+    _sys.path.insert(0, _src_path)
+
+import validation.temporal_entity_validation as tev  # noqa: E402
+
+_DUP_KEY_COLS = ["Timestamp", "From Bank", "Account", "To Bank", "Account.1", "Amount Paid", "Amount Received"]
+
+with timer("temporal/entity re-validation: dataset fingerprint + duplicate-record check"):
+    _full_df_fingerprint = tev.dataset_fingerprint(modeled, label=f"BP2_{DATASET_VARIANT}")
+    _dataset_duplicate_check = tev.duplicate_record_check(modeled, key_columns=_DUP_KEY_COLS)
+    print(f"Dataset fingerprint (BP2, {DATASET_VARIANT}): {_full_df_fingerprint['n_rows']:,} rows, "
+          f"content hash {_full_df_fingerprint['content_hash_hex']}")
+    print(f"Duplicate-record check (whole modeling population, key columns): "
+          f"{_dataset_duplicate_check['n_key_duplicate_rows']} of {_dataset_duplicate_check['n_rows']:,} rows "
+          f"({_dataset_duplicate_check['key_duplicate_fraction']:.6%})")
+
+
+def _impute_fit_on_train_only(X_train_split, X_test_split):
+    """Mandatory-task item 5 ("training-only fitting for preprocessing/imputation"), made
+    explicit: the median used to fill any NaN is computed from X_train_split ONLY, never
+    from X_test_split or the full dataset, then applied to both -- the test side never
+    influences the value it is itself imputed with."""
+    train_median = X_train_split.median(numeric_only=True)
+    return X_train_split.fillna(train_median), X_test_split.fillna(train_median)
+
+
+with timer("temporal re-validation: chronological split"):
+    chrono_train_idx, chrono_test_idx = tev.chronological_split(modeled["Timestamp"], train_frac=0.75)
+    X_chrono_train, X_chrono_test = X_all.iloc[chrono_train_idx], X_all.iloc[chrono_test_idx]
+    y_chrono_train, y_chrono_test = y_all[chrono_train_idx], y_all[chrono_test_idx]
+    X_chrono_train_imp, X_chrono_test_imp = _impute_fit_on_train_only(X_chrono_train, X_chrono_test)
+    chrono_baselines = {
+        "majority_class": tev.majority_class_baseline(y_chrono_train, y_chrono_test),
+        "logistic_regression": tev.logistic_regression_baseline(
+            X_chrono_train_imp, y_chrono_train, X_chrono_test_imp, y_chrono_test, random_state=RANDOM_SEED
+        ),
+    }
+    chrono_duplicate_overlap = tev.duplicate_overlap_across_split(
+        modeled, chrono_train_idx, chrono_test_idx, key_columns=_DUP_KEY_COLS
+    )
+    chrono_report = tev.build_temporal_entity_validation_report(
+        business_problem="BP2",
+        dataset_variant=DATASET_VARIANT,
+        split_kind="chronological",
+        y_test=y_chrono_test,
+        baselines=chrono_baselines,
+        random_seed=RANDOM_SEED,
+        dataset_fingerprints={"full_df": _full_df_fingerprint},
+        duplicate_check=chrono_duplicate_overlap,
+        notes=[
+            "Train = earliest 75% of rows by Timestamp, test = latest 25% -- addresses "
+            "LEAKAGE_AUDIT.md Finding L-1.",
+            "BP2 is multiclass -- no champion re-fit here (see module-level scope note "
+            "above); baselines only.",
+        ],
+    )
+
+with timer("entity-separated re-validation: entity-aware split"):
+    entity_train_idx, entity_test_idx = tev.entity_aware_split(
+        modeled["Account"], test_frac=0.25, random_state=RANDOM_SEED
+    )
+    X_entity_train, X_entity_test = X_all.iloc[entity_train_idx], X_all.iloc[entity_test_idx]
+    y_entity_train, y_entity_test = y_all[entity_train_idx], y_all[entity_test_idx]
+    X_entity_train_imp, X_entity_test_imp = _impute_fit_on_train_only(X_entity_train, X_entity_test)
+    entity_overlap_check = tev.cross_entity_overlap(
+        train_entities=[modeled["Account"].iloc[entity_train_idx], modeled["Account.1"].iloc[entity_train_idx]],
+        test_entities=[modeled["Account"].iloc[entity_test_idx], modeled["Account.1"].iloc[entity_test_idx]],
+    )
+    entity_baselines = {
+        "majority_class": tev.majority_class_baseline(y_entity_train, y_entity_test),
+        "logistic_regression": tev.logistic_regression_baseline(
+            X_entity_train_imp, y_entity_train, X_entity_test_imp, y_entity_test, random_state=RANDOM_SEED
+        ),
+    }
+    entity_duplicate_overlap = tev.duplicate_overlap_across_split(
+        modeled, entity_train_idx, entity_test_idx, key_columns=_DUP_KEY_COLS
+    )
+    entity_report = tev.build_temporal_entity_validation_report(
+        business_problem="BP2",
+        dataset_variant=DATASET_VARIANT,
+        split_kind="entity-aware",
+        y_test=y_entity_test,
+        baselines=entity_baselines,
+        entity_overlap=entity_overlap_check,
+        random_seed=RANDOM_SEED,
+        dataset_fingerprints={"full_df": _full_df_fingerprint},
+        duplicate_check=entity_duplicate_overlap,
+        notes=[
+            "Train/test built with sklearn.model_selection.GroupShuffleSplit on the sender "
+            "Account column -- addresses LEAKAGE_AUDIT.md Finding L-2. entity_overlap above "
+            "additionally checks the two-sided sender+receiver (Account / Account.1) universe.",
+            "BP2 is multiclass -- no champion re-fit here (see module-level scope note "
+            "above); baselines only.",
+        ],
+    )
+
+with timer("save temporal/entity re-validation report"):
+    temporal_entity_report = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "disclaimer": tev.SYNTHETIC_DATA_DISCLAIMER,
+        "dataset_fingerprint": _full_df_fingerprint,
+        "dataset_wide_duplicate_check": _dataset_duplicate_check,
+        "chronological_split": chrono_report,
+        "entity_aware_split": entity_report,
+        "original_random_split_for_comparison": {
+            "split_kind": "random_stratified (this notebook's main split, above)",
+            "champion_name": champion_name,
+            "macro_f1": champion_macro_f1,
+        },
+    }
+    temporal_entity_report_path = REPORTS_DIR / f"bp2_notebook3_temporal_entity_validation_{variant_tag}.json"
+    with open(temporal_entity_report_path, "w") as f:
+        json.dump(temporal_entity_report, f, indent=2, default=str)
+
+    temporal_entity_markdown = (
+        f"# BP2 Temporal & Entity-Separated Re-Validation ({DATASET_VARIANT})\n\n"
+        f"> {tev.SYNTHETIC_DATA_DISCLAIMER}\n\n"
+        f"Original random-split test macro-F1 (champion={champion_name}, this notebook's main "
+        f"split, above): {champion_macro_f1:.4f}\n\n"
+        + tev.render_markdown_report(chrono_report)
+        + "\n\n"
+        + tev.render_markdown_report(entity_report)
+    )
+    temporal_entity_markdown_path = REPORTS_DIR / f"bp2_notebook3_temporal_entity_validation_{variant_tag}.md"
+    with open(temporal_entity_markdown_path, "w") as f:
+        f.write(temporal_entity_markdown)
+
+print(f"Temporal/entity re-validation report saved to: {temporal_entity_report_path}")
+print(f"Temporal/entity re-validation markdown saved to: {temporal_entity_markdown_path}")
+print(f"  Chronological-split logistic-regression macro-F1: "
+      f"{chrono_report['baselines']['logistic_regression']['macro_f1']:.4f}  "
+      f"(majority-class baseline={chrono_report['baselines']['majority_class']['macro_f1']:.4f})")
+print(f"  Entity-aware-split logistic-regression macro-F1 : "
+      f"{entity_report['baselines']['logistic_regression']['macro_f1']:.4f}  "
+      f"(majority-class baseline={entity_report['baselines']['majority_class']['macro_f1']:.4f})")
+print(f"  Entity overlap (sender+receiver, train vs test): "
+      f"{entity_overlap_check['overlap_fraction_of_test_entities']:.4%} of test-side entities also seen in train")
+print("These are real, reproducible computations against this run's own IBM synthetic-AML rows -- "
+      "see the disclaimer above before citing any of these numbers as evidence of real-world AML "
+      "detection performance.")

@@ -60,6 +60,16 @@ Thumbs.db
 # Logs
 logs/**
 !logs/.gitkeep
+*.log
+
+# Local dev-environment scratch (per-machine venv + pip scratch dirs/caches used to verify this
+# repo's own quality gate on a device without system-wide scikit-learn/pytest -- never committed,
+# same reasoning as any other local build artifact)
+.venv/
+.pip_cache/
+.pip_tmp/
+.pytest_cache/
+*.isorted
 
 # Power BI local cache
 powerbi/**/*.pbix.bak

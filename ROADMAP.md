@@ -43,14 +43,25 @@
   relevant if a second, more sensitive route (e.g. model reload/config change) is ever added to one of
   them; the `require_any_role()` mechanism proven on the Case Management Service would protect it the
   same way.
-- **Strengthening AML model-validation evidence** (started 2026-10-12): `docs/data/LEAKAGE_AUDIT.md`
-  documents random (non-chronological) splitting and no explicit entity-level separation across BP1-BP5 as
-  methodological risks, not proof the published metrics are wrong. Adding reproducible temporal and
-  entity-separated evaluation code, baseline comparisons, and a precision/recall/PR-AUC/calibration/
-  threshold-trade-off report, with synthetic-data results kept explicitly separate from any real-world AML
-  performance claim. Per this project's standing execution boundary, the evaluation code is written here;
-  running it against the real dataset to produce the actual numbers happens on your own machine, with you
-  watching.
+- **Strengthening AML model-validation evidence** (started 2026-10-12, code complete 2026-10-12):
+  `docs/data/LEAKAGE_AUDIT.md` documents six findings now (L-1 through L-6) -- random (non-chronological)
+  splitting and no explicit entity-level separation across BP1/BP2/BP4/BP5 (L-1/L-2, methodological risks,
+  not proof the published metrics are wrong), confirmation that no scaler/imputer/resampler/selector
+  exists anywhere in the pipeline and the one real train-only-imputation case is fit correctly (L-3), no
+  target leakage found in any `FEATURE_COLS` (L-4), a real read-only duplicate-record check (L-5;
+  HI-Small negligible, LI-Medium blocked by this project's current device RAM), and the new reusable
+  `src/aml_riskiq/validation/temporal_entity_validation.py` module (L-6) -- chronological/entity-aware
+  splits, PR-AUC/ROC-AUC/confusion-matrix/FPR/alert-volume/calibration/threshold trade-offs, transparent
+  baselines, dataset fingerprinting and environment capture, covered by 41 passing synthetic-fixture unit
+  tests and the full flake8/black/isort/mypy/bandit gate. Wired into every BP's own
+  `03_statistical_validation_deployment_SINGLE_CELL.py` (BP1/BP4/BP5: real champion re-fit per split;
+  BP2: baseline-only, multiclass-safe; BP3: chronological-by-first-seen-account re-validation of its real
+  lift-ratio signal, entity-separation confirmed already satisfied by BP3's own node-level split). Per
+  this project's standing execution boundary, this is all written and unit-tested code -- the real
+  chronological/entity-aware numbers for BP1-BP5 against the actual dataset appear only once you run the
+  updated notebooks on your own machine; see each BP's `reports/<bp>/*_temporal_entity_validation_*` (or,
+  for BP3, `*_temporal_validation_*`) output path, and `BENCHMARKS.md`'s "Validation methodology and
+  known risks" section.
 
 ## Resolved 2026-10-12
 - **BP2's Docker image wouldn't start** (found 2026-10-03) -- fixed by a real re-run of BP2 Notebook 3

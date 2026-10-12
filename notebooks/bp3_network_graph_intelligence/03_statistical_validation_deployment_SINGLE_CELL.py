@@ -728,3 +728,139 @@ print("NEXT: notebooks/bp3_network_graph_intelligence/04_compliance_impact_repor
       "BP3's Word/Excel/HTML/PPTX compliance package (requires a new report_builder.py writer path for "
       "this BP's structural-lift-ratio output shape, scoped separately -- see that notebook's own header).")
 print("\n### STAGE MARKER 4/4 COMPLETE -- Notebook 3 fully finished, all artifacts saved ###")
+
+
+# ============================================================================
+# Temporal Re-Validation + Entity-Separation Confirmation (addresses docs/data/
+# LEAKAGE_AUDIT.md Finding L-1 and Finding L-2). BP3 has no probabilistic classifier --
+# it is a deterministic graph-structural rule (network-proximity-to-a-flagged-account) --
+# so neither PR-AUC/calibration/threshold trade-offs nor a champion re-fit apply here
+# (see this module's own docstring). What DOES apply, and is done below:
+#
+# 1. Entity separation (Finding L-2): BP3's OWN split above already operates at full
+#    account/node granularity (`train_test_split(np.arange(n_nodes), ...)` -- one row per
+#    unique account, confirmed by this file's own Section 5 comment). A node cannot
+#    appear in both train and test by construction, so Finding L-2 (entity overlap)
+#    does not apply to BP3 the way it does to BP1/BP2/BP4/BP5's transaction-row splits --
+#    this is a real, confirmed-by-code-structure finding, not an assumption, and is
+#    recorded as such rather than building a redundant "entity-aware split" that would
+#    just reproduce the same random split.
+# 2. Chronological re-validation (Finding L-1): BP3's split above is still a random
+#    (non-chronological) split of accounts. This section derives each account's real
+#    first-seen Timestamp from the underlying transactions, re-splits chronologically
+#    (train = accounts first seen in the earliest 75% of the time range, test = the
+#    later 25%), and re-runs the SAME real lift-ratio computation (2-hop proximity to a
+#    TRAIN-flagged account) on this alternative split -- a genuinely different
+#    operationalization of "chronological" for a node-level (not row-level) task.
+# ============================================================================
+_print_resource("before temporal re-validation")
+
+import sys as _sys
+
+_src_path = str((PROJECT_ROOT / "src" / "aml_riskiq").resolve())
+if _src_path not in _sys.path:
+    _sys.path.insert(0, _src_path)
+
+import validation.temporal_entity_validation as tev  # noqa: E402
+
+with timer("BP3: dataset fingerprint + duplicate-record check (node-level)"):
+    _full_node_fingerprint = tev.dataset_fingerprint(node_df, label=f"BP3_nodes_{DATASET_VARIANT}")
+    _node_duplicate_check = tev.duplicate_record_check(node_df, key_columns=["node_key"])
+    print(f"Dataset fingerprint (BP3 nodes, {DATASET_VARIANT}): {_full_node_fingerprint['n_rows']:,} nodes, "
+          f"content hash {_full_node_fingerprint['content_hash_hex']}")
+    print(f"Duplicate node_key check: {_node_duplicate_check['n_key_duplicate_rows']} of "
+          f"{_node_duplicate_check['n_rows']:,} nodes "
+          f"({_node_duplicate_check['key_duplicate_fraction']:.6%}) -- should be 0 by construction "
+          f"(node_key is how node_df's unique rows were built).")
+
+with timer("BP3: derive each account's real first-seen Timestamp from transactions"):
+    _first_seen_from = trans.groupby(from_key)["Timestamp"].min()
+    _first_seen_to = trans.groupby(to_key)["Timestamp"].min()
+    _first_seen_by_key = pd.concat([_first_seen_from, _first_seen_to]).groupby(level=0).min()
+    node_df["first_seen_ts"] = node_df["node_key"].map(_first_seen_by_key)
+    _n_missing_first_seen = int(node_df["first_seen_ts"].isna().sum())
+    if _n_missing_first_seen:
+        print(f"  NOTE: {_n_missing_first_seen} of {n_nodes:,} nodes have no resolvable first-seen "
+              f"Timestamp (should not happen if every node_key came from from_key/to_key as built "
+              f"above) -- excluded from the chronological split below.")
+    _chrono_eligible = node_df["first_seen_ts"].notna()
+
+with timer("temporal re-validation: chronological account split + re-run real lift-ratio signal"):
+    chrono_node_idx = node_df.index[_chrono_eligible].to_numpy()
+    chrono_train_pos, chrono_test_pos = tev.chronological_split(
+        node_df.loc[_chrono_eligible, "first_seen_ts"], train_frac=0.75
+    )
+    chrono_train_nodes = node_df.loc[chrono_node_idx[chrono_train_pos], "node_id"].to_numpy()
+    chrono_test_nodes = node_df.loc[chrono_node_idx[chrono_test_pos], "node_id"].to_numpy()
+
+    chrono_train_flagged_ids = node_df.loc[
+        node_df["node_id"].isin(chrono_train_nodes) & (node_df["is_laundering_exposed"] == 1), "node_id"
+    ].to_numpy()
+    chrono_near_flagged_ids = vectorized_frontier_bfs(edge_df, chrono_train_flagged_ids, EGO_HOPS)
+
+    chrono_test_mask = node_df["node_id"].isin(chrono_test_nodes)
+    chrono_test_near_flagged = node_df.loc[chrono_test_mask, "node_id"].isin(chrono_near_flagged_ids)
+    chrono_test_exposed = node_df.loc[chrono_test_mask, "is_laundering_exposed"].to_numpy()
+    chrono_base_rate_test = float(chrono_test_exposed.mean()) if len(chrono_test_exposed) else float("nan")
+
+    chrono_n_near = int(chrono_test_near_flagged.sum())
+    if chrono_n_near == 0:
+        chrono_lift = None
+        print("  Chronological split: 0 real test nodes within EGO_HOPS of a chrono-train-flagged "
+              "account -- lift ratio UNDEFINED.")
+    else:
+        chrono_near_exposure_rate = float(
+            node_df.loc[chrono_test_mask, "is_laundering_exposed"].to_numpy()[chrono_test_near_flagged.to_numpy()].mean()
+        )
+        chrono_lift = (chrono_near_exposure_rate / chrono_base_rate_test) if chrono_base_rate_test > 0 else None
+        print(f"  Chronological split: {chrono_n_near:,} real test nodes within {EGO_HOPS} hops of a "
+              f"chrono-train-flagged account, {100*chrono_near_exposure_rate:.4f}% real exposure among "
+              f"them -> lift = {chrono_lift:.2f}x" if chrono_lift is not None else
+              "  Chronological split: real test base rate is 0 -- lift ratio UNDEFINED.")
+
+    chrono_majority_baseline = tev.majority_class_baseline(
+        node_df.loc[node_df["node_id"].isin(chrono_train_nodes), "is_laundering_exposed"].to_numpy(),
+        chrono_test_exposed,
+    )
+
+with timer("save temporal re-validation report"):
+    temporal_report = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "disclaimer": tev.SYNTHETIC_DATA_DISCLAIMER,
+        "random_seed": RANDOM_SEED,
+        "environment": tev.environment_fingerprint(),
+        "dataset_fingerprint": _full_node_fingerprint,
+        "duplicate_check": _node_duplicate_check,
+        "entity_separation_finding": (
+            "Finding L-2 does not apply to BP3: the notebook's own main split (Section 5, above) "
+            "already operates at full account/node granularity -- confirmed by code structure, not "
+            "assumed. No separate entity-aware split was built for this reason."
+        ),
+        "chronological_split": {
+            "business_problem": "BP3",
+            "dataset_variant": DATASET_VARIANT,
+            "split_kind": "chronological (by each account's first-seen Timestamp)",
+            "n_eligible_nodes": int(_chrono_eligible.sum()),
+            "n_excluded_no_first_seen": _n_missing_first_seen,
+            "n_test_nodes": int(chrono_test_mask.sum()),
+            "lift_ratio": chrono_lift,
+            "n_test_near_chrono_train_flagged": chrono_n_near,
+            "base_rate_test": chrono_base_rate_test,
+            "majority_class_baseline": chrono_majority_baseline,
+        },
+        "original_random_split_for_comparison": {
+            "split_kind": "random_stratified (this notebook's main split, above)",
+            "champion_signal": champion_name,
+            "lift_ratio": champion["lift_ratio"],
+        },
+    }
+    temporal_report_path = REPORTS_DIR / f"bp3_notebook3_temporal_validation_{variant_tag}.json"
+    with open(temporal_report_path, "w") as f:
+        json.dump(temporal_report, f, indent=2, default=str)
+
+print(f"Temporal re-validation report saved to: {temporal_report_path}")
+print(f"  Original random-split lift ratio   : {champion['lift_ratio']:.2f}x")
+print(f"  Chronological-split lift ratio      : "
+      f"{chrono_lift:.2f}x" if chrono_lift is not None else "UNDEFINED")
+print("This is a real, reproducible computation against this run's own IBM synthetic-AML rows -- "
+      "see the disclaimer above before citing it as evidence of real-world AML detection performance.")

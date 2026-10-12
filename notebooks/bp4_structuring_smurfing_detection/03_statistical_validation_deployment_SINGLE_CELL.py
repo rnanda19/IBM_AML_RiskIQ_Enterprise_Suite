@@ -1448,3 +1448,172 @@ print("\n" + "#" * 78)
 print("### STAGE MARKER 4/4 COMPLETE -- Calibration, PSI baseline, alert routing, FastAPI "
       "self-test, saved artifacts. NOTEBOOK 3 FINISHED, all 4 stages clean.")
 print("#" * 78)
+
+
+# ============================================================================
+# Temporal & Entity-Separated Re-Validation (addresses docs/data/LEAKAGE_AUDIT.md
+# Finding L-1 -- random rather than chronological train/test splits -- and Finding L-2
+# -- no explicit account-level separation between train and test). This section re-fits
+# the SAME champion architecture (identical hyperparameters, re-fit from scratch) on two
+# alternative, leakage-resistant splits of THIS run's real rows (never the synthetic
+# fixtures used by src/aml_riskiq/validation/temporal_entity_validation.py's own unit
+# tests) and reports PR-AUC, calibration and threshold trade-offs against each, next to
+# simple baselines, so the random-split numbers saved above can be read in context
+# rather than taken as the final word on real-world AML detection performance.
+# ============================================================================
+_print_resource("before temporal/entity re-validation")
+
+import sys as _sys
+from sklearn.base import clone as _sk_clone
+
+_src_path = str((PROJECT_ROOT / "src" / "aml_riskiq").resolve())
+if _src_path not in _sys.path:
+    _sys.path.insert(0, _src_path)
+
+import validation.temporal_entity_validation as tev  # noqa: E402
+
+with timer("temporal/entity re-validation: dataset fingerprint + duplicate-record check"):
+    _full_df_fingerprint = tev.dataset_fingerprint(df, label=f"BP4_{DATASET_VARIANT}")
+    _dataset_duplicate_check = tev.duplicate_record_check(df, key_columns=["Timestamp", "From Bank", "Account", "To Bank", "Account.1", "Amount Paid", "Amount Received"])
+    print(f"Dataset fingerprint (BP4, {DATASET_VARIANT}): {_full_df_fingerprint['n_rows']:,} rows, "
+          f"content hash {_full_df_fingerprint['content_hash_hex']}")
+    print(f"Duplicate-record check (whole dataset, key columns): "
+          f"{_dataset_duplicate_check['n_key_duplicate_rows']} of {_dataset_duplicate_check['n_rows']:,} rows "
+          f"({_dataset_duplicate_check['key_duplicate_fraction']:.6%})")
+
+with timer("temporal re-validation: chronological split + champion re-fit"):
+    chrono_train_idx, chrono_test_idx = tev.chronological_split(df["Timestamp"], train_frac=0.75)
+    X_chrono_train, X_chrono_test = X.iloc[chrono_train_idx], X.iloc[chrono_test_idx]
+    y_chrono_train, y_chrono_test = y.iloc[chrono_train_idx], y.iloc[chrono_test_idx]
+    # BP4-specific: RandomForest needs the median-imputed view (_X_for, defined above for the
+    # notebook's own champion fit) -- reused here so the clone sees exactly what the real
+    # champion would. sklearn's LogisticRegression baseline cannot accept any NaN at all
+    # (unlike the boosted-tree candidates), so it always gets the imputed view regardless of
+    # which architecture actually won -- never the raw, possibly-NaN-containing X.
+    X_chrono_train_champ, X_chrono_test_champ = _X_for(champion_name, X_chrono_train), _X_for(champion_name, X_chrono_test)
+    X_chrono_train_imputed, X_chrono_test_imputed = _X_for("RandomForest", X_chrono_train), _X_for("RandomForest", X_chrono_test)
+    chrono_model = _sk_clone(champion_model)
+    chrono_model.fit(X_chrono_train_champ, y_chrono_train)
+    y_chrono_prob = chrono_model.predict_proba(X_chrono_test_champ)[:, 1]
+    chrono_baselines = {
+        "majority_class": tev.majority_class_baseline(y_chrono_train, y_chrono_test),
+        "logistic_regression": tev.logistic_regression_baseline(
+            X_chrono_train_imputed, y_chrono_train, X_chrono_test_imputed, y_chrono_test, random_state=RANDOM_SEED
+        ),
+    }
+    chrono_duplicate_overlap = tev.duplicate_overlap_across_split(
+        df, chrono_train_idx, chrono_test_idx, key_columns=["Timestamp", "From Bank", "Account", "To Bank", "Account.1", "Amount Paid", "Amount Received"]
+    )
+    chrono_report = tev.build_temporal_entity_validation_report(
+        business_problem="BP4",
+        dataset_variant=DATASET_VARIANT,
+        split_kind="chronological",
+        y_test=y_chrono_test.to_numpy(),
+        y_prob=y_chrono_prob,
+        production_threshold=selected_threshold,
+        baselines=chrono_baselines,
+        random_seed=RANDOM_SEED,
+        dataset_fingerprints={"full_df": _full_df_fingerprint},
+        duplicate_check=chrono_duplicate_overlap,
+        notes=[
+            "Train = earliest 75% of rows by Timestamp, test = latest 25% -- addresses "
+            "LEAKAGE_AUDIT.md Finding L-1 (the notebook's main split above is a random, "
+            "stratified sklearn.train_test_split, not chronological).",
+            f"Champion architecture: {champion_name} (sklearn.base.clone of the fitted "
+            "champion_model above, re-fit on this split's own train rows only; same "
+            "hyperparameters, different data split).",
+        ],
+    )
+
+with timer("entity-separated re-validation: entity-aware split + champion re-fit"):
+    entity_train_idx, entity_test_idx = tev.entity_aware_split(
+        df["Account"], test_frac=0.25, random_state=RANDOM_SEED
+    )
+    X_entity_train, X_entity_test = X.iloc[entity_train_idx], X.iloc[entity_test_idx]
+    y_entity_train, y_entity_test = y.iloc[entity_train_idx], y.iloc[entity_test_idx]
+    X_entity_train_champ, X_entity_test_champ = _X_for(champion_name, X_entity_train), _X_for(champion_name, X_entity_test)
+    X_entity_train_imputed, X_entity_test_imputed = _X_for("RandomForest", X_entity_train), _X_for("RandomForest", X_entity_test)
+    entity_model = _sk_clone(champion_model)
+    entity_model.fit(X_entity_train_champ, y_entity_train)
+    y_entity_prob = entity_model.predict_proba(X_entity_test_champ)[:, 1]
+    entity_overlap_check = tev.cross_entity_overlap(
+        train_entities=[df["Account"].iloc[entity_train_idx], df["Account.1"].iloc[entity_train_idx]],
+        test_entities=[df["Account"].iloc[entity_test_idx], df["Account.1"].iloc[entity_test_idx]],
+    )
+    entity_baselines = {
+        "majority_class": tev.majority_class_baseline(y_entity_train, y_entity_test),
+        "logistic_regression": tev.logistic_regression_baseline(
+            X_entity_train_imputed, y_entity_train, X_entity_test_imputed, y_entity_test, random_state=RANDOM_SEED
+        ),
+    }
+    entity_duplicate_overlap = tev.duplicate_overlap_across_split(
+        df, entity_train_idx, entity_test_idx, key_columns=["Timestamp", "From Bank", "Account", "To Bank", "Account.1", "Amount Paid", "Amount Received"]
+    )
+    entity_report = tev.build_temporal_entity_validation_report(
+        business_problem="BP4",
+        dataset_variant=DATASET_VARIANT,
+        split_kind="entity-aware",
+        y_test=y_entity_test.to_numpy(),
+        y_prob=y_entity_prob,
+        production_threshold=selected_threshold,
+        baselines=entity_baselines,
+        entity_overlap=entity_overlap_check,
+        random_seed=RANDOM_SEED,
+        dataset_fingerprints={"full_df": _full_df_fingerprint},
+        duplicate_check=entity_duplicate_overlap,
+        notes=[
+            "Train/test built with sklearn.model_selection.GroupShuffleSplit on the sender "
+            "Account column, so no sender account appears on both sides -- addresses "
+            "LEAKAGE_AUDIT.md Finding L-2. entity_overlap above additionally checks the "
+            "two-sided sender+receiver (Account / Account.1) universe, since a GroupShuffleSplit "
+            "on Account alone does not by itself guarantee the receiver side never leaks.",
+            f"Champion architecture: {champion_name} (sklearn.base.clone of the fitted "
+            "champion_model above, re-fit on this split's own train rows only; same "
+            "hyperparameters, different data split).",
+        ],
+    )
+
+with timer("save temporal/entity re-validation report"):
+    temporal_entity_report = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "disclaimer": tev.SYNTHETIC_DATA_DISCLAIMER,
+        "dataset_fingerprint": _full_df_fingerprint,
+        "dataset_wide_duplicate_check": _dataset_duplicate_check,
+        "chronological_split": chrono_report,
+        "entity_aware_split": entity_report,
+        "original_random_split_for_comparison": {
+            "split_kind": "random_stratified (this notebook's main split, above)",
+            "pr_auc": champion_pr_auc,
+            "production_threshold_metrics": {
+                "precision": champion_precision, "recall": champion_recall, "f2": champion_f2,
+            },
+        },
+    }
+    temporal_entity_report_path = REPORTS_DIR / f"bp4_notebook3_temporal_entity_validation_{variant_tag}.json"
+    with open(temporal_entity_report_path, "w") as f:
+        json.dump(temporal_entity_report, f, indent=2, default=str)
+
+    temporal_entity_markdown = (
+        f"# BP4 Temporal & Entity-Separated Re-Validation ({DATASET_VARIANT})\n\n"
+        f"> {tev.SYNTHETIC_DATA_DISCLAIMER}\n\n"
+        f"Original random-split test PR-AUC (this notebook's main split, above): "
+        f"{champion_pr_auc:.4f}\n\n"
+        + tev.render_markdown_report(chrono_report)
+        + "\n\n"
+        + tev.render_markdown_report(entity_report)
+    )
+    temporal_entity_markdown_path = REPORTS_DIR / f"bp4_notebook3_temporal_entity_validation_{variant_tag}.md"
+    with open(temporal_entity_markdown_path, "w") as f:
+        f.write(temporal_entity_markdown)
+
+print(f"Temporal/entity re-validation report saved to: {temporal_entity_report_path}")
+print(f"Temporal/entity re-validation markdown saved to: {temporal_entity_markdown_path}")
+print(f"  Chronological-split PR-AUC : {chrono_report.get('pr_auc', float('nan')):.4f}  "
+      f"(prevalence baseline={chrono_report.get('prevalence_baseline_pr_auc', float('nan')):.5f})")
+print(f"  Entity-aware-split PR-AUC : {entity_report.get('pr_auc', float('nan')):.4f}  "
+      f"(prevalence baseline={entity_report.get('prevalence_baseline_pr_auc', float('nan')):.5f})")
+print(f"  Entity overlap (sender+receiver, train vs test): "
+      f"{entity_overlap_check['overlap_fraction_of_test_entities']:.4%} of test-side entities also seen in train")
+print("These are real, reproducible computations against this run's own IBM synthetic-AML rows -- "
+      "see the disclaimer above before citing any of these numbers as evidence of real-world AML "
+      "detection performance.")
