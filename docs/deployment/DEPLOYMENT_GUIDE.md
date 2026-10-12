@@ -4,7 +4,7 @@ Real, verified-where-marked instructions for running this platform's 5 scoring s
 marked verified is a documented recommendation, not a claim that it has been tested end-to-end in this
 session.
 
-## Per-service Docker deployment (verified pattern for BP1/BP4/BP5; BP2/BP3 currently broken, see below)
+## Per-service Docker deployment (same pattern for all 5 services)
 
 ```bash
 # from the repository root
@@ -14,17 +14,20 @@ Ports (all now unique -- the BP2/BP4 8001 collision was fixed this session):
 
 | BP | Port | Status |
 |---|---|---|
-| BP1 | 8000 | Build+run verified in CI (`docker-verify.yml`) |
-| BP2 | 8001 | **Known broken** -- container starts then crashes (DEF-001, `docs/audit/DEFECT_REGISTER.md`) |
-| BP3 | 8003 | **Known broken** -- missing required artifact (DEF-002) |
-| BP4 | 8004 | Build+run verified in CI; port changed from 8001 this session to resolve a real collision with BP2 |
-| BP5 | 8002 | Build+run verified in CI |
+| BP1 | 8000 | Build+run/health wired into CI (`docker-verify.yml`) |
+| BP2 | 8001 | Build+run/health wired into CI; real artifact regenerated 2026-10-12 (DEF-001 resolved, `docs/audit/DEFECT_REGISTER.md`) |
+| BP3 | 8003 | Build+run/health wired into CI; real lookup artifact generated 2026-10-12 (DEF-002 resolved) |
+| BP4 | 8004 | Build+run/health wired into CI; port changed from 8001 this session to resolve a real collision with BP2 |
+| BP5 | 8002 | Build+run/health wired into CI |
 | BP6 | n/a | One-shot batch job, no exposed port, not a long-running service |
 
-## Production configuration (recommended, not yet the default)
+## Production configuration
 
-Set these environment variables for any non-local deployment -- left unset, every service below defaults
-to the friction-free local-dev posture documented in `SECURITY.md`:
+All 5 scoring Dockerfiles bake in `AML_RISKIQ_REQUIRE_AUTH=true` -- a container built from this repo's own
+Dockerfiles refuses to start without an API key by default. Running a service directly from source
+(`uvicorn ...` with no Docker) still defaults to the open, friction-free local-dev posture documented in
+`SECURITY.md` unless you set these yourself -- that source-level default is intentional, not an oversight
+(see `_security.py`'s own header comment):
 
 ```bash
 AML_RISKIQ_API_KEYS=service:a-real-random-key-here       # comma-separated; "role:key" or bare "key"
@@ -40,18 +43,17 @@ without a credential -- neither exposes transaction content, per `docs/security/
 
 There is currently no root-level `docker-compose.yml` that brings up all 5 services at once -- each BP's
 `docker-compose.yml` is independent (`src/docker/<bp>/docker-compose.yml`). To run several together,
-start each independently; the port table above is now collision-free so this is safe to do for
-BP1/BP4/BP5 (BP2/BP3 will still fail to start regardless, until their real artifacts are regenerated).
+start each independently; the port table above is now collision-free so this is safe to do for all 5.
 Building a single root-level compose file that brings up all 5 as one stack is listed as a still-open
 task from earlier in this project's history (Task #26) -- not yet done.
 
 ## Startup failure modes to expect
 
-- **BP2**: container builds, starts, then the uvicorn worker crashes with a `KeyError` within seconds of
-  startup (DEF-001). This is a known, disclosed defect, not a deployment misconfiguration -- do not spend
-  time debugging your environment for this one.
-- **BP3**: container builds, starts, then fails with `FileNotFoundError` for the missing lookup Parquet
-  (DEF-002). Same -- known, disclosed, not a deployment issue.
+- **BP2 and BP3's previous known-broken startup failures (DEF-001/DEF-002) were fixed 2026-10-12** via
+  real notebook re-runs that regenerated their missing artifacts -- see `docs/audit/DEFECT_REGISTER.md` for
+  the resolution evidence. If you still see these fail, you are likely on a commit from before that fix.
+- **Container refuses to start with no API key**: expected -- `AML_RISKIQ_REQUIRE_AUTH=true` is baked into
+  every scoring Dockerfile. Set `AML_RISKIQ_API_KEYS` (see Production configuration above).
 - **Any service**: `FileNotFoundError` for a validation-report JSON or model artifact means the image was
   built from a stale `COPY` path -- see `scripts/check_docker_copy_paths.py`, which is wired into CI
   specifically to catch this class of bug before it reaches a running container.

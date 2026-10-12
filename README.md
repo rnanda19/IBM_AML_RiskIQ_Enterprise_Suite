@@ -133,9 +133,10 @@ structure and its conventions were built to catch.
 
 ## Business Problems (6) — current evidence and limitations
 The six workstreams and their reported evaluation results are documented below. A statistical validation result is
-not the same as a deployable service: BP2's committed validation report requires regeneration, BP3's runtime lookup
-artifact is pending, and BP6 is a batch rollup. Treat each metric as a dataset-specific benchmark, not proof of
-performance at a real financial institution. The evidence ledger and roadmap identify completed checks and blockers.
+not the same as a deployable service: BP2's and BP3's real artifacts were regenerated 2026-10-12 and both services
+are back in `docker-verify.yml` (see `docs/audit/DEFECT_REGISTER.md` DEF-001/DEF-002), and BP6 is a batch rollup
+verified separately by execution + report-output checks. Treat each metric as a dataset-specific benchmark, not
+proof of performance at a real financial institution. The evidence ledger and roadmap identify completed checks.
 
 ### [00 -- Executive Rollup Summary](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp6/BP6_Platform_Rollup_Dashboard.html)
 Pure rollup of BP1-BP5's previously computed dataset-specific figures -- no model of its own, verdict **PASS** on its
@@ -247,12 +248,16 @@ no route uses it yet (see `docs/audit/DEFECT_REGISTER.md` DEF-003). Each service
   into the image.
 
 ## Status
-The committed reports record evaluation verdicts for BP1-BP5 on LI-Medium and BP6 has a rollup reconciliation report. These recorded results are not equivalent to current deployment verification: BP2 still has a stale validation report, BP3 still lacks a required runtime lookup artifact, and BP6 is a batch job. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented; Docker images now default to requiring API keys, and CI is configured to pass a disposable test key; this branch's checks are still pending. See
+The committed reports record evaluation verdicts for all 6 BPs on LI-Medium. These recorded results are not
+equivalent to live deployment verification by themselves: `docker-verify.yml` builds, starts, and polls
+`/health` for all 5 scoring services (BP1-BP5), each proving the fail-closed-by-default auth works before
+running with a disposable CI key, plus a separate `bp6-batch` job verified by execution + report-output
+checks (BP6 has no port/`/health`, so it is never polled). BP2's and BP3's real artifacts (DEF-001/DEF-002)
+were regenerated 2026-10-12 via real notebook re-runs and both services were re-added to the workflow --
+the assistant has not directly observed a passing GitHub Actions run of this workflow (no Docker daemon is
+available in its own sandboxes), so confirm current status on the repository's Actions tab before relying
+on it. Shared API-key auth/rate-limit/audit-log/metrics primitives and a 100-test suite are documented. See
 `docs/evidence_ledger/EVIDENCE_LEDGER.md` for the single source of truth and `ROADMAP.md` for what remains.
-BP2's Docker image currently fails to start (stale validation-report fields) and BP3's required lookup
-Parquet has not yet been generated -- both require a real notebook re-run against the real dataset to fix
-(see `docs/audit/DEFECT_REGISTER.md` DEF-001/DEF-002); both are excluded from `docker-verify.yml` until
-then, disclosed rather than worked around.
 
 ## Execution boundary (standing rule)
 Claude generates notebooks and src/ modules only, and never executes the real data-processing pipeline itself.

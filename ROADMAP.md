@@ -1,7 +1,12 @@
 # Roadmap
 
 ## Done
-- BP1-BP6 workstreams and their current evaluation/reporting artifacts are documented. This does **not** mean all six are deployment-verified: BP2's validation report needs a real refresh, BP3's lookup Parquet is pending, and BP6 is a batch job. See the defect register and evidence ledger for exact artifacts and limitations.
+- BP1-BP6 workstreams and their current evaluation/reporting artifacts are documented. This does **not** mean
+  all six are *live-CI-confirmed* deployment-verified: BP2's and BP3's real artifacts were regenerated
+  2026-10-12 (see "Resolved 2026-10-12" below) and `docker-verify.yml` builds/starts/polls `/health` for all
+  5 scoring services plus a separate BP6 batch check, but the assistant has not directly observed a passing
+  GitHub Actions run (no Docker daemon in its sandboxes) -- confirm on the repository's Actions tab. See the
+  defect register and evidence ledger for exact artifacts and limitations.
 - Full hardening pass: dependency lockfile (`requirements.in`/`requirements.txt`), mypy wired into CI/
   pre-commit (0 errors across 15 files), API-key auth + rate limiting + audit logging on all 5 scoring
   services, a real model-registry fingerprint exposed via `/health`, a real Docker COPY-path verifier that
@@ -12,7 +17,13 @@
   other platforms (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `DATA_PRIVACY.md`, `MODEL_REGISTRY.md`,
   `SECURITY.md`, `SECRETS_MANAGEMENT.md`, `CHANGELOG.md`, this file), plus a `.github/` CI suite (CI,
   Code Quality, CodeQL, Docker Build & Run Verification) -- all 4 workflows passing on `main`.
-- Real `docker build` + `docker run` + `/health` verification runs in CI for BP1, BP4, and BP5 only. The workflow supplies a disposable CI API key because scoring containers now fail closed by default. A separate BP6 batch-job smoke test has now been added to `docker-verify.yml`; its result is pending. BP2/BP3 remain blocked on genuine data-dependent artifacts.
+- `docker-verify.yml` builds, starts, and polls `/health` for all 5 scoring services (BP1-BP5) -- `bp2`/`bp3`
+  jobs were re-added 2026-10-12 once their real artifacts existed (see "Resolved 2026-10-12" below). Every
+  job first proves the fail-closed-by-default auth works (container refuses to start with no API key) before
+  running with a disposable CI test key. A separate `bp6-batch` job runs the real rollup and checks its
+  report outputs are non-empty (BP6 has no port, so it is never polled for `/health`). The assistant has not
+  directly observed a passing GitHub Actions run of this workflow -- confirm current status on the
+  repository's Actions tab.
 
 ## In progress / pending
 - Nothing currently blocked on a missing real artifact for BP1-BP5. See "Resolved 2026-10-12" below for
