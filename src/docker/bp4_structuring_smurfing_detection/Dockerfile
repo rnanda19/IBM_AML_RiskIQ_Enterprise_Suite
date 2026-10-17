@@ -14,7 +14,7 @@
 # collision if both were ever run together (confirmed: both Dockerfiles EXPOSEd 8001, both
 # docker-compose.yml files mapped host port 8001:8001). Moved to 8004 -- the first port not
 # already claimed by BP1 (8000), BP2 (8001), BP3 (8003), or BP5 (8002).
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
