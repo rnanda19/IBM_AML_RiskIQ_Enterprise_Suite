@@ -50,7 +50,7 @@ httpx>=0.27,<0.28
 # Notebook execution (BP6 platform-rollup Docker batch job -- hardening pass, 2026-10-02:
 # closes this image's own previously disclosed gap -- jupyter nbconvert --execute needs these)
 nbformat>=5.10
-nbconvert>=7.16
+nbconvert>=7.17.2
 ipykernel>=6.29
 
 # Quality / CI (HYPER)
