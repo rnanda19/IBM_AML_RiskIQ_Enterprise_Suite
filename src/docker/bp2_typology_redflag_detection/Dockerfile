@@ -12,7 +12,7 @@
 # champion_needs_rf_impute / rf_impute_value in its saved validation report -- this image
 # will only serve real-valued impute logic once BP2 Notebook 3 has been RE-RUN for the
 # LI-Medium variant to regenerate that report with the two new keys.
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
