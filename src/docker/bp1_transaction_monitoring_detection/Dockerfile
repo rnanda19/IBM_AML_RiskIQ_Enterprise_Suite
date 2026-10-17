@@ -5,7 +5,7 @@
 # Real champion model file (generated 2026-10-01T06:26:36.290830+00:00,
 # variant LI-Medium) is copied in explicitly below -- never defaulted to a path that
 # isn't actually present in the image (the real bug this comment exists to prevent).
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
