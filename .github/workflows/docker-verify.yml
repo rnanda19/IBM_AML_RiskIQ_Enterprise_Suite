@@ -31,7 +31,7 @@ jobs:
   bp1:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/bp1_transaction_monitoring_detection/Dockerfile -t bp1-scoring .
       - name: Verify missing API key fails closed
@@ -59,7 +59,7 @@ jobs:
   bp2:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/bp2_typology_redflag_detection/Dockerfile -t bp2-scoring .
       - name: Verify missing API key fails closed
@@ -87,7 +87,7 @@ jobs:
   bp3:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/bp3_network_graph_intelligence/Dockerfile -t bp3-scoring .
       - name: Verify missing API key fails closed
@@ -115,7 +115,7 @@ jobs:
   bp4:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/bp4_structuring_smurfing_detection/Dockerfile -t bp4-scoring .
       - name: Verify missing API key fails closed
@@ -143,7 +143,7 @@ jobs:
   bp5:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/bp5_correspondent_banking_crossborder_risk/Dockerfile -t bp5-scoring .
       - name: Verify missing API key fails closed
@@ -171,7 +171,7 @@ jobs:
   bp6-batch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build BP6 batch image
         run: docker build -f src/docker/bp6_enterprise_compliance_monitoring/Dockerfile -t bp6-rollup .
       - name: Execute BP6 rollup against committed report evidence
@@ -197,7 +197,7 @@ jobs:
   case-management:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: docker build -f src/docker/case_management/Dockerfile -t case-management .
       - name: Verify missing API key fails closed
@@ -270,7 +270,7 @@ jobs:
       BP3_API_KEYS: ci-integrated-bp3-key
       FLAGGED_ACCOUNT_KEY: "020|800104D70"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build case-management and bp3 images
         run: docker compose build case-management bp3-network-graph-intelligence
       - name: Prepare writable bind-mount data directories

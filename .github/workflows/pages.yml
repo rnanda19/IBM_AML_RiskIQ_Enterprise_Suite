@@ -33,7 +33,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build static site from real executive_package deliverables
         run: python3 scripts/build_pages_site.py
       - uses: actions/configure-pages@v5
