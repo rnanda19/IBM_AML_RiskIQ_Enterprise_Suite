@@ -19,7 +19,7 @@ Scope and non-scope, stated plainly:
   data. A human must import it from inside the relevant notebook and run that notebook on
   real data for any of this module's output to mean anything. This keeps it inside this
   project's standing execution boundary (see README.md's "Execution boundary" section):
-  Claude writes this code; the code produces real numbers only when the user runs it.
+  The author writes this code; the code produces real numbers only when the maintainer runs it.
 - The binary-classifier-specific functions (`pr_auc`, `calibration_report`,
   `binary_threshold_metrics`, `threshold_tradeoff_table`, `prevalence_baseline_pr_auc`)
   apply to BP1/BP4/BP5 (binary "Is Laundering" classifiers). BP2 is a 5-class typology

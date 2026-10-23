@@ -150,7 +150,7 @@ This mirrors exactly what `.github/workflows/docker-verify.yml` runs for BP1/BP4
 
 The Dockerfile hardening changes made in an earlier session (non-root user, HEALTHCHECK, BP4's port move)
 and the brand-new Case Management Service Dockerfile added 2026-10-12 have **not** been build-tested
-locally -- this sandbox has no Docker daemon available. All of it will be verified for real the next time
+locally -- the local review environment has no Docker daemon available. All of it will be verified for real the next time
 `docker-verify.yml` runs in CI after this work is pushed, including the case-management job's own
 live-container check (create an alert with an admin key, then confirm an unauthenticated write is
 rejected with 401). If that run fails, the CI log is the authoritative signal, not this document's
@@ -158,7 +158,7 @@ description of the intended behavior.
 
 **Updated 2026-10-12 (End-to-End AML Workflow Integration, now confirmed)**: the root-level
 `docker-compose.yml` and the `integrated-workflow` CI job described above were not run with a real Docker
-daemon in this development sandbox (confirmed: `docker` is not on `PATH` here, and there is no disk space
+daemon in the local review environment (confirmed: `docker` is not on `PATH` here, and there is no disk space
 available to install supporting ML libraries to verify model inference locally as an alternative check).
 Their first real GitHub Actions run did surface a real bug -- the bind-mount permission issue documented
 above -- which was fixed in both `docker-compose.yml`'s own consumer (the `integrated-workflow` job) and

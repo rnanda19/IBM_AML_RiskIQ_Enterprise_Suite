@@ -11,10 +11,10 @@ no-pipeline-execution rule; and (b) a new reusable module,
 `src/aml_riskiq/validation/temporal_entity_validation.py`, that makes Findings L-1/L-2's recommended fixes
 (chronological split, entity-aware split, PR-AUC/ROC-AUC/calibration/threshold trade-offs, baselines,
 dataset fingerprinting, environment capture) real, runnable code -- wired into each BP's own Notebook 3 --
-whose real NUMBERS still require the user's own run (see each finding below for what was and was not
+whose real NUMBERS still require the maintainer's own run (see each finding below for what was and was not
 executed). Nothing here is an empirical leakage TEST of the champion models' actual reported metrics
 (re-fitting a champion and comparing its real chronological-split PR-AUC against its real random-split
-PR-AUC) -- that still requires the user to run the updated notebooks, which this pass's code makes
+PR-AUC) -- that still requires the maintainer to run the updated notebooks, which this pass's code makes
 possible but does not do on its own.
 
 ## Finding L-1: every BP uses a random (not chronological) train/test split
@@ -46,7 +46,7 @@ finding is about split *methodology*, not a proof that a specific reported numbe
 **Recommended fix**: re-run each BP's Notebook 2/3 with a chronological split (sort by transaction
 timestamp, train on the earlier X%, test on the later (1-X)%) and compare the resulting PR-AUC/recall
 against the currently reported random-split figures. This is real pipeline execution against real data --
-blocked on the same standing rule as DEF-001/DEF-002 in `docs/audit/DEFECT_REGISTER.md` unless the user
+blocked on the same standing rule as DEF-001/DEF-002 in `docs/audit/DEFECT_REGISTER.md` unless the maintainer
 authorizes it specifically.
 
 ## Finding L-2: no explicit entity/account-level train-test separation found
@@ -125,7 +125,7 @@ of a split, it would affect a few dozen of 5+ million rows. Not a material leaka
 `LI-Medium_Trans.parquet` (828 MB; the CSV source is 2.9 GB) for either a full-width or a chunked
 key-column-hash duplicate check was killed by the OOM killer (exit 137) on both attempts. The
 `LI-Medium_Trans.parquet` file itself also returned a `pyarrow` "File too short" read error when queried
-for a column subset -- worth the user's own independent check, since it may indicate a truncated or
+for a column subset -- worth the maintainer's own independent check, since it may indicate a truncated or
 corrupted file on disk, separate from the duplicate-leakage question. **Recommended**: re-run this exact
 check (code below) on a machine with more RAM -- the result is a few printed numbers, not a model run.
 
@@ -139,7 +139,7 @@ print(df.duplicated(keep=False).sum(), df.duplicated(subset=key_cols, keep=False
 This exact check is now also reusable code, not a one-off script: `duplicate_record_check()` and
 `duplicate_overlap_across_split()` in `src/aml_riskiq/validation/temporal_entity_validation.py` (Finding
 L-6), wired into BP1/BP2/BP3/BP4/BP5's own Notebook 3, so the real numbers above (and LI-Medium's, once
-checked) are saved into each BP's own validation report automatically on the user's next run.
+checked) are saved into each BP's own validation report automatically on the maintainer's next run.
 
 ## Finding L-6: reproducible chronological + entity-aware re-validation capability added (2026-10-12)
 
@@ -177,7 +177,7 @@ This is wired into each BP's own `03_statistical_validation_deployment_SINGLE_CE
 **What this is not**: none of the numbers this code would produce exist yet in this repository. Per this
 project's standing execution boundary (`README.md`), this pass wrote and unit-tested the code; it did not
 run any BP's real notebook against the real dataset. The real chronological-split PR-AUC, entity-aware
-PR-AUC, lift ratios, etc. for BP1-BP5 appear only once the user runs the updated notebooks on their own
+PR-AUC, lift ratios, etc. for BP1-BP5 appear only once the maintainer runs the updated notebooks on their own
 machine -- see each BP's own `reports/<bp>/*_temporal_entity_validation_*.{json,md}` output path, which
 does not exist until that run happens.
 
@@ -185,17 +185,17 @@ does not exist until that run happens.
 
 | Finding | Severity | Status |
 |---|---|---|
-| L-1: random (not chronological) split, all 5 BPs | Medium-High methodological risk | Confirmed by code read; chronological re-validation CODE added 2026-10-12 (L-6); real numbers require the user's run |
-| L-2: no explicit entity-level split separation | Medium methodological risk (BP1/BP2/BP4/BP5 only -- does not apply to BP3, see L-4) | Confirmed absent (BP1/2/4/5) by code read; entity-aware re-validation CODE added 2026-10-12 (L-6); real numbers require the user's run |
+| L-1: random (not chronological) split, all 5 BPs | Medium-High methodological risk | Confirmed by code read; chronological re-validation CODE added 2026-10-12 (L-6); real numbers require the maintainer's run |
+| L-2: no explicit entity-level split separation | Medium methodological risk (BP1/BP2/BP4/BP5 only -- does not apply to BP3, see L-4) | Confirmed absent (BP1/2/4/5) by code read; entity-aware re-validation CODE added 2026-10-12 (L-6); real numbers require the maintainer's run |
 | L-3: no scaler/imputer/resampler/selector anywhere; the one real impute case is already train-only | N/A -- correct pattern, now confirmed for all 5 BPs | Confirmed 2026-10-12 (upgraded from BP1-only) |
 | L-4: no target leakage in any BP's `FEATURE_COLS` | N/A -- correct pattern | Confirmed 2026-10-12 (static read) |
 | L-5: duplicate-record check | Negligible (HI-Small: <0.0005%); LI-Medium not checked (device RAM limit) | Real read-only check run 2026-10-12 (HI-Small only) |
-| L-6: reproducible chronological/entity-aware validation module + per-BP notebook wiring | N/A -- new capability | Code written + 41 unit tests passing 2026-10-12; real dataset numbers require the user's run |
+| L-6: reproducible chronological/entity-aware validation module + per-BP notebook wiring | N/A -- new capability | Code written + 41 unit tests passing 2026-10-12; real dataset numbers require the maintainer's run |
 
 This audit does not change any reported metric in `BENCHMARKS.md` -- L-1 through L-4 document real
 methodological gaps and positive findings from reading the committed code; L-5 is a real, read-only data
 check (not a model run); L-6 is new, tested, runnable code that makes L-1/L-2's recommended fixes
 possible, but produces no real number on its own -- per this project's standing execution boundary, that
-requires the user to run the updated notebooks against the real dataset on their own machine. See
+requires the maintainer to run the updated notebooks against the real dataset on their own machine. See
 `BENCHMARKS.md`'s "Validation methodology and known risks" section for how the currently-published
 metrics should be read in light of all six findings above.

@@ -1,16 +1,16 @@
 # CHANGELOG -- BP2: Typology & Red-Flag Pattern Detection
 
 ## 2026-09-30T15:05:04.871603+00:00
-Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\reports\bp2_typology_redflag_detection\executive_package.
+Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in <project_root>\reports\bp2_typology_redflag_detection\executive_package.
 
 ## 2026-09-30T15:07:28.843938+00:00
-Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\reports\bp2_typology_redflag_detection\executive_package.
+Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in <project_root>\reports\bp2_typology_redflag_detection\executive_package.
 
 ## 2026-10-01T08:27:23.163655+00:00
-Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\reports\bp2_typology_redflag_detection\executive_package.
+Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion RandomForest, test macro-F1 0.4440, overall verdict PASS. Five-format executive package regenerated in <project_root>\reports\bp2_typology_redflag_detection\executive_package.
 
 ## 2026-10-01T18:59:12.751438+00:00
-Hardening pass (Claude, on-device): investigated BP2 Notebook 3
+Hardening pass (on-device): investigated BP2 Notebook 3
 (03_statistical_validation_deployment_SINGLE_CELL.py) to resolve the Dockerfile's
 "ACTION NEEDED" comment. Found the real champion (RandomForest) does have one real,
 disclosed NaN-prone feature column -- `amount_paid_received_ratio` (undefined whenever a

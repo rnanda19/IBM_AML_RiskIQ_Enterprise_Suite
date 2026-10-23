@@ -3,7 +3,7 @@
 CI check: every real .ipynb under notebooks/ loads as valid Jupyter JSON (nbformat) and every
 code cell's Python source compiles cleanly (ast.parse) -- a real, catchable syntax error in a
 code cell is caught here, in seconds, on every push/PR, instead of only being discovered the
-next time the user manually opens and runs that notebook in Jupyter.
+next time the maintainer manually opens and runs that notebook in Jupyter.
 
 Found during the 2026-10-02 enterprise-hardening review: ci.yml's `notebook-syntax-check` job
 already existed and was already wired into CI, but the script it called

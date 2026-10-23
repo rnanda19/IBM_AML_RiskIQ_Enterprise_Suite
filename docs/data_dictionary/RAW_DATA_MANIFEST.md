@@ -52,5 +52,5 @@ assume no row-cap, ordering, or parsing hazards apply until actually checked.)
 
 ## 5. Storage Location
 All raw/external files for this project live only under this project folder
-(`C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\data\raw\` and `...\data\external\`), per the
+(`<project_root>\data\raw\` and `...\data\external\`), per the
 standing instruction to use no other location on this machine.

@@ -5,8 +5,8 @@ Mirrors the proven pattern from the the prior credit-risk platform / the prior l
 platforms: env override -> walk upward from cwd looking for a marker ->
 bounded well-known locations under the user's home directory.
 
-Real, confirmed location (2026-09-29): C:\\Users\\rnand\\Documents\\IBM_AML_RiskIQ_Enterprise_Suite
-(no longer an assumption - this is the real on-device path this suite lives at).
+Default location: an `IBM_AML_RiskIQ_Enterprise_Suite` folder under the user's Documents directory
+(see the candidate list below).
 """
 
 from __future__ import annotations

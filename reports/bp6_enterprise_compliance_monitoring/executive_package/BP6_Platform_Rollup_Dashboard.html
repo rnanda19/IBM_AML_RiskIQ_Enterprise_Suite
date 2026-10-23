@@ -15,11 +15,10 @@
     --shadow: 0 1px 2px rgba(11,11,11,.06), 0 1px 1px rgba(11,11,11,.04);
     --shadow-hover: 0 14px 28px rgba(11,11,11,.14), 0 4px 10px rgba(11,11,11,.08);
   }
-  /* Forced light mode (user-requested, 2026-10-02): this dashboard previously auto-switched
+  /* Forced light mode (2026-10-02): this dashboard previously auto-switched
      to a dark near-black page/surface via @media (prefers-color-scheme: dark) whenever the
      viewer's OS/browser was set to dark mode -- the dark tokens were real and intentional,
-     but the user viewing this on a dark-mode system found the result "over dark" and asked
-     for the light grey page back. Per the dataviz skill's own guidance (dark mode should be
+     but on a dark-mode system the result was judged "over dark", so the light grey page was restored. Per the dataviz skill's own guidance (dark mode should be
      an explicit user-selected toggle, never an automatic OS-driven flip), the fix here is to
      drop the automatic dark variant entirely rather than re-tune its colors -- this dashboard
      now always renders with the same validated light-grey PALETTE tokens (--page: #e9ebee,

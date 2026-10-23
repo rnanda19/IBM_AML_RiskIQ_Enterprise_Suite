@@ -15,7 +15,7 @@ claim or service), High (real functional gap), Medium (real but contained), Low 
 - **Recommended fix**: re-run BP2 Notebook 3 (LI-Medium) to regenerate the validation report with the
   real train-median `rf_impute_value`. This value must come from an actual run on real data -- it cannot
   be invented or hand-written. **Blocked on the standing no-pipeline-execution rule** (see
-  `INITIAL_REPOSITORY_AUDIT.md`'s "Standing constraint" section) unless the user authorizes this specific
+  `INITIAL_REPOSITORY_AUDIT.md`'s "Standing constraint" section) unless the maintainer authorizes this specific
   execution.
 - **Verification method**: `docker-verify.yml`'s `bp2` job (re-added 2026-10-12) builds, starts, and
   polls `/health`.

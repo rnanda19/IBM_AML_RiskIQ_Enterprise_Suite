@@ -7,8 +7,8 @@ response wiring, and the score_transaction() code path -- using a tiny SYNTHETIC
 classifier (a trivial Python object with a predict_proba() method, pickled to a temp
 directory) standing in for the real XGBoost champion model. They never load this BP's real
 trained model artifact or any real AML wire-transaction data, per this project's standing
-execution-boundary rule (Claude writes and tests code; real business numbers only ever come
-from the user's own real notebook runs). A PASS here means "the service is wired correctly",
+execution-boundary rule (the author writes and tests code; real business numbers only ever come
+from the maintainer's own real notebook runs). A PASS here means "the service is wired correctly",
 not "the real model scores correctly" -- that second claim is already covered by Notebook 3's
 own real, bit-identical FastAPI self-test against the real champion model (both variants:
 5,000 real rows checked, 0 mismatches, max_abs_diff=0.0 -- see each variant's own saved

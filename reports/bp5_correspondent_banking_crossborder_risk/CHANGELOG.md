@@ -1,7 +1,7 @@
 # CHANGELOG -- BP5: Correspondent Banking & Cross-Border Wire Risk
 
 ## 2026-10-02T11:30:17.712275+00:00
-Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion XGBoost, test PR-AUC 0.1399, overall verdict PASS. Five-format executive package regenerated in C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\reports\bp5_correspondent_banking_crossborder_risk\executive_package.
+Notebook 4 (Compliance-Impact Reporting & Packaging) real run. Primary variant LI-Medium: champion XGBoost, test PR-AUC 0.1399, overall verdict PASS. Five-format executive package regenerated in <project_root>\reports\bp5_correspondent_banking_crossborder_risk\executive_package.
 
 ## 2026-10-02T14:53:15.394010+00:00 (hardening pass, "Global Standard" / that prior platform Phase-2-hardening pattern)
 Production-hardening pass on BP5's deployable scoring service and Docker packaging, closing the

@@ -19,7 +19,7 @@ committing multi-megabyte binaries to git.
 All six hashes above were computed directly from the real on-disk files (`sha256sum`), not copied from a
 report or carried forward from memory -- re-run `sha256sum` on the path in the table to reproduce them.
 The BP3 (lookup) row and the BP2/BP3 validation-report re-runs it depends on were generated 2026-10-12
-by a real re-run of BP2 Notebook 3 and BP3 Notebook 3 (LI-Medium) on the user's own machine -- this
+by a real re-run of BP2 Notebook 3 and BP3 Notebook 3 (LI-Medium) on the maintainer's own machine -- this
 closes DEF-001 and DEF-002 in `docs/audit/DEFECT_REGISTER.md`. The earlier-stated BP3 rule JSON size
 (2,957 bytes) was a stale documentation error, corrected above to the real on-disk size (421 bytes) --
 the SHA-256 itself was already correct and unchanged.

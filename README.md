@@ -4,11 +4,34 @@
 [![Lint & Format](https://img.shields.io/github/actions/workflow/status/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/code-quality.yml?branch=main&label=Lint%20%26%20Format&labelColor=0D9488)](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/code-quality.yml)
 [![CodeQL Security Scan](https://img.shields.io/github/actions/workflow/status/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/codeql.yml?branch=main&label=CodeQL%20Security%20Scan&labelColor=7C3AED)](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/codeql.yml)
 [![Docker Build & Run Verification](https://img.shields.io/github/actions/workflow/status/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/docker-verify.yml?branch=main&label=Docker%20Build%20%26%20Run%20Verification&labelColor=B45309)](https://github.com/rnanda19/IBM_AML_RiskIQ_Enterprise_Suite/actions/workflows/docker-verify.yml)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg?labelColor=0891B2)]()
-[![CRISP-DM](https://img.shields.io/badge/methodology-CRISP--DM-informational.svg?labelColor=CA8A04)]()
+[![Python 3.10 | 3.11](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg?labelColor=0891B2)](pyproject.toml)
+[![CRISP-DM](https://img.shields.io/badge/methodology-CRISP--DM-informational.svg?labelColor=CA8A04)](#methodology)
 [![License: All Rights Reserved](https://img.shields.io/badge/license-All%20Rights%20Reserved-lightgrey.svg?labelColor=475569)](LICENSE)
 
-**IBM AML RiskIQ Enterprise Suite** is a research and portfolio demonstration for AML analytics, covering six
+**An end-to-end AML analytics platform built on IBM Research's public synthetic transaction data.** Six
+workstreams (transaction monitoring, typology classification, graph intelligence, structuring/smurfing,
+cross-border risk, enterprise rollup), five FastAPI scoring services, and an RBAC-protected case-management
+service with a tamper-evident audit trail -- verified by CI, CodeQL and Docker build/run checks.
+
+> **Independent portfolio project -- not affiliated with, sponsored by, or endorsed by IBM.** It uses the dataset
+> IBM Research publicly released (see [Dataset](#dataset)). Developed with AI assistance; every reported number
+> comes from the author's own real notebook runs. It is **not** a validated live-bank deployment or a
+> production-ready compliance system.
+
+### Results at a glance (LI-Medium, synthetic data)
+| BP | Business problem | Champion | Headline result |
+|---|---|---|---|
+| BP1 | Transaction Monitoring & Suspicious Activity Detection | XGBoost | Test PR-AUC **0.1242** |
+| BP2 | Typology & Red-Flag Pattern Detection | RandomForest | Test macro-F1 **0.4440** (PASS) |
+| BP3 | Transaction Network & Graph Intelligence | 2-hop proximity rule (no trained model) | Network-lift **3.19x**, 95% CI [3.157x, 3.219x] (PASS) |
+| BP4 | Structuring & Smurfing Detection | XGBoost | Test PR-AUC **0.1253** (PASS) |
+| BP5 | Correspondent Banking & Cross-Border Wire Risk | XGBoost | Test PR-AUC **0.1399** (PASS) |
+| BP6 | Enterprise Compliance Rollup | none (pass-through of BP1-BP5) | Reconciliation gate PASS |
+
+All figures are dataset-specific benchmarks on synthetic data, not evidence of live-bank performance; see each
+BP's own report card and the evidence ledger for protocol and limitations.
+
+**Scope and verification.** This is a research and portfolio demonstration for AML analytics, covering six
 business-problem workstreams: transaction monitoring, typology classification, graph intelligence, structuring and
 smurfing, cross-border risk, and enterprise compliance rollup, plus a seventh, RBAC-protected **Case Management
 Service** that BP1-BP5 now dispatch real, idempotent alerts to automatically (see
@@ -95,6 +118,7 @@ flowchart TD
 Every box above is a committed repository component; there is no hosted/live deployment layer yet (see `ROADMAP.md`). All 5 scoring services (BP1-BP5) have build/run/fail-closed-auth checks in CI, and BP6's one-shot batch rollup job is verified by execution + non-empty report-output checks (not `/health`, since it has no port). The Case Management Service (`:8005`) is a 6th, RBAC-protected live service added 2026-10-12, built on the `casework` package and its own SQLite-backed store -- see `docs/security/RBAC.md` for its permission matrix. Each of BP1-BP5 also dispatches a real, idempotent alert to the Case Management Service's `POST /alerts/ingest` whenever its own already-validated alert-worthiness line is crossed (see `docs/architecture/SCORING_ALERT_INTEGRATION.md`), and `docker-verify.yml`'s `integrated-workflow` job proves this round trip for real against live containers -- a real alert created with scoring provenance intact, an identical resubmission correctly suppressed as a duplicate, and a non-flagged account correctly producing no alert -- confirmed passing in CI. See `.github/workflows/docker-verify.yml` and `docs/audit/DEFECT_REGISTER.md` for exact scope.
 
 ## Table of Contents
+- [System Architecture](#system-architecture)
 - [Dataset](#dataset)
 - [Methodology](#methodology)
 - [Business Problems](#business-problems-6--current-evidence-and-limitations)
@@ -103,7 +127,6 @@ Every box above is a committed repository component; there is no hosted/live dep
 - [Engineering & Testing](#engineering--testing)
 - [Status](#status)
 - [Execution boundary](#execution-boundary-standing-rule)
-- [Storage location](#storage-location-strict)
 - [License](#license)
 
 ## Dataset
@@ -182,7 +205,7 @@ exists for this BP (disclosed honestly in `RULE_CARD.md`, never invented).
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp3/BP3_Compliance_Impact_Deck.pptx)
 
 ### [BP4 -- Structuring & Smurfing Detection](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Dashboard.html)
-Targets a named federal crime (31 U.S.C. SS5324). Champion **XGBoost**, Test PR-AUC **0.1253**, verdict
+Targets a named federal crime (31 U.S.C. §5324). Champion **XGBoost**, Test PR-AUC **0.1253**, verdict
 **PASS** in the documented synthetic-data evaluation -- the platform's highest reported recall among its three binary BPs. The report includes an illustrative **$65.00M** regulatory-exposure scenario and **$4.23M** investigator-capacity scenario based on 1,300 additional positive-labelled examples and 65,120 estimated hours; these are assumptions, not actual cases or realized savings.
 **Reports:** [Live Dashboard](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Dashboard.html) &middot; [Word Report](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Report.docx) &middot; [Excel Workbook](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Workbook.xlsx) &middot; [PowerPoint Deck](https://rnanda19.github.io/IBM_AML_RiskIQ_Enterprise_Suite/bp4/BP4_Compliance_Impact_Deck.pptx)
 
@@ -317,8 +340,7 @@ containers. BP2's and BP3's real artifacts (DEF-001/DEF-002) were regenerated 20
 re-runs and both services were re-added to the workflow. All required checks -- `ci.yml` (lint, format,
 type-check, and the full pytest suite on both Python 3.10 and 3.11), `docker-verify.yml` (every job above),
 `codeql.yml`, and `code-quality.yml` -- are confirmed passing together on the same commit, verified via
-GitHub's check-runs REST API (direct Actions log access requires authenticated scope this assistant
-doesn't have; see `ROADMAP.md`'s "Resolved" log for the exact commit and run IDs). Shared API-key
+GitHub's check-runs REST API (unauthenticated read; see `ROADMAP.md`'s "Resolved" log for the exact commit and run IDs). Shared API-key
 auth/rate-limit/audit-log/metrics primitives, real RBAC on the Case Management Service, and a 296-test
 suite are documented for that specific commit's confirmed-green CI run. The production-readiness pass
 added 2026-10-12 (see the "Production-readiness hardening" bullet above) brought the local suite to
@@ -331,14 +353,9 @@ building blocks, not a certification. See `docs/evidence_ledger/EVIDENCE_LEDGER.
 of truth and `ROADMAP.md` for what remains.
 
 ## Execution boundary (standing rule)
-Claude generates notebooks and src/ modules only, and never executes the real data-processing pipeline itself.
-You run every notebook on your own machine; all real numbers, charts and verdicts come from your own reported run.
-
-## Storage location (strict)
-Every file for this project - notebooks, src/ modules, trained-model artifacts, reports, configs, the
-GitHub/LinkedIn packaging folders, everything - lives inside this one folder tree, under
-`C:\Users\rnand\Documents\IBM_AML_RiskIQ_Enterprise_Suite\`, and nowhere else on this laptop.
-Nothing for this project is written to Downloads, the home directory, or any other path.
+This project is developed with AI assistance. Notebooks and `src/` modules are written and verified (unit and
+integration tests, linting, type-checking) without executing the real data pipeline; every real number, chart
+and verdict reported here comes from the author's own run of the notebooks on their own machine.
 
 ## License
 All Rights Reserved -- this repository is shared publicly for portfolio and demonstration purposes only. It

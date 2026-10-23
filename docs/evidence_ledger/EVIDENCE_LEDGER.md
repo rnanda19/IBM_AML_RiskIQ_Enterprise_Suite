@@ -2,7 +2,7 @@
 
 Single source of truth for BP completion status. No BP is marked complete anywhere else -
 README, LinkedIn post, or conversation - without a row here showing a real Evidence Ledger
-entry. Locked 6-BP scope (BP1-BP6) per claude/master-execution-plan.md v2.0 (2026-09-29) --
+entry. Locked 6-BP scope (BP1-BP6) per docs/master_plan/IBM_AML_RiskIQ_Master_Execution_Plan.md v2.0 (2026-09-29) --
 the v1.0 draft's BP7/BP8 rows below are retired, not pending.
 
 Every cell below was re-read directly from the real, on-disk validation-report JSON cited in

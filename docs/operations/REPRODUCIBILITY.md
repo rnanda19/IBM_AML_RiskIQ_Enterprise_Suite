@@ -58,11 +58,11 @@ this repository's commit history / Actions runs for the real, continuous evidenc
 **Not re-verified directly in this pass (and why):**
 - A literal from-scratch `git clone` into a brand-new directory followed by a from-scratch
   `pip install -r requirements.txt` was attempted in this session's sandboxed environment, but
-  the underlying device-bridge filesystem this session uses to reach the repository proved
+  the mounted-folder filesystem used for local work to reach the repository proved
   unreliable for repeated git operations on a freshly-created clone (lock-file and
   permission errors unrelated to the repository's own content). The attempt was abandoned
   rather than reported as passing without having actually passed; the scratch clone was
-  deleted. This is a limitation of this review session's sandbox, not a known defect in the
+  deleted. This is a limitation of the local review environment, not a known defect in the
   repository itself -- CI's continuous, genuinely-clean-runner execution (point 2 above) is the
   authoritative clean-checkout evidence in its place.
 - Notebook outputs (model metrics, PSI reports, etc.) were not re-run end-to-end in this pass;

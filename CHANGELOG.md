@@ -128,7 +128,7 @@ a prior customer-intelligence-focused enterprise platform in this same methodolo
     production-readiness claim is made.
 
 ## 2026-10-12
-- Real re-runs of BP2 and BP3 Notebook 3 (LI-Medium) on the user's own machine, closing DEF-001 and
+- Real re-runs of BP2 and BP3 Notebook 3 (LI-Medium) on the maintainer's own machine, closing DEF-001 and
   DEF-002 from `docs/audit/DEFECT_REGISTER.md` (both Critical):
   - BP2: regenerated `reports/bp2_typology_redflag_detection/bp2_notebook3_validation_report_li_medium.json`
     (resumed Stage A/B fits from the existing checkpoint). Now carries `champion_needs_rf_impute`/

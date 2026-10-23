@@ -2,8 +2,8 @@
 
 Phase 1 of the "Global Benchmark Review" upgrade program (external ChatGPT review + blueprint,
 provided 2026-10-10). This is a real inspection of the repository as it exists on disk right now --
-commands run, outputs read, nothing inferred from README claims alone. Where I could not verify
-something (it requires executing the real data/notebook pipeline), that is stated explicitly rather
+commands run, outputs read, nothing inferred from README claims alone. Where something could not be verified
+(it requires executing the real data/notebook pipeline), that is stated explicitly rather
 than assumed either way.
 
 ## What exists, verified by direct inspection
@@ -69,9 +69,9 @@ pipeline.** I write and verify code, fix bugs, write tests against fixtures, and
 not run `02_feature_engineering_modeling` or `03_statistical_validation_deployment` against the real
 31M-row LI-Medium dataset myself, because that is exactly the kind of "silently worked around" execution
 this project's own governance history was built to prevent (every number in this repo is meant to trace
-to a run the user can point to and reproduce, not one I ran unsupervised).
+to a run the maintainer can point to and reproduce, not an unsupervised run).
 
-The user's own 9-prompt blueprint explicitly asks for things that require that kind of execution:
+The audit brief explicitly asks for things that require that kind of execution:
 re-running BP2/BP3 to produce missing artifacts (Prompt 2), comparing XGBoost/LightGBM/RandomForest and
 recalibrating thresholds (Prompt 4), leakage audits "run" against real data (Prompt 3). These are real,
 valuable asks -- they are also multi-hour, compute-heavy jobs against real data that change this

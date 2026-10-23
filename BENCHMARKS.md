@@ -123,7 +123,7 @@ What has changed since the original 2026-10-02/2026-10-03 figures above were gen
   fit on training data only, not the full dataset (Finding L-3).
 - A new, unit-tested, reusable module -- `src/aml_riskiq/validation/temporal_entity_validation.py` --
   now exists and is wired into each BP's own `03_statistical_validation_deployment_SINGLE_CELL.py`
-  (Finding L-6). On the user's next real run of each notebook, it will additionally produce, saved
+  (Finding L-6). On the maintainer's next real run of each notebook, it will additionally produce, saved
   alongside each BP's existing `MODEL_CARD.md`/validation report:
   - **BP1/BP4/BP5**: `reports/<bp>/bp{1,4,5}_notebook3_temporal_entity_validation_<variant>.{json,md}`
     -- the SAME champion architecture re-fit (not re-tuned) on a chronological split and an
@@ -146,7 +146,7 @@ boundary, this update wrote and unit-tested the code (41 passing tests against s
 `tests/unit/test_temporal_entity_validation.py`); it did not run any BP's real notebook against the real
 dataset. **This document's benchmark tables above are not changed by this section** -- they remain
 exactly what each BP's own real Notebook 3/4 run produced under the original random split, and will stay
-the authoritative figures for that split until the user re-runs a notebook and this document is updated
+the authoritative figures for that split until the maintainer re-runs a notebook and this document is updated
 again with whatever the re-run's own real `MODEL_CARD.md`/validation report says.
 
 Every figure in this entire document, both above and any future chronological/entity-aware figures,

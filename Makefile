@@ -34,7 +34,7 @@ precommit:
 	pre-commit run --all-files
 
 # Static check only -- confirms each BP's Dockerfile COPY paths resolve against its declared build
-# context without requiring a real `docker build` (this sandbox has no registry access; the user's own
+# context without requiring a real `docker build` (the local review environment has no registry access; the maintainer's own
 # machine can run a real build). See src/docker/<bp>/Dockerfile header for each BP's build-context note.
 docker-verify:
 	@for d in src/docker/*/; do \

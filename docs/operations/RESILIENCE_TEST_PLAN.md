@@ -3,7 +3,7 @@
 Added 2026-10-12 (Improvement 3, production-readiness pass). Scope: this document states,
 for each resilience property this platform's own architecture can reasonably be expected to
 have, what is automated and passing today (with the exact test to point at), what is
-automated against real infrastructure in CI (not this local sandbox), and what genuinely
+automated against real infrastructure in CI (not this local environment), and what genuinely
 needs live infrastructure this development environment does not have and is therefore
 **not** claimed as verified. Nothing below should be read as a claim that this platform has
 been chaos-tested in a real production environment -- it has not. It is a portfolio/research
@@ -82,9 +82,9 @@ Data written before a restart must still be there (and still verifiably untamper
   an assignment, and a note through one `AlertStore` instance, discards it, then opens a
   SECOND, independent `AlertStore` instance against the same on-disk file (the closest
   simulation of "a new container process starts against the same persistent volume" this
-  sandbox can do without a live Docker daemon) and confirms every field, including the
+  review environment can do without a live Docker daemon) and confirms every field, including the
   hash-chain integrity check, reads back correctly.
-- **What this does not cover** (needs live infrastructure this sandbox does not have -- no
+- **What this does not cover** (needs live infrastructure the local review environment does not have -- no
   Docker daemon, see `DEPLOYMENT_GUIDE.md`'s own disclosed limitation): an actual
   `docker restart` / container crash-and-recreate cycle, verifying the bind-mounted volume
   survives a real container lifecycle event (not just a new Python object in the same

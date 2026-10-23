@@ -68,7 +68,7 @@
 
 ## Resolved 2026-10-12
 - **BP2's Docker image wouldn't start** (found 2026-10-03) -- fixed by a real re-run of BP2 Notebook 3
-  (LI-Medium) on the user's own machine, resuming Stage A/B fits from the existing checkpoint. The
+  (LI-Medium) on the maintainer's own machine, resuming Stage A/B fits from the existing checkpoint. The
   regenerated report carries `champion_needs_rf_impute`/`rf_impute_value`, real LIME explanations, and a
   real FastAPI self-test (480 rows, 0 mismatches). `bp2` re-added to `docker-verify.yml`.
 - **BP3's near-train-flagged lookup Parquet was missing** -- fixed by a real, full-cost re-run of BP3
@@ -112,9 +112,8 @@ so step-by-step job status was the available signal; nothing here was guessed).
 The validation-framework work above (`temporal_entity_validation.py` + its 41 unit tests + the BP1-BP5
 notebook wiring + `LEAKAGE_AUDIT.md`/`BENCHMARKS.md` updates) was committed as
 `4c134f16a3ba59aa99c9abd9032072f1942c7c9f` and pushed to `main` on top of `eb00ac9`. Its real GitHub
-Actions results were fetched directly from GitHub's check-runs REST API (unauthenticated, from the user's
-own machine -- the session container used for this work currently has no GitHub API access to this
-repository), not assumed from the prior commit's green run:
+Actions results were fetched directly from GitHub's check-runs REST API (unauthenticated, from the maintainer's
+own machine -- no authenticated GitHub API access was used), not assumed from the prior commit's green run:
 - 4 workflow runs, all `conclusion: success`: `CI` (run 38259440422), `Code Quality` (38259440671),
   `CodeQL Security Scan` (38259440844), `Docker Build & Run Verification` (38259440418).
 - 14 check runs, all `conclusion: success`: `Pytest (Py 3.10)`, `Pytest (Py 3.11)`, `Lint & Type Check`,
@@ -241,7 +240,7 @@ repository), not assumed from the prior commit's green run:
   automated/verified today (duplicate-event handling, dependency-failure recovery via the existing
   outbox pattern, interrupted-write atomicity via fault injection on `AlertStore._append_event_row`,
   service-restart recovery via a fresh `AlertStore` instance against the same SQLite file -- the latter
-  two added this pass) from what would need live Docker infrastructure this sandbox does not have.
+  two added this pass) from what would need live Docker infrastructure the local review environment does not have.
 - **Reproducibility evidence** (`docs/operations/REPRODUCIBILITY.md`): confirmed `requirements.txt` is
   fully version-pinned, confirmed the documented install+test commands match `ci.yml`'s own clean-runner
   sequence exactly, confirmed no unseeded randomness exists anywhere in `tests/`, and found + fixed a
@@ -250,7 +249,7 @@ repository), not assumed from the prior commit's green run:
   were read by the code but undocumented in the example file. Now all 13 are documented, and
   `tests/unit/test_env_example_completeness.py` makes this a permanent regression guard. A literal
   from-scratch `git clone` + from-scratch `pip install` reproduction was attempted in this review
-  session but abandoned as unreliable on this sandbox's device-bridge filesystem (disclosed in that doc
+  session but abandoned as unreliable on the mounted-folder filesystem used for local work (disclosed in that doc
   rather than reported as passing); CI's own continuous clean-runner execution stands in its place.
 - **New input/data-quality monitoring module** (`src/aml_riskiq/monitoring/data_quality.py`, see
   `MONITORING.md`): schema validation, missing-value reporting, baseline-quantile-derived out-of-range
@@ -274,7 +273,7 @@ repository), not assumed from the prior commit's green run:
   `integrated-workflow` CI job had passed), `README.md`, this file.
 - **Explicitly not claimed**: production readiness from any of the above; a live, continuously-running
   monitoring or secret-scanning process; a real Docker-daemon-backed resilience test (service restart,
-  dependency outage) in this sandbox -- those remain CI-only or manual-run evidence, not something this
+  dependency outage) in the local review environment -- those remain CI-only or manual-run evidence, not something this
   review session executed itself.
 
 ## Not planned

@@ -39,7 +39,7 @@ Real artifacts loaded at import time (never hand-typed):
       (champion_signal, champion_column, is_threshold_signal, threshold, note)
   - models/bp3_network_graph_intelligence/bp3_notebook3_near_train_flagged_lookup_<variant>.parquet
       (node_key -> near_train_flagged, the real per-account table the notebook hardening
-      addition persists -- does NOT exist until the user re-runs Notebook 3 once post-patch)
+      addition persists -- does NOT exist until the maintainer re-runs Notebook 3 once post-patch)
   - reports/bp3_network_graph_intelligence/bp3_notebook3_validation_report_<variant>.json
       (real champion_name, real lift_ratio, real bootstrap CI -- for /score's metadata and
       /health; never re-typed by hand)

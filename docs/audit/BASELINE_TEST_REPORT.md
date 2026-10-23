@@ -78,7 +78,7 @@ fixed regression earlier this session (commit `bcad324`) -- flagged here as stil
 
 ## Environment note
 
-All commands above were run inside the user's own Windows-hosted development VM (the project's working
+All commands above were run inside a Windows-hosted development environment (the project's working
 Python environment, with `requirements.txt` already installed), not a freshly provisioned clean
 environment. A true from-clean-clone reproduction (Prompt 7's ask) has not yet been attempted in this
 audit pass.

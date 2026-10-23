@@ -8,7 +8,7 @@ graph" response for an unknown key) -- using a tiny SYNTHETIC rule JSON + a tiny
 near_train_flagged lookup table (a handful of fake account keys, written to a temp
 directory). They never load this BP's real persisted lookup table, real champion rule, or
 any real AML transaction/graph data, per this project's standing execution-boundary rule
-(Claude writes and tests code; real business numbers only ever come from the user's own
+(the author writes and tests code; real business numbers only ever come from the maintainer's own
 real notebook runs). A PASS here means "the service is wired correctly", not "the real
 2-hop proximity rule is correct" -- that second claim is already covered by Notebook 3's
 own real, bit-identical FastAPI self-test against its own real champion rule (see that

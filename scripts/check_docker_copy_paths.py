@@ -16,7 +16,7 @@ container start. This script is the real check the Makefile's comment already cl
 have; `make docker-verify` now calls it instead of (or in addition to) the file-presence loop.
 
 Scope discipline: this is a STATIC check -- it parses COPY source paths and calls Path.exists()
-on them. It never invokes `docker build` (confirmed unavailable in this sandbox: `docker` is
+on them. It never invokes `docker build` (confirmed unavailable in the local review environment: `docker` is
 not on PATH here), never executes a notebook, and never touches real data or trained models.
 It closes the specific gap a real `docker build` would also have caught, without needing one.
 """
@@ -46,7 +46,7 @@ _SKIP_PREFIXES = ("--from=",)
 
 # Known, already-disclosed pending artifacts: real files that do not exist on this repo yet
 # because they can only be produced by the USER re-running their own real notebook (this
-# project's standing zero-pipeline-execution rule -- Claude writes and verifies code, it
+# project's standing zero-pipeline-execution rule -- the author writes and verifies code, it
 # never runs the real notebooks to generate real business/model artifacts). Each entry here
 # is cross-referenced in its own Dockerfile's header comment, which explains exactly which
 # notebook re-run produces it. Flagged as a WARNING below, never silently skipped and never

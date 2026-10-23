@@ -1,7 +1,7 @@
 """
 IBM AML RiskIQ Enterprise Suite - WARP resource-governance module.
 
-Standing rule (per the user's stated preference, carried forward from the
+Standing rule (per the maintainer's stated preference, carried forward from the
 those two prior platforms' platforms): target up to ~92% of available CPU threads and
 RAM, NEVER 100% - 100% utilization hung the reference laptop during a prior
 platform's Phase 3 (real incident). This is a safety CAP, not a floor to
@@ -12,7 +12,7 @@ lightgbm/catboost - those libraries read thread-related environment
 variables at import time, not after (Lessons Learned Applied #5).
 
 Thermal protection: thermal_checkpoint() below is a real time.sleep(), cadence
-CONFIRMED at 12 seconds by the user 2026-09-29 (no longer an assumption) -
+CONFIRMED at 12 seconds by the maintainer 2026-09-29 (no longer an assumption) -
 call it after any heavy operation (large fit, large groupby/aggregation,
 large Monte Carlo loop) on this 8-core/16-thread laptop.
 
@@ -73,7 +73,7 @@ def configure_performance(cpu_fraction: float = CPU_CEILING_FRACTION) -> dict:
 def thermal_checkpoint(seconds: int = THERMAL_CHECKPOINT_SECONDS, label: str = "") -> float:
     """Real pause after a heavy operation - a genuine time.sleep(), not a no-op.
 
-    Cadence confirmed by the user at 12 seconds (2026-09-29). Call this after
+    Cadence confirmed by the maintainer at 12 seconds (2026-09-29). Call this after
     any large .fit()/.transform(), large groupby/aggregation, or Monte Carlo
     loop, to let the laptop's thermals settle between heavy steps on this
     8-core/16-thread machine. Returns the actual seconds slept (never a
@@ -111,7 +111,7 @@ def check_ram_headroom(ram_fraction: float = RAM_CEILING_FRACTION) -> dict:
     """Report real RAM headroom via psutil. Returns an explicit error key
     (never a fabricated number) if psutil is unavailable.
 
-    REAL ISSUE FLAGGED (user's own real LI-Medium run, 2026-10-01): the user observed Task
+    REAL ISSUE FLAGGED (user's own real LI-Medium run, 2026-10-01): the maintainer observed Task
     Manager showing ~15GB free at roughly the time the RAM gate reported only ~3.74GB
     available and tripped. `vm.available` (the figure this function has always reported) is
     the same underlying Windows API Task Manager's own "Available" column reads from, so a

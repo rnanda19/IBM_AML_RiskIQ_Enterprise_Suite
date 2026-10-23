@@ -29,10 +29,9 @@ regulatory-exposure-avoidance explicitly labeled ASSUMPTION" rule. False-positiv
 $ savings and true-positive/detection uplift are always kept as two separate lines, never
 summed into one blended dollar figure.
 
-This file is written and tested locally (against synthetic data, never the user's real
-project data) by Claude, per this project's execution-boundary rule -- Claude never runs it
-against real data. All real numbers in any document it produces come from the user's own
-notebook run.
+This module is developed and tested locally against synthetic data only, never against real
+project data. All real numbers in any document it produces come from a real notebook run on
+the maintainer's own machine.
 """
 
 from __future__ import annotations
@@ -74,7 +73,7 @@ PALETTE = {
 # than decorative, because these are regulatory AML compliance deliverables, not marketing
 # collateral. The one thing explicitly NOT attempted anywhere in this module is a real
 # PowerPoint slide transition: python-pptx has no public API for <p:transition>, and
-# hand-written OOXML for it cannot be verified safe from this sandbox (python-pptx re-opening
+# hand-written OOXML for it cannot be verified safe from the local review environment (python-pptx re-opening
 # the file only proves XML well-formedness, not OOXML schema-order validity -- there is no
 # real PowerPoint available here to confirm it won't trigger a "repair" prompt). Shipping an
 # unverifiable animation risks a corrupted deliverable, so the PPTX helper below ships a
@@ -1784,7 +1783,7 @@ def write_changelog(path: Path, context: dict, entry: str) -> Path:
 #   compute_bp_status (reads only rep["overall_verdict"] per variant), export_pdf_from_docx,
 #   write_changelog, PALETTE.
 #
-# Real NB3 report schema this reads (verified against the user's own real
+# Real NB3 report schema this reads (verified against the maintainer's own real
 # bp2_notebook3_validation_report_li_medium.json, 2026-09-30 run): "class_names" (however
 # many of the 8 typologies had real matched examples this run -- NOT hardcoded to 8),
 # "before_baseline_typology", "before_macro_f1", "before_after_recall_by_class" (per real
@@ -3277,7 +3276,7 @@ def write_model_card_multiclass(path: Path, context: dict) -> Path:
 # export_pdf_from_docx, write_changelog, PALETTE, every _brand_*/_add_branded_slide/_hex_rgb
 # helper, _band_excel_rows, _color_verdict_cells.
 #
-# Real NB3 report schema this reads (verified against the user's own real
+# Real NB3 report schema this reads (verified against the maintainer's own real
 # bp3_notebook3_validation_report_li_medium.json, 2026-10-01 run): "bp_id", "bp_name",
 # "dataset_variant", "random_seed", "primary_metric", "n_nodes", "n_distinct_edges",
 # "n_transaction_edges", "base_rate_all", "n_train_nodes", "n_test_nodes", "base_rate_train",
@@ -4552,7 +4551,7 @@ def write_rule_card_structural(path: Path, context: dict) -> Path:
 # _brand_word_table_headers, _brand_excel_sheet, _band_excel_rows, _color_verdict_cells,
 # _add_branded_slide, _EXCEL_USD_FORMAT, export_pdf_from_docx, write_changelog, PALETTE.
 #
-# Real input shape this reads (verified against the user's own real, already-generated
+# Real input shape this reads (verified against the maintainer's own real, already-generated
 # `reports/bp6_enterprise_compliance_monitoring/bp6_platform_source_data.json`, produced by
 # `notebooks/bp6_enterprise_compliance_monitoring/_extract_platform_source_data.py` --
 # pure, read-only parsing of BP1-BP5's own real MODEL_CARD.md/RULE_CARD.md + NB3 validation
@@ -5959,11 +5958,10 @@ def write_platform_html_dashboard(path: Path, context: dict, chartjs_js_path: Pa
     --shadow: 0 1px 2px rgba(11,11,11,.06), 0 1px 1px rgba(11,11,11,.04);
     --shadow-hover: 0 14px 28px rgba(11,11,11,.14), 0 4px 10px rgba(11,11,11,.08);
   }}
-  /* Forced light mode (user-requested, 2026-10-02): this dashboard previously auto-switched
+  /* Forced light mode (2026-10-02): this dashboard previously auto-switched
      to a dark near-black page/surface via @media (prefers-color-scheme: dark) whenever the
      viewer's OS/browser was set to dark mode -- the dark tokens were real and intentional,
-     but the user viewing this on a dark-mode system found the result "over dark" and asked
-     for the light grey page back. Per the dataviz skill's own guidance (dark mode should be
+     but on a dark-mode system the result was judged "over dark", so the light grey page was restored. Per the dataviz skill's own guidance (dark mode should be
      an explicit user-selected toggle, never an automatic OS-driven flip), the fix here is to
      drop the automatic dark variant entirely rather than re-tune its colors -- this dashboard
      now always renders with the same validated light-grey PALETTE tokens (--page: {palette['page']},

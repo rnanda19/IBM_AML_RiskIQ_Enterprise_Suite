@@ -10,7 +10,7 @@ name: Docker Build & Run Verification
 # BP2 and BP3 were excluded 2026-10-03 (BP2: committed validation report predated two keys
 # bp2_scoring_service.py now reads at import time, KeyError on start; BP3: the real
 # near-train-flagged lookup Parquet did not exist on disk yet). Both re-added 2026-10-12 after
-# the user re-ran BP2 Notebook 3 and BP3 Notebook 3 (LI-Medium) for real and the resulting
+# the maintainer re-ran BP2 Notebook 3 and BP3 Notebook 3 (LI-Medium) for real and the resulting
 # artifacts were committed -- see docs/audit/DEFECT_REGISTER.md's DEF-001/DEF-002 resolution
 # notes and MODEL_REGISTRY.md for the real file sizes/hashes.
 #
