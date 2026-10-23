@@ -40,7 +40,6 @@ Built on IBM's published synthetic AML dataset -- see the Dataset section below 
 }}}%%
 flowchart TD
   subgraph CANVAS[" "]
-    direction TD
     SRC(["IBM AML-Data · github.com/IBM/AML-Data · synthetic transactions"]):::source
 
     SRC ==> NB["Per-BP Notebooks<br/>01 Business Understanding → 02 Feature Eng + Modeling → 03 Statistical Validation → 04 Compliance Reporting"]:::stage
