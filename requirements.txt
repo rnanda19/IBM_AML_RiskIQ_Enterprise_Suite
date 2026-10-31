@@ -12,7 +12,7 @@ anyio==4.15.1
     # via
     #   httpx
     #   starlette
-ast-serialize==0.12.0
+ast-serialize==0.13.1
     # via mypy
 asttokens==3.0.2
     # via stack-data
@@ -183,7 +183,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mistune==3.3.4
     # via nbconvert
-mypy==2.4.0
+mypy==2.4.1
     # via -r requirements.in
 mypy-extensions==1.1.0
     # via
