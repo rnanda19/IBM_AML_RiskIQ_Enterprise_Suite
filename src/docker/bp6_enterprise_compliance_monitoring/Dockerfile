@@ -10,7 +10,7 @@
 # real BP1-BP5 report artifacts mounted in via the `reports/` volume, and writes its own real
 # five-format executive package back out to that same mounted volume. No port is exposed --
 # there is nothing to serve.
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
