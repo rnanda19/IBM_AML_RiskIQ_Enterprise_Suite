@@ -54,7 +54,7 @@ nbconvert>=7.16
 ipykernel>=6.29
 
 # Quality / CI (HYPER)
-pytest>=8.3
+pytest>=9.2.0
 pytest-cov>=5.0
 bandit>=1.7
 black>=24.8
