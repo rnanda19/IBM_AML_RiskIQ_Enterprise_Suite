@@ -16,7 +16,7 @@
 # "../../../.." (one level above the real repo root, the exact bug already fixed platform-
 # wide for BP1-BP4 but missed here since BP5 had not been hardened yet) -- corrected to
 # "../../..", verified via realpath --relative-to against the real repo root.
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
