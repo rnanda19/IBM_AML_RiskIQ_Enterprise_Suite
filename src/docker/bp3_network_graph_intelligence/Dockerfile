@@ -19,7 +19,7 @@
 # c21cbd395b04d025f2e3592b2ccb5abb7b2bb6d4a06565ce295e669f50222596, recorded in
 # MODEL_REGISTRY.md) and is tracked in git (see .gitignore's BP3-lookup exception) -- this image no
 # longer fails to start with FileNotFoundError.
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
