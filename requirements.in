@@ -4,7 +4,7 @@ duckdb>=1.1
 pyarrow>=17.0
 numpy>=1.26
 pandas>=2.2
-numba>=0.60
+numba>=0.68.1
 psutil>=6.0
 
 # Graph / network analytics (BP4 money-flow & mule-network analytics)
