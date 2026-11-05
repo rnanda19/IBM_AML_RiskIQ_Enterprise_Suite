@@ -45,7 +45,7 @@ slowapi>=0.1.9
 # was invisible locally because httpx happened to already be present in dev environments as a
 # transitive dependency of something else. Pinned below (deprecation warning only, not an error --
 # see the real passing CI run after this fix).
-httpx>=0.27,<0.28
+httpx>=0.28.1,<0.29
 
 # Notebook execution (BP6 platform-rollup Docker batch job -- hardening pass, 2026-10-02:
 # closes this image's own previously disclosed gap -- jupyter nbconvert --execute needs these)
