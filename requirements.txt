@@ -24,7 +24,7 @@ bandit==1.9.4
     # via -r requirements.in
 beautifulsoup4==4.15.0
     # via nbconvert
-black==26.5.1
+black==26.10.1
     # via -r requirements.in
 bleach[css]==6.4.0
     # via nbconvert
